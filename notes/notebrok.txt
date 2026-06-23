@@ -1,0 +1,150 @@
+CATATAN BROK - STATUS TERAKHIR
+
+Tanggal ringkas: 2026-06-23
+Workspace: D:\project-pribadi\fluter
+Production URL: https://finance-family-prod.vercel.app
+APK URL: https://finance-family-prod.vercel.app/FamilyFinance.apk
+
+RINGKASAN YANG SUDAH SELESAI
+- Firestore rules diupdate untuk model superadmin, privacy finance personal/family, dan akses admin monitoring-only.
+- Global admin web sekarang pakai field user `systemRole: "superadmin"`.
+- Family role flow diperbaiki:
+  - create family -> creator jadi `role: "admin"`
+  - join/rejoin -> jadi `role: "member"`
+  - owner keluar -> ownership pindah ke member lain
+  - owner lama turun jadi member
+  - owner baru naik jadi admin
+- Scope data finance dipisah:
+  - user tanpa family -> pakai `uid`
+  - user dalam family -> pakai `familyId`
+- Sync `/user_public/{uid}` ditambahkan untuk monitoring admin tanpa buka data private user.
+- Admin dashboard web diarahkan baca `user_public` + device/version status, bukan finance/family sensitif.
+- Endpoint `Sync Username Lama` dibenerin pakai Firestore REST + service account, tidak lagi tergantung `firebase-admin` yang sempat crash di Vercel.
+- Endpoint admin baru `Sync Android Config` sudah dibuat untuk update `app_config/android`.
+- Web localization EN/ID dibenerin di area utama: navbar, landing, guide, login, admin shell, admin dashboard.
+- Flutter UI ditambah:
+  - badge `Mode Personal` / `Mode Keluarga`
+  - halaman `Privasi & Keamanan`
+  - sebagian shell/nav/title/update dialog sudah ikut language switch
+- APK terbaru berhasil dibuild dan disalin ke public web.
+- Web production sudah berhasil dideploy ulang dan alias production aktif.
+
+VERSI TERAKHIR
+- Flutter app version: 1.1.2+6
+- Android latestVersionName: 1.1.2
+- Android latestVersionCode: 6
+- forceUpdate: false
+
+ANDROID CONFIG YANG HARUS AKTIF
+- Document: `app_config/android`
+- `apkUrl`: `https://finance-family-prod.vercel.app/FamilyFinance.apk`
+- `latestVersionCode`: `6`
+- `latestVersionName`: `1.1.2`
+- `forceUpdate`: `false`
+
+ADMIN / AKSES PENTING
+- Admin email utama: `iaszaen@gmail.com`
+- Field Firestore yang benar: `systemRole`
+- Nilai admin global web: `superadmin`
+- Jangan pakai field typo `systemRole:`
+- `role` dipakai untuk konteks family owner/member, bukan admin global.
+
+MODEL PRIVACY YANG DIPAKAI
+- Admin web boleh monitor username publik, device, versi, source/platform.
+- Admin web tidak boleh baca finance user.
+- Admin web tidak dipakai untuk baca email/family sensitif sembarangan.
+- `/user_public` dipakai sebagai layer aman untuk dashboard admin.
+
+FILE PENTING
+- `firestore.rules`
+- `pubspec.yaml`
+- `lib/data/datasources/firestore_datasource.dart`
+- `lib/data/repositories/auth_repository.dart`
+- `lib/features/auth/presentation/providers/auth_provider.dart`
+- `lib/features/dashboard/presentation/pages/dashboard_page.dart`
+- `lib/features/settings/presentation/pages/privacy_security_page.dart`
+- `lib/core/widgets/main_shell.dart`
+- `apps/web/src/lib/app-info.ts`
+- `apps/web/src/app/[locale]/admin/page.tsx`
+- `apps/web/src/components/AdminShell.tsx`
+- `apps/web/src/components/DashboardShell.tsx`
+- `apps/web/src/components/public/PublicNavbar.tsx`
+- `apps/web/src/app/[locale]/login/page.tsx`
+- `apps/web/src/app/[locale]/page.tsx`
+- `apps/web/src/app/[locale]/guide/page.tsx`
+- `apps/web/src/app/api/admin/_lib/firebase-rest.ts`
+- `apps/web/src/app/api/admin/backfill-user-public/route.ts`
+- `apps/web/src/app/api/admin/update-android-config/route.ts`
+- `apps/web/messages/en.json`
+- `apps/web/messages/id.json`
+
+VERCEL / FIREBASE CONTEXT
+- Vercel project: `perpus/financefamily`
+- Production alias: `https://finance-family-prod.vercel.app`
+- Firebase project id: `tabunganapps`
+- Service account yang dipakai untuk env Vercel Production: `tabunganapps-firebase-adminsdk-fbsvc-d55263e73a.json`
+
+ERROR PENTING YANG SUDAH PERNAH MUNCUL
+- `[cloud_firstore/permission_denied] the caller does not have permission`
+- `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`
+- `FIREBASE_SERVICE_ACCOUNT_B64 is not configured`
+- crash `firebase-admin` / ESM issue di Vercel
+- Firestore REST doc name salah format (`lacks "projects" at index 0`)
+
+STATUS PRODUCTION TERAKHIR
+- Build web sukses.
+- Deploy Vercel sukses.
+- Alias production aktif di `https://finance-family-prod.vercel.app`.
+- APK terbaru tersedia di production URL.
+- Admin page sudah punya tombol:
+  - `Sync Username Lama`
+  - `Sync Android Config`
+
+CHECKLIST QA YANG DISARANKAN SEKARANG
+1. Hard refresh web production.
+2. Cek route:
+   - `/en`
+   - `/id`
+   - `/en/guide`
+   - `/id/guide`
+   - `/en/login`
+   - `/id/login`
+   - `/en/admin`
+   - `/id/admin`
+3. Pastikan teks EN/ID tidak campur di area utama.
+4. Di admin, klik `Sync Username Lama`.
+5. Di admin, klik `Sync Android Config`.
+6. Pastikan APK URL bisa diunduh.
+7. Test APK fresh install versi `1.1.2+6`.
+8. Cek flow personal/family:
+   - user tanpa family -> personal scope
+   - create family
+   - join family
+   - owner keluar -> ownership pindah
+   - finance personal tidak bocor ke family
+
+NEXT PLAN YANG PALING MASUK AKAL
+1. Fokus QA dan validasi production, jangan mulai fitur besar dulu.
+2. Pastikan Firestore rules terbaru benar-benar dipublish ke Firebase Console.
+3. Catat bug kecil hasil QA, lalu patch satu-satu secara targeted.
+4. Session berikutnya bisa fokus ke polish:
+   - full localization Flutter semua text, bukan cuma shell
+   - admin dashboard filter/search/export
+   - analytics device/version lebih rapi
+   - kontrol release notes + force update dari admin
+   - rapihin dokumentasi release checklist
+
+CARA UPDATE VERSI KE DEPAN
+1. Bump `pubspec.yaml`.
+2. Bump `apps/web/src/lib/app-info.ts`.
+3. Jalankan `flutter build apk --release`.
+4. Copy APK ke:
+   - `public/FamilyFinance.apk`
+   - `apps/web/public/FamilyFinance.apk`
+5. Deploy web production.
+6. Klik `Sync Android Config` dari admin.
+
+CATATAN BROK
+- Kalau next session bingung mulai dari mana, mulai dari QA checklist di atas.
+- Jangan ubah model `systemRole` vs `role`; itu sudah dipisah sengaja.
+- Kalau dashboard admin tiba-tiba kurang data user, cek lagi `/user_public` dan jalankan `Sync Username Lama`.

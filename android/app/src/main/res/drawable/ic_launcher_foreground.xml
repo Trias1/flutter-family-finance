@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- wallet body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,38L72,38C75.3,38 78,40.7 78,44L78,68C78,71.3 75.3,74 72,74L36,74C32.7,74 30,71.3 30,68L30,44C30,40.7 32.7,38 36,38Z" />
+    <!-- wallet top flap -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.5"
+        android:pathData="M36,38L72,38L66,32L42,32L36,38Z" />
+    <!-- coin circle -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M49,56m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
+    <!-- dollar sign -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:pathData="M50,50L50,62M47,53L53,53M47,59L53,59" />
+    <!-- roof / house shape on top -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.3"
+        android:pathData="M54,22L72,36L36,36Z" />
+</vector>

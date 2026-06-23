@@ -1,0 +1,224 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============ FUNGSI HELPER ============
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.systemRole == 'superadmin';
+    }
+
+    function userFamilyId() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.familyId != null
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.familyId
+        : null;
+    }
+
+    function sameFamily() {
+      let fid = userFamilyId();
+      return fid != null && resource.data.familyId == fid;
+    }
+
+    function sameFamilyOnWrite() {
+      let fid = userFamilyId();
+      return fid != null && request.resource.data.familyId == fid;
+    }
+
+    function canReadFinance() {
+      let fid = userFamilyId();
+      return resource.data.familyId == request.auth.uid
+        || (fid != null && resource.data.familyId == fid);
+    }
+
+    function canWriteFinance() {
+      let fid = userFamilyId();
+      return request.resource.data.familyId == request.auth.uid
+        || (fid != null && request.resource.data.familyId == fid);
+    }
+
+    function canReadDebtFinance(debtId) {
+      let debt = get(/databases/$(database)/documents/debts/$(debtId));
+      let fid = userFamilyId();
+      return debt.data.familyId == request.auth.uid
+        || (fid != null && debt.data.familyId == fid);
+    }
+
+    function isOwner() {
+      return request.auth.uid == resource.data.uid;
+    }
+
+    // ============ USERS ============
+
+    match /users/{uid} {
+      allow get: if isAuth() && (request.auth.uid == uid || resource.data.familyId == userFamilyId());
+      allow list: if isAuth() && resource.data.familyId == userFamilyId();
+      allow create: if isAuth()
+        && request.auth.uid == uid
+        && !request.resource.data.keys().hasAny(['systemRole']);
+      allow update: if isAuth() && (
+        (request.auth.uid == uid
+            && request.resource.data.systemRole == resource.data.systemRole)
+        || (resource.data.familyId != null
+            && request.resource.data.systemRole == resource.data.systemRole
+            && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.createdBy == request.auth.uid)
+        || (request.resource.data.familyId == null
+            && resource.data.familyId != null
+            && request.resource.data.systemRole == resource.data.systemRole
+            && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.createdBy == request.auth.uid)
+      );
+      allow delete: if false;
+
+      match /devices/{deviceId} {
+        allow read: if isAuth() && (request.auth.uid == uid || isAdmin());
+        allow create: if isAuth() && request.auth.uid == uid;
+        allow update: if isAuth() && request.auth.uid == uid;
+        allow delete: if isAuth() && request.auth.uid == uid;
+      }
+    }
+
+    // ============ PUBLIC USER MONITORING DATA ============
+
+    match /user_public/{uid} {
+      allow get, list: if isAdmin();
+      allow create, update: if isAuth()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'createdAt'])
+        && request.resource.data.name is string;
+      allow delete: if false;
+    }
+
+    // ============ DEVICES (collectionGroup) — admin dashboard ============
+
+    match /{path=**}/devices/{deviceId} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
+    // ============ FAMILIES ============
+
+    match /families/{familyId} {
+      allow get: if isAuth() && (userFamilyId() == familyId || resource.data.createdBy == request.auth.uid);
+      allow list: if isAuth() && resource.data.inviteCode != null && request.query.limit <= 1;
+      allow create: if isAuth() && request.resource.data.name is string;
+      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ============ DATA KEUANGAN ============
+    //  get: strict — sameFamily() pake get(), works for single-doc reads
+    // list: pake resource.data — query WAJIB punya where('familyId', ...)
+
+    match /wallets/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance();
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /incomes/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /expenses/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /budgets/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance();
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /savings/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance();
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /debts/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /debt_payments/{docId} {
+      allow get: if isAuth() && canReadDebtFinance(resource.data.debtId);
+      allow list: if isAuth() && resource.data.debtId != null && canReadDebtFinance(resource.data.debtId);
+      allow create: if isAuth()
+        && request.resource.data.debtId != null
+        && canReadDebtFinance(request.resource.data.debtId);
+      allow update: if isAuth()
+        && canReadDebtFinance(resource.data.debtId)
+        && canReadDebtFinance(request.resource.data.debtId);
+      allow delete: if isAuth() && canReadDebtFinance(resource.data.debtId);
+    }
+
+    match /recurring_transactions/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /transfers/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /categories/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance();
+      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    // ============ FCM TOKENS ============
+
+    match /fcm_tokens/{tokenId} {
+      allow read: if isAuth() && isOwner();
+      allow write: if isAuth() && request.resource.data.uid == request.auth.uid;
+    }
+
+    // ============ APP CONFIG (public read & write) ============
+
+    match /app_config/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // ============ DEFAULT: DENY ALL ============
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

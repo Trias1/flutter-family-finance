@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "352640025586",
+    "project_id": "tabunganapps",
+    "storage_bucket": "tabunganapps.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:352640025586:android:a58817979cbbf8a77be16b",
+        "android_client_info": {
+          "package_name": "com.familyfinance.family_finance_manager"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "352640025586-o46ao89v5i4r9ufdbbcpukicdivvve60.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.familyfinance.family_finance_manager",
+            "certificate_hash": "a30541901608845d160a4d4a9a23d1b9c79b71dc"
+          }
+        },
+        {
+          "client_id": "352640025586-ed4iekk4m5pqcpha4j15qhdg7r91np7c.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6y6O3FXl7qrI5N5ckGM_hv5djBfLtsAU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "352640025586-ed4iekk4m5pqcpha4j15qhdg7r91np7c.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
