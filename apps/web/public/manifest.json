@@ -1,0 +1,12 @@
+{
+  "name": "Family Finance",
+  "short_name": "FF",
+  "description": "Kelola keuangan keluarga jadi lebih mudah",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F6FA",
+  "theme_color": "#2E7D32",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
