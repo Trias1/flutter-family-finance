@@ -52,3 +52,7 @@ push-github.txt
 *.jks
 *.keystore
 tabunganapps-firebase-adminsdk-*.json
+
+# Local release artifacts
+/public/*.apk
+/apps/web/public/*.apk
