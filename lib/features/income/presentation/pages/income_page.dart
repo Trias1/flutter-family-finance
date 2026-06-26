@@ -7,14 +7,15 @@ import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/income_model.dart';
+import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/pages/categories_page.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
 import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
+import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
 import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
-import 'package:family_finance_manager/features/wallets/presentation/providers/wallet_provider.dart';
 
 class IncomePage extends ConsumerWidget {
   const IncomePage({super.key});
@@ -230,13 +231,11 @@ class IncomePage extends ConsumerWidget {
     );
     final familyId = ref.read(financeScopeIdProvider);
     final categories = ref.read(effectiveIncomeCategoriesProvider(familyId));
-    final wallets = ref.read(walletStreamProvider(familyId)).valueOrNull ?? [];
     String selectedCategory =
         income?.category ??
         (categories.isNotEmpty
             ? categories.first
             : AppConstants.incomeCategories.first);
-    String? selectedWalletId = income?.walletId;
     final noteController = TextEditingController(text: income?.note ?? '');
     DateTime selectedDate = income?.date ?? DateTime.now();
     bool isSaving = false;
@@ -338,32 +337,6 @@ class IncomePage extends ConsumerWidget {
                         setSheetState(() => selectedDate = date);
                     },
                   ),
-                  if (wallets.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: selectedWalletId,
-                      decoration: const InputDecoration(
-                        labelText: 'Dompet (opsional)',
-                        prefixIcon: Icon(Icons.account_balance_wallet),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Tanpa dompet'),
-                        ),
-                        ...wallets.map(
-                          (w) => DropdownMenuItem(
-                            value: w.id,
-                            child: Text(
-                              '${w.name} (${CurrencyFormatter.format(w.balance)})',
-                            ),
-                          ),
-                        ),
-                      ],
-                      onChanged: (v) =>
-                          setSheetState(() => selectedWalletId = v),
-                    ),
-                  ],
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: isSaving
@@ -384,7 +357,6 @@ class IncomePage extends ConsumerWidget {
                         note: noteController.text.isEmpty
                             ? null
                             : noteController.text,
-                        walletId: selectedWalletId,
                         date: selectedDate,
                       );
                       if (income == null) {

@@ -10,7 +10,6 @@ class IncomeModel {
   final String? note;
   final String? attachment;
   final String? recurringId;
-  final String? walletId;
   final DateTime date;
   final DateTime createdAt;
 
@@ -23,7 +22,6 @@ class IncomeModel {
     this.note,
     this.attachment,
     this.recurringId,
-    this.walletId,
     required this.date,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -39,7 +37,6 @@ class IncomeModel {
       note: data['note'],
       attachment: data['attachment'],
       recurringId: data['recurringId'],
-      walletId: data['walletId'],
       date: (data['date'] as Timestamp).toDate(),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
@@ -54,7 +51,6 @@ class IncomeModel {
       'note': note,
       'attachment': attachment,
       'recurringId': recurringId,
-      'walletId': walletId,
       'date': Timestamp.fromDate(date),
       'createdAt': Timestamp.fromDate(createdAt),
     };

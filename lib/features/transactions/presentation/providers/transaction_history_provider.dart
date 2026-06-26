@@ -10,7 +10,6 @@ class TransactionItem {
   final double amount;
   final String category;
   final String? note;
-  final String? walletId;
   final DateTime date;
   final DateTime createdAt;
   final String userId;
@@ -21,7 +20,6 @@ class TransactionItem {
     required this.amount,
     required this.category,
     this.note,
-    this.walletId,
     required this.date,
     required this.createdAt,
     required this.userId,
@@ -46,7 +44,6 @@ class TransactionHistoryNotifier extends StateNotifier<AsyncValue<List<Transacti
           amount: i.amount,
           category: i.category,
           note: i.note,
-          walletId: i.walletId,
           date: i.date,
           createdAt: i.createdAt,
           userId: i.userId,
@@ -57,7 +54,6 @@ class TransactionHistoryNotifier extends StateNotifier<AsyncValue<List<Transacti
           amount: e.amount,
           category: e.category,
           note: e.note,
-          walletId: e.walletId,
           date: e.date,
           createdAt: e.createdAt,
           userId: e.userId,

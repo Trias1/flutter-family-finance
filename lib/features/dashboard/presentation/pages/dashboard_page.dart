@@ -1417,22 +1417,10 @@ final _menuItemsEn = [
     '/categories',
   ),
   _MenuItemData(
-    Icons.emoji_events_rounded,
-    'Wishlist',
-    Colors.amber,
-    '/wishlist',
-  ),
-  _MenuItemData(
     Icons.psychology_rounded,
     'AI Advisor',
     AppTheme.secondaryColor,
     '/ai-advisor',
-  ),
-  _MenuItemData(
-    Icons.qr_code_scanner_rounded,
-    'Scan QR',
-    Colors.indigo,
-    '/scan-qr',
   ),
 ];
 
@@ -1468,22 +1456,10 @@ final _menuItemsId = [
     '/categories',
   ),
   _MenuItemData(
-    Icons.emoji_events_rounded,
-    'Keinginan',
-    Colors.amber,
-    '/wishlist',
-  ),
-  _MenuItemData(
     Icons.psychology_rounded,
     'AI Advisor',
     AppTheme.secondaryColor,
     '/ai-advisor',
-  ),
-  _MenuItemData(
-    Icons.qr_code_scanner_rounded,
-    'Scan QR',
-    Colors.indigo,
-    '/scan-qr',
   ),
 ];
 

@@ -24,9 +24,6 @@ import 'package:family_finance_manager/features/categories/presentation/pages/ca
 import 'package:family_finance_manager/features/debts/presentation/pages/debts_page.dart';
 import 'package:family_finance_manager/features/recurring/presentation/pages/recurring_page.dart';
 import 'package:family_finance_manager/features/receipt_scanner/presentation/pages/receipt_scanner_page.dart';
-import 'package:family_finance_manager/features/wallets/presentation/pages/wallets_page.dart';
-import 'package:family_finance_manager/features/wishlist/presentation/pages/wishlist_page.dart';
-import 'package:family_finance_manager/features/qr_scanner/presentation/pages/qr_scanner_page.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -145,16 +142,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const RecurringPage(),
           ),
           GoRoute(
-            path: '/dompet',
-            name: 'dompet',
-            redirect: (context, state) => '/wallets',
-          ),
-          GoRoute(
-            path: '/wallets',
-            name: 'wallets',
-            builder: (context, state) => const WalletsPage(),
-          ),
-          GoRoute(
             path: '/categories',
             name: 'categories',
             builder: (context, state) => const CategoriesPage(),
@@ -163,16 +150,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/family',
             name: 'family',
             builder: (context, state) => const FamilyPage(),
-          ),
-          GoRoute(
-            path: '/wishlist',
-            name: 'wishlist',
-            builder: (context, state) => const WishlistPage(),
-          ),
-          GoRoute(
-            path: '/scan-qr',
-            name: 'scanQr',
-            builder: (context, state) => const QrScannerPage(),
           ),
           GoRoute(
             path: '/backup',

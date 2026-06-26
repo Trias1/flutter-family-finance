@@ -13,20 +13,17 @@ import 'package:family_finance_manager/features/auth/presentation/providers/auth
 import 'package:family_finance_manager/features/budget/presentation/pages/budget_page.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/transactions_page.dart';
-import 'package:family_finance_manager/features/wallets/presentation/pages/wallets_page.dart';
 
-const _tabRoutes = ['/dashboard', '/wallets', '/transactions', '/budget'];
+const _tabRoutes = ['/dashboard', '/transactions', '/budget'];
 const _tabPages = <Widget>[
   DashboardPage(),
-  WalletsPage(),
   TransactionsPage(),
   BudgetPage(),
 ];
 
 int _tabIndex(String loc) {
-  if (loc.startsWith('/wallets')) return 1;
-  if (loc.startsWith('/transactions')) return 2;
-  if (loc.startsWith('/budget')) return 3;
+  if (loc.startsWith('/transactions')) return 1;
+  if (loc.startsWith('/budget')) return 2;
   return 0;
 }
 
@@ -306,29 +303,21 @@ class _FloatingBottomNav extends ConsumerWidget {
                     selected: currentIndex == 0,
                     onTap: () => onTabChanged(0),
                   ),
-                  const Spacer(),
-                  _NavItem(
-                    icon: Icons.account_balance_wallet_outlined,
-                    selectedIcon: Icons.account_balance_wallet_rounded,
-                    label: strings.wallets,
-                    selected: currentIndex == 1,
-                    onTap: () => onTabChanged(1),
-                  ),
                   const Spacer(flex: 2),
                   _NavItem(
                     icon: Icons.receipt_long_outlined,
                     selectedIcon: Icons.receipt_long_rounded,
                     label: strings.transactions,
-                    selected: currentIndex == 2,
-                    onTap: () => onTabChanged(2),
+                    selected: currentIndex == 1,
+                    onTap: () => onTabChanged(1),
                   ),
                   const Spacer(),
                   _NavItem(
                     icon: Icons.pie_chart_outline_outlined,
                     selectedIcon: Icons.pie_chart_rounded,
                     label: strings.budget,
-                    selected: currentIndex == 3,
-                    onTap: () => onTabChanged(3),
+                    selected: currentIndex == 2,
+                    onTap: () => onTabChanged(2),
                   ),
                   const Spacer(),
                 ],

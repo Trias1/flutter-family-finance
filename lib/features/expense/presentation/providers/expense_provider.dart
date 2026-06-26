@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
-import 'package:family_finance_manager/data/models/wallet_model.dart';
 import 'package:family_finance_manager/data/repositories/budget_repository.dart';
 import 'package:family_finance_manager/data/repositories/transaction_repository.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
@@ -42,18 +41,14 @@ Future<void> _updateBudgetForExpense(BudgetRepository budgetRepo, String familyI
 class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   final TransactionRepository _repository;
   final BudgetRepository _budgetRepo;
-  final FirestoreDataSource _dataSource;
 
-  ExpenseNotifier(this._repository, this._budgetRepo, this._dataSource) : super(const AsyncValue.data(null));
+  ExpenseNotifier(this._repository, this._budgetRepo) : super(const AsyncValue.data(null));
 
   Future<void> addExpense(ExpenseModel expense) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       await _repository.createExpense(expense);
       await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, expense.amount, expense.date);
-      if (expense.walletId != null) {
-        await _adjustWallet(expense.walletId!, -expense.amount);
-      }
     });
   }
 
@@ -94,26 +89,8 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
         if (expense.category != 'Tabungan' && expense.category != 'Savings') {
           await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, -expense.amount, expense.date);
         }
-        if (expense.walletId != null) {
-          await _adjustWallet(expense.walletId!, expense.amount);
-        }
       }
     });
-  }
-
-  Future<void> _adjustWallet(String walletId, double amount) async {
-    final wallet = await _dataSource.getWallet(walletId);
-    if (wallet == null) return;
-    await _dataSource.updateWallet(WalletModel(
-      id: wallet.id,
-      familyId: wallet.familyId,
-      name: wallet.name,
-      type: wallet.type,
-      balance: wallet.balance + amount,
-      icon: wallet.icon,
-      colorHex: wallet.colorHex,
-      createdAt: wallet.createdAt,
-    ));
   }
 }
 
@@ -121,6 +98,5 @@ final expenseNotifierProvider = StateNotifierProvider<ExpenseNotifier, AsyncValu
   return ExpenseNotifier(
     ref.watch(transactionRepositoryProvider),
     BudgetRepository(dataSource: ref.watch(firestoreDataSourceProvider)),
-    ref.watch(firestoreDataSourceProvider),
   );
 });
