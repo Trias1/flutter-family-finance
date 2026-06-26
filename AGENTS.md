@@ -18,12 +18,12 @@
 - [x] Budget Alert / Notifikasi - BudgetAlertService created, integrated into budget provider
 - [x] Budget Rollover - Added rolloverAmount field to BudgetModel
 - [x] Multi Currency - CurrencyModel, selector UI, CurrencyFormatter updated
-- [x] Keinginan / Wishlist - New feature: wishlist with target, deadline, priority
 - [x] Cash Flow Prediction 30 Hari - Rule-based prediction using 3-month average
 - [x] Export Enhancement (PDF Print) - Print-to-printer using `printing` package
 - [x] Backup & Restore Google Drive - Using Google Drive API
-- [x] Scan QR for Transfer - Using mobile_scanner
 - [x] Home Screen Widget Android - Basic widget showing balance
+- [x] Budget Daily Left Fix - Expense kategori "Tabungan" tidak mengurangi budget
+- [x] Remove Unused Features - Wallet, QR Scanner, Wishlist dihapus (overlap & tidak terpakai)
 
 ## Key Decisions
 - Swipe uses local PageController state, no GoRouter involvement
@@ -31,5 +31,7 @@
 - Budget notifications use singleton with dedup sets
 - Rollover handled as carry-over `rolloverAmount` on BudgetModel
 - Multi currency stores selected currency in SharedPreferences
-- Keinginan is a separate model from savings (different purpose)
 - Prediction uses simple 3-month historical average (no ML)
+- **Daily Budget Left hanya track kategori yang ada di budget list**
+- **Wallet, QR Scanner, Wishlist dihapus** - overlap dengan Goals/Savings, tidak diperlukan
+- Income/Expense tidak lagi track walletId (simplified tracking)
