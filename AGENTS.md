@@ -24,6 +24,8 @@
 - [x] Home Screen Widget Android - Basic widget showing balance
 - [x] Budget Daily Left Fix - Expense kategori "Tabungan" tidak mengurangi budget
 - [x] Remove Unused Features - Wallet, QR Scanner, Wishlist dihapus (overlap & tidak terpakai)
+- [x] Gold Investment in Goals - Tambah kategori "Investasi Emas" di Goals dengan tracking gram, harga beli/sekarang, profit/loss
+- [x] Navbar 4 Tabs with Profile - Dashboard, Transactions, Budget, Profile (hapus dropdown profile dari AppBar)
 
 ## Key Decisions
 - Swipe uses local PageController state, no GoRouter involvement
@@ -35,3 +37,6 @@
 - **Daily Budget Left hanya track kategori yang ada di budget list**
 - **Wallet, QR Scanner, Wishlist dihapus** - overlap dengan Goals/Savings, tidak diperlukan
 - Income/Expense tidak lagi track walletId (simplified tracking)
+- **Gold Investment** - extend Goals dengan kategori baru, track gram/harga/profit tanpa API (manual update)
+- **Navbar 4 tabs** - Profile dipindah ke navbar tab keempat, dropdown menu dihapus dari AppBar
+- **Goals Summary** - transaction history show all Tabungan/Savings expense (tidak filter by saving name)
