@@ -280,60 +280,84 @@ class _FloatingBottomNav extends ConsumerWidget {
       padding: EdgeInsets.fromLTRB(16, 0, 16, isDesktop ? 16 : 12),
       child: SizedBox(
         height: 64,
-        child: Container(
-          height: 56,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Expanded(
-                child: _NavItem(
-                  icon: Icons.dashboard_outlined,
-                  selectedIcon: Icons.dashboard_rounded,
-                  label: strings.dashboard,
-                  selected: currentIndex == 0,
-                  onTap: () => onTabChanged(0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.dashboard_outlined,
+                      selectedIcon: Icons.dashboard_rounded,
+                      label: strings.dashboard,
+                      selected: currentIndex == 0,
+                      onTap: () => onTabChanged(0),
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.receipt_long_outlined,
+                      selectedIcon: Icons.receipt_long_rounded,
+                      label: strings.transactions,
+                      selected: currentIndex == 1,
+                      onTap: () => onTabChanged(1),
+                    ),
+                  ),
+                  const SizedBox(width: 56), // Space for FAB
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.pie_chart_outline_outlined,
+                      selectedIcon: Icons.pie_chart_rounded,
+                      label: strings.budget,
+                      selected: currentIndex == 2,
+                      onTap: () => onTabChanged(2),
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.person_outline_rounded,
+                      selectedIcon: Icons.person_rounded,
+                      label: strings.profile,
+                      selected: currentIndex == 3,
+                      onTap: () => onTabChanged(3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: -8,
+              child: Center(
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: FloatingActionButton(
+                    onPressed: onFabTap,
+                    backgroundColor: AppTheme.primaryColor,
+                    shape: const CircleBorder(),
+                    elevation: 6,
+                    child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+                  ),
                 ),
               ),
-              Expanded(
-                child: _NavItem(
-                  icon: Icons.receipt_long_outlined,
-                  selectedIcon: Icons.receipt_long_rounded,
-                  label: strings.transactions,
-                  selected: currentIndex == 1,
-                  onTap: () => onTabChanged(1),
-                ),
-              ),
-              Expanded(
-                child: _NavItem(
-                  icon: Icons.pie_chart_outline_outlined,
-                  selectedIcon: Icons.pie_chart_rounded,
-                  label: strings.budget,
-                  selected: currentIndex == 2,
-                  onTap: () => onTabChanged(2),
-                ),
-              ),
-              Expanded(
-                child: _NavItem(
-                  icon: Icons.person_outline_rounded,
-                  selectedIcon: Icons.person_rounded,
-                  label: strings.profile,
-                  selected: currentIndex == 3,
-                  onTap: () => onTabChanged(3),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -436,26 +460,75 @@ class _ProfilePopup extends ConsumerWidget {
       });
     }
 
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Center(
-        child: CircleAvatar(
-          radius: 18,
-          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-          backgroundImage: getAvatarProvider(user?.photoUrl),
-          child: user?.photoUrl == null
-              ? Text(
-                  user?.name.isNotEmpty == true
-                      ? user.name[0].toUpperCase()
-                      : '?',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                )
-              : null,
+    return PopupMenuButton<void>(
+      offset: const Offset(0, 48),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          onTap: () => openRoute('/settings'),
+          child: ListTile(
+            leading: const Icon(Icons.settings_rounded),
+            title: Text(strings.settings),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: toggleTheme,
+          child: ListTile(
+            leading: Icon(
+              themeMode == ThemeMode.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
+            ),
+            title: Text(
+              themeMode == ThemeMode.dark
+                  ? (isId ? 'Mode Terang' : 'Light Mode')
+                  : (isId ? 'Mode Gelap' : 'Dark Mode'),
+            ),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: logout,
+          child: ListTile(
+            leading: const Icon(
+              Icons.logout_rounded,
+              color: AppTheme.errorColor,
+            ),
+            title: Text(
+              strings.logout,
+              style: const TextStyle(color: AppTheme.errorColor),
+            ),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: CircleAvatar(
+            radius: 18,
+            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+            backgroundImage: getAvatarProvider(user?.photoUrl),
+            child: user?.photoUrl == null
+                ? Text(
+                    user?.name.isNotEmpty == true
+                        ? user.name[0].toUpperCase()
+                        : '?',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  )
+                : null,
+          ),
         ),
       ),
     );
