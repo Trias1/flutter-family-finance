@@ -91,13 +91,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
             Container(
               width: double.infinity,
               height: 180,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.only(
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
                 ),
@@ -271,7 +271,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                     Text("Sudah punya akun? ", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
                     GestureDetector(
                       onTap: () => context.pop(),
-                      child: const Text(
+                      child: Text(
                         'Masuk',
                         style: TextStyle(
                           color: AppTheme.primaryColor,
@@ -332,7 +332,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+          borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),

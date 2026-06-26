@@ -8,6 +8,7 @@ class BudgetModel {
   final String category;
   final double budgetAmount;
   final double usedAmount;
+  final double rolloverAmount;
 
   BudgetModel({
     required this.id,
@@ -16,6 +17,7 @@ class BudgetModel {
     required this.category,
     required this.budgetAmount,
     this.usedAmount = 0,
+    this.rolloverAmount = 0,
   });
 
   factory BudgetModel.fromFirestore(DocumentSnapshot doc) {
@@ -27,6 +29,7 @@ class BudgetModel {
       category: data['category'] ?? '',
       budgetAmount: (data['budgetAmount'] ?? 0).toDouble(),
       usedAmount: (data['usedAmount'] ?? 0).toDouble(),
+      rolloverAmount: (data['rolloverAmount'] ?? 0).toDouble(),
     );
   }
 
@@ -37,12 +40,15 @@ class BudgetModel {
       'category': category,
       'budgetAmount': budgetAmount,
       'usedAmount': usedAmount,
+      'rolloverAmount': rolloverAmount,
     };
   }
 
-  double get remaining => budgetAmount - usedAmount;
-  double get percentage => budgetAmount > 0 ? (usedAmount / budgetAmount) * 100 : 0;
-  bool get isExceeded => usedAmount > budgetAmount;
+  double get remaining => budgetAmount - usedAmount + rolloverAmount;
+  double get effectiveBudget => budgetAmount + rolloverAmount;
+  double get percentage =>
+      effectiveBudget > 0 ? (usedAmount / effectiveBudget) * 100 : 0;
+  bool get isExceeded => usedAmount > effectiveBudget;
   bool get isAlmostExceeded => percentage >= 80;
 
   BudgetEntity toEntity() {
@@ -53,6 +59,7 @@ class BudgetModel {
       category: category,
       budgetAmount: budgetAmount,
       usedAmount: usedAmount,
+      rolloverAmount: rolloverAmount,
     );
   }
 
@@ -64,6 +71,7 @@ class BudgetModel {
       category: entity.category,
       budgetAmount: entity.budgetAmount,
       usedAmount: entity.usedAmount,
+      rolloverAmount: entity.rolloverAmount,
     );
   }
 }

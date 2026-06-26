@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:family_finance_manager/core/theme/app_theme.dart';
 
 class AppErrorWidget extends StatelessWidget {
   final String message;
@@ -15,7 +14,7 @@ class AppErrorWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: AppTheme.errorColor),
+            Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
             const SizedBox(height: 16),
             Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
             if (onRetry != null) ...[

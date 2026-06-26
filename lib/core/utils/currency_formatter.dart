@@ -1,6 +1,16 @@
+import 'package:family_finance_manager/data/models/currency_model.dart';
+
 class CurrencyFormatter {
+  static CurrencyModel _currency = CurrencyModel.supported.first;
+
+  static CurrencyModel get currentCurrency => _currency;
+
+  static void setCurrency(CurrencyModel currency) {
+    _currency = currency;
+  }
+
   static String format(double amount) {
-    return 'Rp ${_formatNumber(amount)}';
+    return '${_currency.symbol} ${_formatNumber(amount)}';
   }
 
   static String formatWithoutSymbol(double amount) {
@@ -13,6 +23,9 @@ class CurrencyFormatter {
   }
 
   static String _formatNumber(double amount) {
+    if (_currency.decimalDigits > 0) {
+      return amount.toStringAsFixed(_currency.decimalDigits);
+    }
     String str = amount.toStringAsFixed(0);
     String reversed = str.split('').reversed.join('');
     final buffer = StringBuffer();

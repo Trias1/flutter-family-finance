@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --primary: #2E7D32;
-  --primary-light: #66BB6A;
-  --primary-lighter: #81C784;
-  --primary-bg: #E8F5E9;
+  --primary: #6B3F2A;
+  --primary-light: #A16207;
+  --primary-lighter: #D97706;
+  --primary-bg: #F3E7D8;
   --expense-bg: #FFEBEE;
   --income: #4CAF50;
   --expense: #EF5350;
   --savings: #42A5F5;
-  --bg: #F5F6FA;
+  --bg: #FAF7F2;
   --bg-card: #FFFFFF;
   --text-primary: #1B1B1F;
   --text-secondary: #6B7280;
@@ -22,21 +22,21 @@
 }
 
 [data-theme="dark"] {
-  --primary: #66BB6A;
-  --primary-light: #81C784;
-  --primary-lighter: #A5D6A7;
-  --primary-bg: rgba(102, 187, 106, 0.12);
+  --primary: #D6A56D;
+  --primary-light: #F59E0B;
+  --primary-lighter: #FBBF24;
+  --primary-bg: rgba(214, 165, 109, 0.14);
   --expense-bg: rgba(239, 83, 80, 0.12);
   --income: #81C784;
   --expense: #FF8A80;
   --savings: #64B5F6;
-  --bg: #0F172A;
-  --bg-card: #111827;
+  --bg: #17120E;
+  --bg-card: #211914;
   --text-primary: #F9FAFB;
   --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
-  --border: #1F2937;
-  --surface-soft: #0B1220;
+  --border: #33261E;
+  --surface-soft: #120D0A;
   --shadow-soft: 0 10px 30px rgba(2, 6, 23, 0.45);
   --warning-bg: rgba(255, 248, 225, 0.12);
   --warning-text: #FCD34D;
@@ -62,16 +62,124 @@ html {
   --color-income: var(--income);
   --color-expense: var(--expense);
   --color-savings: var(--savings);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-plus-jakarta-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--bg);
   color: var(--text-primary);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-plus-jakarta-sans), Arial, Helvetica, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+}
+
+[data-color-theme="softPink"] {
+  --primary: #BE185D;
+  --primary-light: #DB2777;
+  --primary-lighter: #F472B6;
+  --primary-bg: #FFF1F5;
+  --bg: #FFF1F5;
+}
+
+[data-color-theme="roseGold"] {
+  --primary: #9F1239;
+  --primary-light: #BE123C;
+  --primary-lighter: #D97706;
+  --primary-bg: #FFE4E6;
+  --bg: #FFF7ED;
+}
+
+[data-color-theme="oceanBlue"] {
+  --primary: #1D4ED8;
+  --primary-light: #2563EB;
+  --primary-lighter: #06B6D4;
+  --primary-bg: #DBEAFE;
+  --bg: #F8FAFC;
+}
+
+[data-color-theme="lavender"] {
+  --primary: #7C3AED;
+  --primary-light: #8B5CF6;
+  --primary-lighter: #EC4899;
+  --primary-bg: #EDE9FE;
+  --bg: #F5F3FF;
+}
+
+[data-color-theme="charcoalGold"] {
+  --primary: #111827;
+  --primary-light: #374151;
+  --primary-lighter: #D97706;
+  --primary-bg: #E5E7EB;
+  --bg: #F9FAFB;
+}
+
+[data-color-theme="sage"] {
+  --primary: #64748B;
+  --primary-light: #94A3B8;
+  --primary-lighter: #A16207;
+  --primary-bg: #E2E8F0;
+  --bg: #F8FAF5;
+}
+
+[data-theme="dark"][data-color-theme="softPink"] {
+  --primary: #FDA4AF;
+  --primary-light: #FB7185;
+  --primary-lighter: #F59E0B;
+  --primary-bg: rgba(253, 164, 175, 0.14);
+  --bg: #17120E;
+  --bg-card: #211914;
+  --surface-soft: #120D0A;
+}
+
+[data-theme="dark"][data-color-theme="roseGold"] {
+  --primary: #FB7185;
+  --primary-light: #FDA4AF;
+  --primary-lighter: #D97706;
+  --primary-bg: rgba(251, 113, 133, 0.14);
+  --bg: #17120E;
+  --bg-card: #211914;
+  --surface-soft: #120D0A;
+}
+
+[data-theme="dark"][data-color-theme="oceanBlue"] {
+  --primary: #93C5FD;
+  --primary-light: #60A5FA;
+  --primary-lighter: #22D3EE;
+  --primary-bg: rgba(147, 197, 253, 0.14);
+  --bg: #17120E;
+  --bg-card: #211914;
+  --surface-soft: #120D0A;
+}
+
+[data-theme="dark"][data-color-theme="lavender"] {
+  --primary: #C4B5FD;
+  --primary-light: #A78BFA;
+  --primary-lighter: #F0ABFC;
+  --primary-bg: rgba(196, 181, 253, 0.14);
+  --bg: #17120E;
+  --bg-card: #211914;
+  --surface-soft: #120D0A;
+}
+
+[data-theme="dark"][data-color-theme="charcoalGold"] {
+  --primary: #FBBF24;
+  --primary-light: #F59E0B;
+  --primary-lighter: #D97706;
+  --primary-bg: rgba(251, 191, 36, 0.14);
+  --bg: #17120E;
+  --bg-card: #211914;
+  --surface-soft: #120D0A;
+}
+
+[data-theme="dark"][data-color-theme="sage"] {
+  --primary: #CBD5E1;
+  --primary-light: #94A3B8;
+  --primary-lighter: #D6A56D;
+  --primary-bg: rgba(203, 213, 225, 0.14);
+  --bg: #17120E;
+  --bg-card: #211914;
+  --surface-soft: #120D0A;
 }
 
 button,
@@ -103,7 +211,7 @@ select:focus,
 textarea:focus,
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid rgba(46, 125, 50, 0.35);
+  outline: 2px solid rgba(107, 63, 42, 0.35);
   outline-offset: 2px;
 }
 
@@ -187,8 +295,8 @@ a:focus-visible {
   50% { transform: rotate(2deg); }
 }
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(46,125,50,0.1); }
-  50% { box-shadow: 0 0 40px rgba(46,125,50,0.2); }
+  0%, 100% { box-shadow: 0 0 20px rgba(107,63,42,0.1); }
+  50% { box-shadow: 0 0 40px rgba(217,119,6,0.2); }
 }
 @keyframes particle-float {
   0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
@@ -224,8 +332,8 @@ a:focus-visible {
   84%, 100% { transform: translateY(0); }
 }
 @keyframes screen-pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 rgba(102,187,106,0); }
-  50% { box-shadow: 0 0 40px rgba(102,187,106,0.15); }
+  0%, 100% { box-shadow: 0 0 0 rgba(217,119,6,0); }
+  50% { box-shadow: 0 0 40px rgba(217,119,6,0.16); }
 }
 
 .animate-bob { animation: bob 4s ease-in-out infinite; }

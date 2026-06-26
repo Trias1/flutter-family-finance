@@ -6,11 +6,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/firebase_service.dart';
+import 'package:family_finance_manager/core/services/currency_provider.dart';
 import 'package:family_finance_manager/core/services/fcm_service.dart';
 import 'package:family_finance_manager/core/services/notification_service.dart';
 import 'package:family_finance_manager/core/services/recurring_service.dart';
+import 'package:family_finance_manager/core/services/widget_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
+import 'package:family_finance_manager/features/budget/presentation/providers/budget_provider.dart';
 import 'package:family_finance_manager/routes/app_router.dart';
 
 @pragma('vm:entry-point')
@@ -27,6 +30,7 @@ void main() async {
   await FirebaseService.initialize();
 
   await NotificationService().init();
+  WidgetService.initialize();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await FcmService().init();
 
@@ -50,8 +54,10 @@ class FamilyFinanceApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(budgetAlertWatcherProvider);
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final themePreset = ref.watch(themePresetProvider);
     final locale = ref.watch(localeProvider);
 
     return MaterialApp.router(
@@ -64,8 +70,8 @@ class FamilyFinanceApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme(themePreset),
+      darkTheme: AppTheme.darkTheme(themePreset),
       themeMode: themeMode,
       routerConfig: router,
     );

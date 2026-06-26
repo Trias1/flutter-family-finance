@@ -11,9 +11,9 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts"
 
-const COLORS = ["#2E7D32", "#66BB6A", "#81C784", "#A5D6A7", "#C8E6C9", "#EF5350", "#FFA726", "#42A5F5", "#AB47BC", "#26A69A"]
-const GREEN = "#2E7D32"
-const GREEN_LIGHT = "#66BB6A"
+const COLORS = ["#6B3F2A", "#A16207", "#D97706", "#F59E0B", "#F3E7D8", "#EF5350", "#42A5F5", "#AB47BC", "#26A69A", "#8B5CF6"]
+const GREEN = "#6B3F2A"
+const GREEN_LIGHT = "#D97706"
 const EXPENSE = "#EF5350"
 const INCOME = "#4CAF50"
 

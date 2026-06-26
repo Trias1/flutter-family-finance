@@ -6,6 +6,6 @@
         android:startY="0"
         android:endX="108"
         android:endY="108"
-        android:startColor="#FF2E7D32"
-        android:endColor="#FF66BB6A" />
+        android:startColor="#FF6B3F2A"
+        android:endColor="#FFD97706" />
 </shape>

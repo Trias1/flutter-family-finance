@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:family_finance_manager/core/services/budget_alert_service.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/repositories/budget_repository.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
@@ -16,6 +17,14 @@ final budgetStreamProvider = StreamProvider.family<List<BudgetModel>, String>((r
 final budgetsByMonthProvider = FutureProvider.family<List<BudgetModel>, String>((ref, familyId) async {
   final month = '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
   return ref.watch(budgetRepositoryProvider).getBudgetsByMonth(familyId, month);
+});
+
+final budgetAlertWatcherProvider = Provider<void>((ref) {
+  final familyId = ref.watch(financeScopeIdProvider);
+  final budgetsAsync = ref.watch(budgetStreamProvider(familyId));
+  budgetsAsync.whenData((budgets) {
+    BudgetAlertService().checkBudgets(budgets);
+  });
 });
 
 class BudgetNotifier extends StateNotifier<AsyncValue<void>> {

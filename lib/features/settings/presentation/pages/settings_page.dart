@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:family_finance_manager/core/biometric/biometric_provider.dart';
+import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/app_update_service.dart';
+import 'package:family_finance_manager/core/services/currency_provider.dart';
 import 'package:family_finance_manager/core/services/notification_provider.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
 import 'package:family_finance_manager/core/utils/image_utils.dart';
+import 'package:family_finance_manager/data/models/currency_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -18,115 +22,23 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final locale = Localizations.localeOf(context);
+    final strings = AppStrings(locale);
     final authState = ref.watch(authNotifierProvider);
-    final familyAsync = ref.watch(familyProvider);
 
     return authState.when(
       data: (user) => SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const SizedBox(height: 16),
-            _ProfilePhoto(user: user),
-            const SizedBox(height: 24),
-            _InfoTile(
-              icon: Icons.person_outline,
-              label: 'Nama',
-              value: user?.name ?? '',
-            ),
             const SizedBox(height: 8),
-            _InfoTile(
-              icon: Icons.email_outlined,
-              label: 'Email',
-              value: user?.email ?? '',
-            ),
-            if (user?.familyId != null) ...[
-              const SizedBox(height: 8),
-              familyAsync.when(
-                data: (family) => _InfoTile(
-                  icon: Icons.family_restroom_rounded,
-                  label: 'Keluarga',
-                  value: family?.name ?? 'Keluarga',
-                ),
-                loading: () => _InfoTile(
-                  icon: Icons.family_restroom_rounded,
-                  label: 'Keluarga',
-                  value: 'Memuat...',
-                ),
-                error: (_, __) => _InfoTile(
-                  icon: Icons.family_restroom_rounded,
-                  label: 'Keluarga',
-                  value: 'Keluarga',
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            _SectionTitle(title: 'Akun'),
-            const SizedBox(height: 8),
-            _ActionButton(
-              icon: Icons.edit_rounded,
-              label: 'Edit Profil',
-              color: AppTheme.primaryColor,
-              onTap: () => _showEditProfileDialog(context, ref, user),
-            ),
-            const SizedBox(height: 8),
-            _ActionButton(
-              icon: Icons.lock_outline_rounded,
-              label: 'Ubah Password',
-              color: AppTheme.warningColor,
-              onTap: () => _showChangePasswordDialog(context, ref),
-            ),
-            const SizedBox(height: 16),
-            _SectionTitle(title: 'Keluarga'),
-            const SizedBox(height: 8),
-            _ActionButton(
-              icon: Icons.family_restroom_rounded,
-              label: 'Kelola Keluarga',
-              color: AppTheme.savingsColor,
-              onTap: () => context.push('/family'),
-            ),
-            if (user?.familyId != null) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final err = await ref
-                        .read(authNotifierProvider.notifier)
-                        .leaveFamily();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(err ?? 'Berhasil keluar dari keluarga'),
-                          backgroundColor: err != null
-                              ? AppTheme.errorColor
-                              : AppTheme.incomeColor,
-                        ),
-                      );
-                    }
-                  },
-                  icon: const Icon(
-                    Icons.exit_to_app_rounded,
-                    color: AppTheme.errorColor,
-                  ),
-                  label: const Text(
-                    'Keluar dari Keluarga',
-                    style: TextStyle(color: AppTheme.errorColor),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.errorColor),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            _SectionTitle(title: strings.settings),
             const SizedBox(height: 16),
             _SectionTitle(title: 'Bahasa / Language'),
             const SizedBox(height: 8),
             _LanguagePicker(),
+            const SizedBox(height: 12),
+            _CurrencyPicker(),
             const SizedBox(height: 16),
             _SectionTitle(title: 'Keamanan'),
             const SizedBox(height: 8),
@@ -138,6 +50,13 @@ class SettingsPage extends ConsumerWidget {
               color: Colors.purple,
               onTap: () => context.push('/categories'),
             ),
+            const SizedBox(height: 8),
+            _ActionButton(
+              icon: Icons.backup_rounded,
+              label: 'Backup & Restore',
+              color: AppTheme.savingsColor,
+              onTap: () => context.push('/backup'),
+            ),
             const SizedBox(height: 16),
             _SectionTitle(title: 'Notifikasi'),
             const SizedBox(height: 8),
@@ -146,16 +65,29 @@ class SettingsPage extends ConsumerWidget {
             _SectionTitle(title: 'Tampilan'),
             const SizedBox(height: 8),
             _DarkModeToggle(),
+            const SizedBox(height: 12),
+            _ThemePresetPicker(),
             const SizedBox(height: 16),
-            _SectionTitle(title: 'Aplikasi & Privasi'),
-            const SizedBox(height: 8),
-            const _DevicePrivacyInfo(),
-            const SizedBox(height: 8),
             _ActionButton(
               icon: Icons.privacy_tip_rounded,
-              label: 'Privasi & Keamanan',
+              label: strings.privacySecurity,
               color: AppTheme.primaryColor,
               onTap: () => context.push('/privacy-security'),
+            ),
+            const SizedBox(height: 8),
+            _ActionButton(
+              icon: Icons.menu_book_rounded,
+              label: strings.completeGuide,
+              color: Colors.teal,
+              onTap: () async {
+                final lang = locale.languageCode == 'id' ? 'id' : 'en';
+                final uri = Uri.parse(
+                  'https://family-finance.tzm.web.id/$lang/guide',
+                );
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
             ),
             const SizedBox(height: 24),
             const Divider(),
@@ -377,7 +309,7 @@ class _DevicePrivacyInfo extends StatelessWidget {
                       color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.verified_user_outlined,
                       color: AppTheme.primaryColor,
                       size: 22,
@@ -506,7 +438,7 @@ class _ProfilePhoto extends ConsumerWidget {
                     user?.name.isNotEmpty == true
                         ? user.name[0].toUpperCase()
                         : '?',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 36,
                       color: AppTheme.primaryColor,
                       fontWeight: FontWeight.bold,
@@ -519,7 +451,7 @@ class _ProfilePhoto extends ConsumerWidget {
             right: 0,
             child: Container(
               padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
               ),
@@ -638,8 +570,167 @@ class _DarkModeToggle extends ConsumerWidget {
         trailing: Switch(
           value: isDark,
           onChanged: (_) => ref.read(themeModeProvider.notifier).toggle(),
-          activeColor: AppTheme.primaryColor,
+          activeColor: Theme.of(context).colorScheme.primary,
         ),
+      ),
+    );
+  }
+}
+
+class _ThemePresetPicker extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(themePresetProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.palette_rounded,
+                  color: colorScheme.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Tema Warna',
+                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...AppTheme.presets.map(
+            (preset) => _ThemePresetTile(
+              preset: preset,
+              selected: preset.id == selected.id,
+              onTap: () => ref
+                  .read(themePresetProvider.notifier)
+                  .setPreset(preset),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemePresetTile extends StatelessWidget {
+  final AppThemePreset preset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ThemePresetTile({
+    required this.preset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.08)
+                : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Row(
+                children: [
+                  _ThemeDot(color: preset.primary),
+                  _ThemeDot(color: preset.background),
+                  _ThemeDot(color: preset.accent),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      preset.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      preset.vibe,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected)
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: colorScheme.primary,
+                  size: 20,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeDot extends StatelessWidget {
+  final Color color;
+  const _ThemeDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 18,
+      margin: const EdgeInsets.only(right: 4),
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
     );
   }
@@ -671,7 +762,7 @@ class _BiometricToggle extends ConsumerWidget {
             color: AppTheme.savingsColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.fingerprint,
             color: AppTheme.savingsColor,
             size: 22,
@@ -797,7 +888,7 @@ class _LanguagePicker extends ConsumerWidget {
             color: AppTheme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.language,
             color: AppTheme.primaryColor,
             size: 22,
@@ -890,6 +981,87 @@ class _NotificationToggle extends ConsumerWidget {
           onChanged: (_) =>
               ref.read(notificationEnabledProvider.notifier).toggle(),
           activeColor: AppTheme.warningColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrencyPicker extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currencyAsync = ref.watch(currencyProvider);
+    return currencyAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (current) => Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ListTile(
+          tileColor: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
+          ),
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.incomeColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.attach_money,
+              color: AppTheme.incomeColor,
+              size: 22,
+            ),
+          ),
+          title: const Text(
+            'Mata Uang',
+            style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+          ),
+          subtitle: Text(
+            '${current.symbol} - ${current.code}',
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          trailing: PopupMenuButton<CurrencyModel>(
+            onSelected: (c) =>
+                ref.read(currencyProvider.notifier).setCurrency(c),
+            itemBuilder: (_) => CurrencyModel.supported
+                .map(
+                  (c) => PopupMenuItem(
+                    value: c,
+                    child: Text('${c.symbol} ${c.code} - ${c.name}'),
+                  ),
+                )
+                .toList(),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
+            ),
+          ),
         ),
       ),
     );

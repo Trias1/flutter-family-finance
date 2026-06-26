@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/constants/app_constants.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
+import 'package:family_finance_manager/core/widgets/empty_widget.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/budget/presentation/providers/budget_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 
 class BudgetPage extends ConsumerWidget {
   const BudgetPage({super.key});
@@ -36,38 +38,7 @@ class BudgetPage extends ConsumerWidget {
                       SizedBox(
                         height: MediaQuery.of(context).size.height * 0.3,
                       ),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.account_balance_wallet,
-                              size: 64,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Belum ada anggaran',
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Atur anggaran bulanan untuk setiap kategori',
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      const EmptyWidget(message: 'Belum ada anggaran'),
                     ],
                   )
                 : ListView.builder(
@@ -269,6 +240,7 @@ class BudgetPage extends ConsumerWidget {
     final amountController = TextEditingController(
       text: budget != null ? budget.budgetAmount.toString() : '',
     );
+    bool isSaving = false;
 
     showModalBottomSheet(
       context: context,
@@ -325,8 +297,12 @@ class BudgetPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () async {
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                    FocusScope.of(ctx).unfocus();
                     if (!formKey.currentState!.validate()) return;
+                    setSheetState(() => isSaving = true);
                     final month =
                         '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
                     final fId = ref.read(financeScopeIdProvider);
@@ -347,13 +323,20 @@ class BudgetPage extends ConsumerWidget {
                           .read(budgetNotifierProvider.notifier)
                           .updateBudget(model);
                     ref.invalidate(budgetsByMonthProvider(fId));
+                    ref.invalidate(dashboardProvider);
                     if (ctx.mounted) Navigator.pop(ctx);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.warningColor,
                     foregroundColor: Colors.white,
                   ),
-                  child: Text(budget == null ? 'Simpan' : 'Update'),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(budget == null ? 'Simpan' : 'Update'),
                 ),
                 const SizedBox(height: 24),
               ],

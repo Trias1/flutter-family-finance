@@ -104,6 +104,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
       final prefs = await SharedPreferences.getInstance();
       final email = _emailController.text.trim();
       await prefs.setString('last_email', email);
+      if (!mounted) return;
       final firebaseUser = ref.read(firebaseAuthDataSourceProvider).currentUser;
       if (firebaseUser != null) {
         await prefs.setString('biometric_last_uid', firebaseUser.uid);
@@ -219,6 +220,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_login_method', 'google');
+    if (!mounted) return;
     final firebaseUser = ref.read(firebaseAuthDataSourceProvider).currentUser;
     if (firebaseUser != null) {
       await prefs.setString('biometric_last_uid', firebaseUser.uid);
@@ -238,13 +240,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
             Container(
               width: size.width,
               height: size.height * 0.35,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.only(
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
                 ),
@@ -364,7 +366,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                                  borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5),
                                 ),
                                 errorBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -406,7 +408,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                                  borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5),
                                 ),
                                 errorBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -534,7 +536,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     Text("Belum punya akun? ", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
                     GestureDetector(
                       onTap: () => context.push('/register'),
-                      child: const Text(
+                      child: Text(
                         'Daftar',
                         style: TextStyle(
                           color: AppTheme.primaryColor,

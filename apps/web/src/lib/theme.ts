@@ -1,6 +1,18 @@
 export type ThemeMode = "light" | "dark" | "system"
+export type ColorThemeId = "mochaBrown" | "softPink" | "roseGold" | "oceanBlue" | "lavender" | "charcoalGold" | "sage"
 
 export const THEME_STORAGE_KEY = "family-finance-theme"
+export const COLOR_THEME_STORAGE_KEY = "family-finance-color-theme"
+
+export const colorThemes: { id: ColorThemeId; name: string }[] = [
+  { id: "mochaBrown", name: "Mocha Brown" },
+  { id: "softPink", name: "Soft Pink" },
+  { id: "roseGold", name: "Rose Gold" },
+  { id: "oceanBlue", name: "Ocean Blue" },
+  { id: "lavender", name: "Lavender" },
+  { id: "charcoalGold", name: "Charcoal Gold" },
+  { id: "sage", name: "Sage" },
+]
 
 export function getPreferredTheme(mode: ThemeMode) {
   if (mode !== "system") return mode
@@ -15,6 +27,11 @@ export function applyTheme(mode: ThemeMode) {
   document.documentElement.style.colorScheme = resolved
 }
 
+export function applyColorTheme(id: ColorThemeId) {
+  if (typeof document === "undefined") return
+  document.documentElement.dataset.colorTheme = id
+}
+
 export function readStoredTheme(): ThemeMode {
   if (typeof window === "undefined") return "system"
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
@@ -24,4 +41,15 @@ export function readStoredTheme(): ThemeMode {
 export function setStoredTheme(mode: ThemeMode) {
   if (typeof window === "undefined") return
   window.localStorage.setItem(THEME_STORAGE_KEY, mode)
+}
+
+export function readStoredColorTheme(): ColorThemeId {
+  if (typeof window === "undefined") return "mochaBrown"
+  const stored = window.localStorage.getItem(COLOR_THEME_STORAGE_KEY)
+  return colorThemes.some((theme) => theme.id === stored) ? (stored as ColorThemeId) : "mochaBrown"
+}
+
+export function setStoredColorTheme(id: ColorThemeId) {
+  if (typeof window === "undefined") return
+  window.localStorage.setItem(COLOR_THEME_STORAGE_KEY, id)
 }

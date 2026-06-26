@@ -85,13 +85,13 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             Container(
               width: double.infinity,
               height: 180,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.only(
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
                 ),
@@ -213,7 +213,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                        borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5),
                       ),
                       errorBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),

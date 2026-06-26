@@ -424,6 +424,7 @@ class _AddCategorySheetState extends ConsumerState<AddCategorySheet> {
             onPressed: _loading
                 ? null
                 : () async {
+                    FocusScope.of(context).unfocus();
                     final name = _controller.text.trim();
                     if (name.isEmpty) return;
                     setState(() => _loading = true);

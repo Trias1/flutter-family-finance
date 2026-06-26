@@ -90,7 +90,7 @@ function LoginForm() {
       <div className="relative z-10 mx-auto flex min-h-[650px] w-full max-w-[1040px] flex-col overflow-hidden rounded-[2.5rem] border border-gray-200 bg-white shadow-[0_40px_120px_rgba(0,0,0,0.35)] lg:flex-row">
         <div className="relative min-h-[260px] lg:min-h-full lg:w-[45%]">
           <div className="absolute inset-4 overflow-hidden rounded-[2rem] bg-[#0c0c0e]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(102,187,106,0.24),_transparent_34%),linear-gradient(180deg,_#0B1020_0%,_#071019_48%,_#05070D_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(217,119,6,0.24),_transparent_34%),linear-gradient(180deg,_#2A1C14_0%,_#17100C_48%,_#050505_100%)]" />
             <AppPhonePreview variant="dashboard" className="absolute left-1/2 top-8 -translate-x-1/2 scale-[0.95] rotate-[-5deg]" />
             <AppPhonePreview variant="reports" className="absolute -bottom-10 right-[-18px] scale-[0.72] rotate-[12deg] opacity-90" />
           </div>

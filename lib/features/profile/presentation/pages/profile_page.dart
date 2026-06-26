@@ -262,7 +262,7 @@ class _ProfilePhoto extends ConsumerWidget {
             backgroundImage: getAvatarProvider(user?.photoUrl),
             child: user?.photoUrl == null
                 ? Text(user?.name.isNotEmpty == true ? user.name[0].toUpperCase() : '?',
-                    style: const TextStyle(fontSize: 36, color: AppTheme.primaryColor, fontWeight: FontWeight.bold))
+                    style: TextStyle(fontSize: 36, color: AppTheme.primaryColor, fontWeight: FontWeight.bold))
                 : null,
           ),
           Positioned(
@@ -270,7 +270,7 @@ class _ProfilePhoto extends ConsumerWidget {
             right: 0,
             child: Container(
               padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle),
               child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
             ),
           ),

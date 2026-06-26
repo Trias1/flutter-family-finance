@@ -22,7 +22,7 @@ android {
 
     defaultConfig {
         applicationId = "com.familyfinance.family_finance_manager"
-        minSdk = flutter.minSdkVersion
+        minSdk = 27
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

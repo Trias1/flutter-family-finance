@@ -4,12 +4,15 @@ import 'package:family_finance_manager/core/constants/app_constants.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
+import 'package:family_finance_manager/core/widgets/empty_widget.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
 import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/expense/presentation/providers/expense_provider.dart';
+import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
 import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
 
 class SavingsPage extends ConsumerWidget {
@@ -21,9 +24,9 @@ class SavingsPage extends ConsumerWidget {
     final savingsAsync = ref.watch(savingStreamProvider(familyId));
 
     return savingsAsync.when(
-      loading: () => const LoadingWidget(message: 'Memuat tabungan...'),
+      loading: () => const LoadingWidget(message: 'Memuat goals...'),
       error: (e, _) => AppErrorWidget(
-        message: 'Gagal memuat tabungan: $e',
+        message: 'Gagal memuat goals: $e',
         onRetry: () => ref.invalidate(savingStreamProvider(familyId)),
       ),
       data: (savings) => Stack(
@@ -38,29 +41,7 @@ class SavingsPage extends ConsumerWidget {
                       SizedBox(
                         height: MediaQuery.of(context).size.height * 0.3,
                       ),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.savings,
-                              size: 64,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Belum ada target tabungan',
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      const EmptyWidget(message: 'Belum ada goals'),
                     ],
                   )
                 : ListView.builder(
@@ -93,21 +74,7 @@ class SavingsPage extends ConsumerWidget {
                                 Expanded(
                                   child: Row(
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.savingsColor
-                                              .withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.savings,
-                                          color: AppTheme.savingsColor,
-                                          size: 20,
-                                        ),
-                                      ),
+                                      _GoalBankBadge(bankName: saving.bankName),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
@@ -139,6 +106,7 @@ class SavingsPage extends ConsumerWidget {
                                     ],
                                   ),
                                 ),
+                                _CircularGoalProgress(progress: progress),
                                 PopupMenuButton<String>(
                                   onSelected: (value) {
                                     if (value == 'edit')
@@ -159,11 +127,11 @@ class SavingsPage extends ConsumerWidget {
                                   itemBuilder: (ctx) => const [
                                     PopupMenuItem(
                                       value: 'add',
-                                      child: Text('Tambah Tabungan'),
+                                      child: Text('Tambah Goals'),
                                     ),
                                     PopupMenuItem(
                                       value: 'withdraw',
-                                      child: Text('Tarik Tabungan'),
+                                      child: Text('Tarik Goals'),
                                     ),
                                     PopupMenuItem(
                                       value: 'edit',
@@ -258,6 +226,7 @@ class SavingsPage extends ConsumerWidget {
     String? selectedBank = saving?.bankName;
     DateTime targetDate =
         saving?.targetDate ?? DateTime.now().add(const Duration(days: 365));
+    bool isSaving = false;
 
     showModalBottomSheet(
       context: context,
@@ -309,6 +278,7 @@ class SavingsPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     value: selectedBank,
                     decoration: const InputDecoration(
                       labelText: 'Pilih Bank',
@@ -337,8 +307,12 @@ class SavingsPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                      FocusScope.of(ctx).unfocus();
                       if (!formKey.currentState!.validate()) return;
+                      setSheetState(() => isSaving = true);
                       final fId = ref.read(financeScopeIdProvider);
                       final model = SavingModel(
                         id: saving?.id ?? '',
@@ -350,20 +324,30 @@ class SavingsPage extends ConsumerWidget {
                         targetDate: targetDate,
                       );
                       if (saving == null)
-                        ref
+                        await ref
                             .read(savingNotifierProvider.notifier)
                             .createSaving(model);
                       else
-                        ref
+                        await ref
                             .read(savingNotifierProvider.notifier)
                             .updateSaving(model);
+                      ref.invalidate(savingStreamProvider(fId));
+                      ref.invalidate(dashboardProvider);
+                      ref.invalidate(reportProvider(fId));
+                      if (!ctx.mounted) return;
                       Navigator.pop(ctx);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.savingsColor,
                       foregroundColor: Colors.white,
                     ),
-                    child: Text(saving == null ? 'Buat Target' : 'Simpan'),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(saving == null ? 'Buat Target' : 'Simpan'),
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -381,35 +365,53 @@ class SavingsPage extends ConsumerWidget {
     SavingModel saving,
   ) {
     final controller = TextEditingController();
+    bool isSaving = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tambah Tabungan'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Nominal',
-            prefixText: 'Rp ',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Tambah Goals'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Nominal',
+              prefixText: 'Rp ',
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                ref
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                FocusScope.of(ctx).unfocus();
+                final amount = double.tryParse(controller.text);
+                if (amount == null || amount <= 0) return;
+                setDialogState(() => isSaving = true);
+                await ref
                     .read(savingNotifierProvider.notifier)
-                    .addToSaving(saving.id, double.parse(controller.text));
+                    .addToSaving(saving.id, amount);
+                final fId = ref.read(financeScopeIdProvider);
+                ref.invalidate(savingStreamProvider(fId));
+                ref.invalidate(dashboardProvider);
+                ref.invalidate(reportProvider(fId));
+                if (!ctx.mounted) return;
                 Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
+              },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Simpan'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -420,10 +422,12 @@ class SavingsPage extends ConsumerWidget {
     SavingModel saving,
   ) {
     final controller = TextEditingController();
+    bool isSaving = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tarik Tabungan'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+        title: const Text('Tarik Goals'),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
@@ -434,13 +438,17 @@ class SavingsPage extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: isSaving ? null : () => Navigator.pop(ctx),
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              if (controller.text.isEmpty) return;
-              final amount = double.parse(controller.text);
+            onPressed: isSaving
+                ? null
+                : () async {
+              FocusScope.of(ctx).unfocus();
+              final amount = double.tryParse(controller.text);
+              if (amount == null || amount <= 0) return;
+              setDialogState(() => isSaving = true);
               try {
                 await ref
                     .read(savingNotifierProvider.notifier)
@@ -459,8 +467,12 @@ class SavingsPage extends ConsumerWidget {
                 await ref
                     .read(expenseNotifierProvider.notifier)
                     .addExpense(expense);
+                ref.invalidate(savingStreamProvider(fId));
+                ref.invalidate(dashboardProvider);
+                ref.invalidate(reportProvider(fId));
                 if (ctx.mounted) Navigator.pop(ctx);
               } catch (e) {
+                setDialogState(() => isSaving = false);
                 if (ctx.mounted) {
                   ScaffoldMessenger.of(
                     ctx,
@@ -471,7 +483,122 @@ class SavingsPage extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.warningColor,
             ),
-            child: const Text('Tarik'),
+            child: isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Tarik'),
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+}
+
+class _GoalBankBadge extends StatelessWidget {
+  final String? bankName;
+
+  const _GoalBankBadge({required this.bankName});
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = _bankBadge(bankName);
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: badge.color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: badge.label != null
+            ? Text(
+                badge.label!,
+                style: TextStyle(
+                  color: badge.color,
+                  fontSize: badge.label!.length > 3 ? 10 : 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              )
+            : Icon(badge.icon, color: badge.color, size: 22),
+      ),
+    );
+  }
+
+  _BankBadge _bankBadge(String? value) {
+    final name = (value ?? '').toLowerCase();
+    if (name.contains('bca')) return _BankBadge('BCA', null, Colors.blue);
+    if (name.contains('bri')) return _BankBadge('BRI', null, Colors.indigo);
+    if (name.contains('bni')) return _BankBadge('BNI', null, Colors.orange);
+    if (name.contains('mandiri')) return _BankBadge('MDR', null, Colors.amber);
+    if (name.contains('cimb')) return _BankBadge('CIMB', null, Colors.red);
+    if (name.contains('permata'))
+      return _BankBadge('PMT', null, Colors.redAccent);
+    if (name.contains('jago')) return _BankBadge('JAGO', null, Colors.orange);
+    if (name.contains('seabank') || name.contains('sea bank')) {
+      return _BankBadge('SEA', null, Colors.deepOrange);
+    }
+    if (name.contains('dana')) return _BankBadge('DANA', null, Colors.blue);
+    if (name.contains('gopay') || name.contains('go pay')) {
+      return _BankBadge('GPAY', null, Colors.green);
+    }
+    if (name.contains('ovo')) return _BankBadge('OVO', null, Colors.purple);
+    if (name.contains('shopee'))
+      return _BankBadge('SPAY', null, Colors.deepOrange);
+    if (name.contains('linkaja') || name.contains('link aja')) {
+      return _BankBadge('LINK', null, Colors.red);
+    }
+    return const _BankBadge(null, Icons.flag_rounded, AppTheme.savingsColor);
+  }
+}
+
+class _BankBadge {
+  final String? label;
+  final IconData? icon;
+  final Color color;
+
+  const _BankBadge(this.label, this.icon, this.color);
+}
+
+class _CircularGoalProgress extends StatelessWidget {
+  final double progress;
+
+  const _CircularGoalProgress({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = (progress / 100).clamp(0.0, 1.0);
+    final complete = progress >= 100;
+    final color = complete ? AppTheme.incomeColor : AppTheme.savingsColor;
+
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 42,
+            height: 42,
+            child: CircularProgressIndicator(
+              value: value,
+              strokeWidth: 5,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          Text(
+            '${progress.clamp(0, 999).toStringAsFixed(0)}%',
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),

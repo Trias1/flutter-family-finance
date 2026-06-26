@@ -38,6 +38,7 @@ class FcmService {
       if (currentUser == null) return;
       final existing = await FirebaseFirestore.instance
           .collection(FirestoreConstants.fcmTokens)
+          .where('uid', isEqualTo: currentUser.uid)
           .where('token', isEqualTo: token)
           .limit(1)
           .get();

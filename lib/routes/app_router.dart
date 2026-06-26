@@ -2,24 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:family_finance_manager/core/widgets/main_shell.dart';
+import 'package:family_finance_manager/features/ai_advisor/presentation/pages/ai_advisor_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/login_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/register_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/budget/presentation/pages/budget_page.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_settings_page.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:family_finance_manager/features/expense/presentation/pages/expense_page.dart';
 import 'package:family_finance_manager/features/family/presentation/pages/family_page.dart';
 import 'package:family_finance_manager/features/income/presentation/pages/income_page.dart';
 import 'package:family_finance_manager/features/savings/presentation/pages/savings_page.dart';
 import 'package:family_finance_manager/features/reports/presentation/pages/reports_page.dart';
+import 'package:family_finance_manager/features/settings/presentation/pages/backup_page.dart';
 import 'package:family_finance_manager/features/settings/presentation/pages/settings_page.dart';
 import 'package:family_finance_manager/features/settings/presentation/pages/privacy_security_page.dart';
+import 'package:family_finance_manager/features/settings/presentation/pages/profile_page.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/transactions_page.dart';
 import 'package:family_finance_manager/features/categories/presentation/pages/categories_page.dart';
 import 'package:family_finance_manager/features/debts/presentation/pages/debts_page.dart';
 import 'package:family_finance_manager/features/recurring/presentation/pages/recurring_page.dart';
+import 'package:family_finance_manager/features/receipt_scanner/presentation/pages/receipt_scanner_page.dart';
 import 'package:family_finance_manager/features/wallets/presentation/pages/wallets_page.dart';
+import 'package:family_finance_manager/features/wishlist/presentation/pages/wishlist_page.dart';
+import 'package:family_finance_manager/features/qr_scanner/presentation/pages/qr_scanner_page.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -59,7 +66,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ForgotPasswordPage(),
       ),
       ShellRoute(
-        builder: (context, state, child) => MainShell(child: child),
+        builder: (context, state, child) =>
+            MainShell(location: state.uri.path, child: child),
         routes: [
           GoRoute(
             path: '/dashboard',
@@ -92,6 +100,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ReportsPage(),
           ),
           GoRoute(
+            path: '/ai-advisor',
+            name: 'aiAdvisor',
+            builder: (context, state) => const AiAdvisorPage(),
+          ),
+          GoRoute(
+            path: '/dashboard-settings',
+            name: 'dashboardSettings',
+            builder: (context, state) => const DashboardSettingsPage(),
+          ),
+          GoRoute(
+            path: '/scan-receipt',
+            name: 'scanReceipt',
+            builder: (context, state) => const ReceiptScannerPage(),
+          ),
+          GoRoute(
             path: '/settings',
             name: 'settings',
             builder: (context, state) => const SettingsPage(),
@@ -100,6 +123,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/privacy-security',
             name: 'privacySecurity',
             builder: (context, state) => const PrivacySecurityPage(),
+          ),
+          GoRoute(
+            path: '/settings/profile',
+            name: 'profile',
+            builder: (context, state) => const ProfilePage(),
           ),
           GoRoute(
             path: '/transactions',
@@ -117,6 +145,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const RecurringPage(),
           ),
           GoRoute(
+            path: '/dompet',
+            name: 'dompet',
+            redirect: (context, state) => '/wallets',
+          ),
+          GoRoute(
             path: '/wallets',
             name: 'wallets',
             builder: (context, state) => const WalletsPage(),
@@ -130,6 +163,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/family',
             name: 'family',
             builder: (context, state) => const FamilyPage(),
+          ),
+          GoRoute(
+            path: '/wishlist',
+            name: 'wishlist',
+            builder: (context, state) => const WishlistPage(),
+          ),
+          GoRoute(
+            path: '/scan-qr',
+            name: 'scanQr',
+            builder: (context, state) => const QrScannerPage(),
+          ),
+          GoRoute(
+            path: '/backup',
+            name: 'backup',
+            builder: (context, state) => const BackupPage(),
           ),
         ],
       ),

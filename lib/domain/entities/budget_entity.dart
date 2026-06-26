@@ -5,6 +5,7 @@ class BudgetEntity {
   final String category;
   final double budgetAmount;
   final double usedAmount;
+  final double rolloverAmount;
 
   BudgetEntity({
     required this.id,
@@ -13,10 +14,12 @@ class BudgetEntity {
     required this.category,
     required this.budgetAmount,
     this.usedAmount = 0,
+    this.rolloverAmount = 0,
   });
 
-  double get remaining => budgetAmount - usedAmount;
-  double get percentage => budgetAmount > 0 ? (usedAmount / budgetAmount) * 100 : 0;
-  bool get isExceeded => usedAmount > budgetAmount;
+  double get remaining => budgetAmount - usedAmount + rolloverAmount;
+  double get effectiveBudget => budgetAmount + rolloverAmount;
+  double get percentage => effectiveBudget > 0 ? (usedAmount / effectiveBudget) * 100 : 0;
+  bool get isExceeded => usedAmount > effectiveBudget;
   bool get isAlmostExceeded => percentage >= 80;
 }

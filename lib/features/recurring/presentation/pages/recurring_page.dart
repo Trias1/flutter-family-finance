@@ -4,6 +4,7 @@ import 'package:family_finance_manager/core/constants/app_constants.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
+import 'package:family_finance_manager/core/widgets/empty_widget.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/recurring_model.dart';
@@ -35,24 +36,8 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
               AppErrorWidget(message: 'Gagal memuat: $e', onRetry: () {}),
           data: (list) {
             if (list.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.repeat,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Belum ada transaksi berulang',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+              return const EmptyWidget(
+                message: 'Belum ada transaksi berulang',
               );
             }
             return RefreshIndicator(
@@ -235,6 +220,7 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
   int? _dayOfMonth;
   DateTime _startDate = DateTime.now();
   DateTime? _endDate;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -396,7 +382,7 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submit,
+                  onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -405,7 +391,13 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Simpan'),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Simpan'),
                 ),
               ),
             ],
@@ -416,7 +408,10 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
   }
 
   void _submit() async {
+    if (_isSubmitting) return;
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
     final familyId = ref.read(financeScopeIdProvider);
     final userId = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
     final amount = double.parse(
@@ -478,12 +473,15 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
         );
 
     if (mounted) {
-      Navigator.pop(context);
       if (err != null) {
+        setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
         );
+        return;
       }
+      ref.invalidate(recurringStreamProvider(familyId));
+      Navigator.pop(context);
     }
   }
 }

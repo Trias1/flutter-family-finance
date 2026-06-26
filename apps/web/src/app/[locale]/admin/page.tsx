@@ -331,7 +331,7 @@ export default function AdminPage() {
                 <XAxis dataKey="day" stroke="var(--text-muted)" />
                 <YAxis stroke="var(--text-muted)" />
                 <Tooltip />
-                <Bar dataKey="users" fill="#2E7D32" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="users" fill="#6B3F2A" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="active" fill="#42A5F5" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -528,7 +528,7 @@ function MiniStat({ label, value }: { label: string; value: string | number }) {
   )
 }
 
-function StatCard({ title, value, hint, accent = "#2E7D32", suffix = "" }: { title: string; value: number | string; hint: string; accent?: string; suffix?: string }) {
+function StatCard({ title, value, hint, accent = "#6B3F2A", suffix = "" }: { title: string; value: number | string; hint: string; accent?: string; suffix?: string }) {
   return (
     <div className="rounded-2xl border p-5 smooth-card" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border)", boxShadow: "var(--shadow-soft)" }}>
       <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>{title}</p>

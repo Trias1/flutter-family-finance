@@ -13,8 +13,8 @@ function fmt(n: number) {
 }
 
 const EXPENSE = "#EF5350"
-const GREEN = "#2E7D32"
-const GREEN_LIGHT = "#66BB6A"
+const GREEN = "#6B3F2A"
+const GREEN_LIGHT = "#D97706"
 
 export default function BudgetSavingsPage() {
   const t = useTranslations()

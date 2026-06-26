@@ -4,7 +4,7 @@ import { boolValue, requireSuperadmin, stringValue } from "../_lib/firebase-rest
 
 export const runtime = "nodejs"
 
-const APK_URL = "https://finance-family-prod.vercel.app/FamilyFinance.apk"
+const APK_URL = "https://family-finance.tzm.web.id/FamilyFinance.apk"
 
 export async function POST(req: NextRequest) {
   try {

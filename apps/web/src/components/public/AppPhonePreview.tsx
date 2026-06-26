@@ -4,7 +4,7 @@ export default function AppPhonePreview({ variant = "dashboard", className = "",
   return (
     <div style={style} className={`animate-screen-glow relative h-[360px] w-[178px] rounded-[2rem] border border-white/15 bg-[#0E1628]/90 p-2 shadow-[0_30px_80px_rgba(0,0,0,0.35)] backdrop-blur-md ${className}`}>
       <div className="absolute left-1/2 top-0 z-10 h-5 w-24 -translate-x-1/2 rounded-b-2xl bg-[#05070D]" />
-      <div className="h-full overflow-hidden rounded-[1.5rem] bg-[#F5F6FA] pt-6">
+      <div className="h-full overflow-hidden rounded-[1.5rem] bg-[#FAF7F2] pt-6">
         <div className="flex items-center justify-between px-3 text-[9px] font-semibold text-gray-500">
           <span>9:41</span>
           <span>100%</span>
@@ -22,7 +22,7 @@ export default function AppPhonePreview({ variant = "dashboard", className = "",
 function DashboardScreen() {
   return (
     <div className="px-3 pt-3">
-      <div className="rounded-2xl bg-gradient-to-br from-[#2E7D32] to-[#66BB6A] p-4 text-white">
+      <div className="rounded-2xl bg-gradient-to-br from-[#6B3F2A] to-[#D97706] p-4 text-white">
         <p className="text-[10px] text-white/80">Total Saldo</p>
         <p className="mt-1 text-lg font-bold">Rp12.500.000</p>
         <div className="mt-3 flex gap-3 text-[10px] text-white/80">
@@ -33,7 +33,7 @@ function DashboardScreen() {
       <div className="mt-3 grid grid-cols-4 gap-2 text-center text-[9px] text-gray-500">
         {["Dompet", "Masuk", "Keluar", "Laporan"].map((item) => (
           <div key={item} className="rounded-xl bg-white px-1 py-2 shadow-sm">
-            <div className="mx-auto mb-1 h-7 w-7 rounded-lg bg-[#E8F5E9]" />
+            <div className="mx-auto mb-1 h-7 w-7 rounded-lg bg-[#F3E7D8]" />
             {item}
           </div>
         ))}
@@ -61,7 +61,7 @@ function WalletScreen() {
     <div className="px-3 pt-3">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-[#1B1B1F]">Dompet Saya</p>
-        <span className="text-[10px] font-medium text-[#2E7D32]">+ Tambah</span>
+        <span className="text-[10px] font-medium text-[#6B3F2A]">+ Tambah</span>
       </div>
       <div className="mt-3 space-y-2">
         {[
@@ -74,14 +74,14 @@ function WalletScreen() {
               <p className="text-[11px] font-semibold text-[#1B1B1F]">{name}</p>
               <p className="text-[10px] text-gray-400">{amount}</p>
             </div>
-            <div className="h-8 w-8 rounded-lg bg-[#E8F5E9]" />
+            <div className="h-8 w-8 rounded-lg bg-[#F3E7D8]" />
           </div>
         ))}
       </div>
       <div className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
         <p className="text-[10px] font-semibold text-[#1B1B1F]">Transfer Antar Dompet</p>
         <div className="mt-3 h-2 rounded-full bg-gray-100">
-          <div className="h-2 w-2/3 rounded-full bg-[#66BB6A]" />
+          <div className="h-2 w-2/3 rounded-full bg-[#D97706]" />
         </div>
       </div>
       <div className="mt-3 rounded-2xl bg-white p-3 shadow-sm">
@@ -104,7 +104,7 @@ function ReportsScreen() {
           {[
             ["Masuk", "8.5jt", "#4CAF50"],
             ["Keluar", "3.2jt", "#EF5350"],
-            ["Sisa", "5.3jt", "#2E7D32"],
+            ["Sisa", "5.3jt", "#6B3F2A"],
           ].map(([label, value, color]) => (
             <div key={label} className="rounded-xl bg-[#F8FAFC] p-2">
               <p className="text-[9px] text-gray-400">{label}</p>
@@ -112,10 +112,10 @@ function ReportsScreen() {
             </div>
           ))}
         </div>
-        <div className="mt-4 h-20 rounded-2xl bg-gradient-to-t from-[#E8F5E9] to-white p-3">
+        <div className="mt-4 h-20 rounded-2xl bg-gradient-to-t from-[#F3E7D8] to-white p-3">
           <div className="flex h-full items-end justify-between gap-1">
             {[32, 55, 40, 78, 62, 84].map((height, index) => (
-              <div key={index} className="w-full rounded-t-md bg-[#2E7D32]/85" style={{ height }} />
+              <div key={index} className="w-full rounded-t-md bg-[#6B3F2A]/85" style={{ height }} />
             ))}
           </div>
         </div>

@@ -15,7 +15,7 @@
         android:pathData="M36,38L72,38L66,32L42,32L36,38Z" />
     <!-- coin circle -->
     <path
-        android:fillColor="#2E7D32"
+        android:fillColor="#D97706"
         android:pathData="M49,56m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
     <!-- dollar sign -->
     <path

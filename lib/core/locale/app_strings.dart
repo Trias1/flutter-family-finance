@@ -13,7 +13,7 @@ class AppStrings {
   String get transactions => _id ? 'Riwayat' : 'History';
   String get debts => _id ? 'Hutang' : 'Debts';
   String get wallets => _id ? 'Dompet' : 'Wallets';
-  String get savings => _id ? 'Tabungan' : 'Savings';
+  String get savings => 'Goals';
   String get budget => _id ? 'Anggaran' : 'Budget';
   String get reports => _id ? 'Laporan' : 'Reports';
   String get recurring => _id ? 'Berulang' : 'Recurring';
@@ -22,6 +22,8 @@ class AppStrings {
   String get settings => _id ? 'Pengaturan' : 'Settings';
   String get privacySecurity =>
       _id ? 'Privasi & Keamanan' : 'Privacy & Security';
+  String get profile => _id ? 'Profil' : 'Profile';
+  String get completeGuide => _id ? 'Panduan Lengkap' : 'Complete Guide';
   String get user => _id ? 'Pengguna' : 'User';
   String get logout => _id ? 'Keluar' : 'Sign Out';
   String get later => _id ? 'Nanti' : 'Later';

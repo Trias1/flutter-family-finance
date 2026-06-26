@@ -22,14 +22,8 @@ service cloud.firestore {
         : null;
     }
 
-    function sameFamily() {
-      let fid = userFamilyId();
-      return fid != null && resource.data.familyId == fid;
-    }
-
-    function sameFamilyOnWrite() {
-      let fid = userFamilyId();
-      return fid != null && request.resource.data.familyId == fid;
+    function unchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
     }
 
     function canReadFinance() {
@@ -44,6 +38,18 @@ service cloud.firestore {
         || (fid != null && request.resource.data.familyId == fid);
     }
 
+    function canUpdateFinance() {
+      return canReadFinance()
+        && canWriteFinance()
+        && request.resource.data.familyId == resource.data.familyId
+        && unchanged(['familyId', 'createdAt', 'createdBy', 'systemRole']);
+    }
+
+    function canUpdateOwnedFinance() {
+      return canUpdateFinance()
+        && request.resource.data.userId == resource.data.userId;
+    }
+
     function canReadDebtFinance(debtId) {
       let debt = get(/databases/$(database)/documents/debts/$(debtId));
       let fid = userFamilyId();
@@ -51,8 +57,9 @@ service cloud.firestore {
         || (fid != null && debt.data.familyId == fid);
     }
 
-    function isOwner() {
-      return request.auth.uid == resource.data.uid;
+    function isTokenOwnerOnCreate() {
+      return request.resource.data.uid == request.auth.uid
+        && request.resource.data.token is string;
     }
 
     // ============ USERS ============
@@ -65,12 +72,15 @@ service cloud.firestore {
         && !request.resource.data.keys().hasAny(['systemRole']);
       allow update: if isAuth() && (
         (request.auth.uid == uid
+            && unchanged(['createdAt', 'createdBy', 'systemRole', 'uid', 'userId'])
             && request.resource.data.systemRole == resource.data.systemRole)
         || (resource.data.familyId != null
+            && unchanged(['createdAt', 'createdBy', 'systemRole', 'uid', 'userId'])
             && request.resource.data.systemRole == resource.data.systemRole
             && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.createdBy == request.auth.uid)
         || (request.resource.data.familyId == null
             && resource.data.familyId != null
+            && unchanged(['createdAt', 'createdBy', 'systemRole', 'uid', 'userId'])
             && request.resource.data.systemRole == resource.data.systemRole
             && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.createdBy == request.auth.uid)
       );
@@ -99,7 +109,7 @@ service cloud.firestore {
 
     match /{path=**}/devices/{deviceId} {
       allow read: if isAdmin();
-      allow create: if isAuth();
+      allow create: if false;
       allow update: if isAuth() && resource.data.uid == request.auth.uid;
       allow delete: if isAuth() && resource.data.uid == request.auth.uid;
     }
@@ -110,7 +120,9 @@ service cloud.firestore {
       allow get: if isAuth() && (userFamilyId() == familyId || resource.data.createdBy == request.auth.uid);
       allow list: if isAuth() && resource.data.inviteCode != null && request.query.limit <= 1;
       allow create: if isAuth() && request.resource.data.name is string;
-      allow update: if isAuth() && resource.data.createdBy == request.auth.uid;
+      allow update: if isAuth()
+        && resource.data.createdBy == request.auth.uid
+        && unchanged(['createdAt', 'createdBy', 'systemRole']);
       allow delete: if false;
     }
 
@@ -122,7 +134,7 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance();
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -130,7 +142,7 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateOwnedFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -138,7 +150,7 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateOwnedFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -146,7 +158,7 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance();
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -154,7 +166,7 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance();
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -162,7 +174,7 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateOwnedFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -173,6 +185,8 @@ service cloud.firestore {
         && request.resource.data.debtId != null
         && canReadDebtFinance(request.resource.data.debtId);
       allow update: if isAuth()
+        && request.resource.data.debtId == resource.data.debtId
+        && unchanged(['debtId', 'createdAt', 'createdBy', 'familyId', 'userId', 'systemRole'])
         && canReadDebtFinance(resource.data.debtId)
         && canReadDebtFinance(request.resource.data.debtId);
       allow delete: if isAuth() && canReadDebtFinance(resource.data.debtId);
@@ -182,7 +196,7 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateOwnedFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -190,7 +204,7 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateOwnedFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -198,22 +212,35 @@ service cloud.firestore {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance();
-      allow update: if isAuth() && canReadFinance() && canWriteFinance();
+      allow update: if isAuth() && canUpdateFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
+    match /wishlist/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance();
+      allow update: if isAuth() && canUpdateFinance();
       allow delete: if isAuth() && canReadFinance();
     }
 
     // ============ FCM TOKENS ============
 
     match /fcm_tokens/{tokenId} {
-      allow read: if isAuth() && isOwner();
-      allow write: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow get, list: if isAuth() && resource.data.uid == request.auth.uid;
+      allow create: if isAuth() && isTokenOwnerOnCreate();
+      allow update: if isAuth()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && unchanged(['uid', 'createdAt', 'createdBy', 'familyId', 'userId', 'systemRole']);
+      allow delete: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
     }
 
-    // ============ APP CONFIG (public read & write) ============
+    // ============ APP CONFIG ============
 
     match /app_config/{docId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isAdmin();
     }
 
     // ============ DEFAULT: DENY ALL ============

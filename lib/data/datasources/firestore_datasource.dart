@@ -12,6 +12,7 @@ import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/data/models/transfer_model.dart';
 import 'package:family_finance_manager/data/models/user_model.dart';
 import 'package:family_finance_manager/data/models/wallet_model.dart';
+import 'package:family_finance_manager/data/models/wishlist_item_model.dart';
 
 class FirestoreDataSource {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -361,6 +362,8 @@ class FirestoreDataSource {
       _firestore.collection(FirestoreConstants.wallets);
   CollectionReference<Map<String, dynamic>> get _transfers =>
       _firestore.collection(FirestoreConstants.transfers);
+  CollectionReference<Map<String, dynamic>> get _wishlist =>
+      _firestore.collection(FirestoreConstants.wishlist);
 
   Future<void> createWallet(WalletModel wallet) {
     return _wallets.add(wallet.toFirestore());
@@ -404,6 +407,37 @@ class FirestoreDataSource {
         .toList();
     list.sort((a, b) => b.date.compareTo(a.date));
     return list;
+  }
+
+  Future<void> setWishlistItem(WishlistItemModel item) async {
+    if (item.id.isEmpty) {
+      await _wishlist.add(item.toFirestore());
+    } else {
+      await _wishlist.doc(item.id).set(item.toFirestore(), SetOptions(merge: true));
+    }
+  }
+
+  Future<List<WishlistItemModel>> getWishlistItems(String familyId) async {
+    final snapshot = await _wishlist
+        .where('familyId', isEqualTo: familyId)
+        .get();
+    final list = snapshot.docs
+        .map((doc) => WishlistItemModel.fromFirestore(doc))
+        .toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamWishlistItems(String familyId) {
+    return _wishlist.where('familyId', isEqualTo: familyId).snapshots();
+  }
+
+  Future<void> updateWishlistItem(WishlistItemModel item) {
+    return _wishlist.doc(item.id).update(item.toFirestore());
+  }
+
+  Future<void> deleteWishlistItem(String id) {
+    return _wishlist.doc(id).delete();
   }
 
   Future<void> createCategory(CategoryModel category) {

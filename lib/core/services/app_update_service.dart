@@ -42,7 +42,7 @@ class AppDeviceInfo {
 class AppUpdateService {
   AppUpdateService({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  static const _apkUrl = 'https://finance-family-prod.vercel.app/FamilyFinance.apk';
+  static const _apkUrl = 'https://family-finance.tzm.web.id/FamilyFinance.apk';
   static const _playStoreUrl = null;
   final FirebaseFirestore _firestore;
 
@@ -80,18 +80,6 @@ class AppUpdateService {
 
     final data = doc.data() ?? {};
     final latestCode = (data['latestVersionCode'] as num?)?.toInt() ?? 0;
-
-    // Always upsert Firestore with current version if it's newer
-    if (!doc.exists || currentCode > latestCode) {
-      await _firestore.collection('app_config').doc('android').set({
-        'latestVersionCode': currentCode,
-        'latestVersionName': packageInfo.version,
-        'apkUrl': _apkUrl,
-        'forceUpdate': data['forceUpdate'] == true,
-        'releaseNotes': data['releaseNotes']?.toString() ?? 'Versi terbaru tersedia.',
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
 
     if (latestCode <= currentCode) return null;
 

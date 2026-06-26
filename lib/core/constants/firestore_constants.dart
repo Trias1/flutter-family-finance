@@ -12,4 +12,5 @@ class FirestoreConstants {
   static const String recurringTransactions = 'recurring_transactions';
   static const String wallets = 'wallets';
   static const String transfers = 'transfers';
+  static const String wishlist = 'wishlist';
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
+import 'package:family_finance_manager/core/widgets/empty_widget.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/debt_model.dart';
@@ -76,30 +77,9 @@ class _DebtsPageState extends ConsumerState<DebtsPage>
                             children: [
                               SizedBox(
                                 height:
-                                    MediaQuery.of(context).size.height * 0.3,
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.account_balance_wallet,
-                                        size: 64,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Tidak ada data',
-                                        style: TextStyle(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                    MediaQuery.of(context).size.height * 0.25,
+                                child:
+                                    const EmptyWidget(message: 'Tidak ada data'),
                               ),
                             ],
                           )
@@ -168,6 +148,7 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
   final _descController = TextEditingController();
   DebtType _type = DebtType.hutang;
   DateTime? _dueDate;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -295,7 +276,7 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submit,
+                  onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.expenseColor,
                     foregroundColor: Colors.white,
@@ -304,7 +285,13 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Simpan'),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Simpan'),
                 ),
               ),
             ],
@@ -315,7 +302,10 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
   }
 
   void _submit() async {
+    if (_isSubmitting) return;
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
     final familyId = ref.read(financeScopeIdProvider);
     final userId = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
     final amount = double.parse(
@@ -338,12 +328,15 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
           ),
         );
     if (mounted) {
-      Navigator.pop(context);
       if (err != null) {
+        setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
         );
+        return;
       }
+      ref.invalidate(debtStreamProvider(familyId));
+      Navigator.pop(context);
     }
   }
 }

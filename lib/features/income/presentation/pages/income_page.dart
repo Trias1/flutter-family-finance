@@ -10,7 +10,10 @@ import 'package:family_finance_manager/data/models/income_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/pages/categories_page.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
+import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
+import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
 import 'package:family_finance_manager/features/wallets/presentation/providers/wallet_provider.dart';
 
 class IncomePage extends ConsumerWidget {
@@ -236,6 +239,7 @@ class IncomePage extends ConsumerWidget {
     String? selectedWalletId = income?.walletId;
     final noteController = TextEditingController(text: income?.note ?? '');
     DateTime selectedDate = income?.date ?? DateTime.now();
+    bool isSaving = false;
 
     showModalBottomSheet(
       context: context,
@@ -287,7 +291,7 @@ class IncomePage extends ConsumerWidget {
                       ...categories.map(
                         (c) => DropdownMenuItem(value: c, child: Text(c)),
                       ),
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                         value: '__add_category__',
                         child: Text(
                           '+ Tambah Kategori',
@@ -362,8 +366,12 @@ class IncomePage extends ConsumerWidget {
                   ],
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                      FocusScope.of(ctx).unfocus();
                       if (!formKey.currentState!.validate()) return;
+                      setSheetState(() => isSaving = true);
                       final fId = ref.read(financeScopeIdProvider);
                       final uid =
                           ref.read(currentUserProvider).valueOrNull?.id ?? '';
@@ -380,29 +388,50 @@ class IncomePage extends ConsumerWidget {
                         date: selectedDate,
                       );
                       if (income == null) {
-                        ref
+                        await ref
                             .read(incomeNotifierProvider.notifier)
                             .addIncome(model);
                       } else {
-                        ref
+                        await ref
                             .read(incomeNotifierProvider.notifier)
                             .updateIncome(model);
                       }
+                      ref.invalidate(incomeStreamProvider(fId));
+                      ref.invalidate(dashboardProvider);
+                      ref.invalidate(reportProvider(fId));
+                      await ref.read(transactionHistoryProvider.notifier).load(fId);
+                      if (!ctx.mounted) return;
                       Navigator.pop(ctx);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.incomeColor,
                       foregroundColor: Colors.white,
                     ),
-                    child: Text(income == null ? 'Tambah' : 'Simpan'),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(income == null ? 'Tambah' : 'Simpan'),
                   ),
                   if (income != null) ...[
                     const SizedBox(height: 8),
                     TextButton(
-                      onPressed: () {
-                        ref
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                        FocusScope.of(ctx).unfocus();
+                        setSheetState(() => isSaving = true);
+                        await ref
                             .read(incomeNotifierProvider.notifier)
                             .deleteIncome(income.id);
+                        final fId = ref.read(financeScopeIdProvider);
+                        ref.invalidate(incomeStreamProvider(fId));
+                        ref.invalidate(dashboardProvider);
+                        ref.invalidate(reportProvider(fId));
+                        await ref.read(transactionHistoryProvider.notifier).load(fId);
+                        if (!ctx.mounted) return;
                         Navigator.pop(ctx);
                       },
                       style: TextButton.styleFrom(

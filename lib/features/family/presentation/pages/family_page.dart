@@ -31,6 +31,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
   }
 
   Future<void> _onSubmit() async {
+    FocusScope.of(context).unfocus();
     final userId = _getUserId();
     if (userId == null) return;
 
@@ -130,7 +131,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
                         backgroundImage: getAvatarProvider(m.photoUrl),
                         child: m.photoUrl == null
                             ? Text(m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-                                style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold))
+                                style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold))
                             : null,
                       ),
                       const SizedBox(width: 12),

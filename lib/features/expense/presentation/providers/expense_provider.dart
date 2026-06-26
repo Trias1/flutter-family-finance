@@ -21,6 +21,9 @@ final expenseStreamProvider = StreamProvider.family<List<ExpenseModel>, String>(
 String _monthKey(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}';
 
 Future<void> _updateBudgetForExpense(BudgetRepository budgetRepo, String familyId, String category, double amount, DateTime date) async {
+  // Skip budget update for savings-related transactions
+  if (category == 'Tabungan' || category == 'Savings') return;
+  
   final month = _monthKey(date);
   final budgets = await budgetRepo.getBudgetsByMonth(familyId, month);
   final match = budgets.where((b) => b.category == category).firstOrNull;
@@ -60,12 +63,23 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
       final old = await _repository.getExpense(expense.id);
       await _repository.updateExpense(expense);
       if (old == null) return;
+      
+      // Skip budget update for savings-related transactions
+      final isOldSavings = old.category == 'Tabungan' || old.category == 'Savings';
+      final isNewSavings = expense.category == 'Tabungan' || expense.category == 'Savings';
+      
       if (old.category == expense.category) {
-        final diff = expense.amount - old.amount;
-        if (diff != 0) await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, diff, expense.date);
+        if (!isNewSavings) {
+          final diff = expense.amount - old.amount;
+          if (diff != 0) await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, diff, expense.date);
+        }
       } else {
-        await _updateBudgetForExpense(_budgetRepo, expense.familyId, old.category, -old.amount, old.date);
-        await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, expense.amount, expense.date);
+        if (!isOldSavings) {
+          await _updateBudgetForExpense(_budgetRepo, expense.familyId, old.category, -old.amount, old.date);
+        }
+        if (!isNewSavings) {
+          await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, expense.amount, expense.date);
+        }
       }
     });
   }
@@ -74,11 +88,15 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final expense = await _repository.getExpense(id);
-      if (expense == null) return;
       await _repository.deleteExpense(id);
-      await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, -expense.amount, expense.date);
-      if (expense.walletId != null) {
-        await _adjustWallet(expense.walletId!, expense.amount);
+      if (expense != null) {
+        // Skip budget update for savings-related transactions
+        if (expense.category != 'Tabungan' && expense.category != 'Savings') {
+          await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, -expense.amount, expense.date);
+        }
+        if (expense.walletId != null) {
+          await _adjustWallet(expense.walletId!, expense.amount);
+        }
       }
     });
   }

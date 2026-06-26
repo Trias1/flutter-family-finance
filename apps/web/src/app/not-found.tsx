@@ -10,7 +10,7 @@ export default function NotFound() {
       <Link
         href="/"
         className="mt-8 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-medium text-white transition-all hover:shadow-lg"
-        style={{ backgroundColor: "#2E7D32" }}
+        style={{ backgroundColor: "var(--primary)" }}
       >
         Kembali ke Beranda
       </Link>

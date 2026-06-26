@@ -15,6 +15,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -69,6 +70,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   Future<void> _exportCSV(ReportData data) async {
     if (_isExporting) return;
     setState(() => _isExporting = true);
+    bool dialogShowing = false;
     if (context.mounted) {
       showDialog(
         context: context,
@@ -99,6 +101,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ),
         ),
       );
+      dialogShowing = true;
     }
     try {
       final buffer = StringBuffer();
@@ -116,19 +119,22 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       final dir = await _getTemporaryDirectory();
       final file = File('${dir.path}/laporan_keuangan.csv');
       await file.writeAsString(buffer.toString());
-      if (context.mounted) Navigator.of(context).pop();
       await Share.shareXFiles([XFile(file.path)], text: 'Laporan Keuangan');
     } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal export: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal export: $e'),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
+        });
       }
     } finally {
+      if (dialogShowing && context.mounted) Navigator.of(context).pop();
       if (mounted) setState(() => _isExporting = false);
     }
   }
@@ -136,6 +142,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   Future<void> _exportPDF(ReportData data) async {
     if (_isExporting) return;
     setState(() => _isExporting = true);
+    bool dialogShowing = false;
     if (context.mounted) {
       showDialog(
         context: context,
@@ -166,6 +173,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ),
         ),
       );
+      dialogShowing = true;
     }
     try {
       final pdf = pw.Document();
@@ -237,14 +245,98 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       final dir = await _getTemporaryDirectory();
       final file = File('${dir.path}/laporan_keuangan.pdf');
       await file.writeAsBytes(await pdf.save());
-      if (context.mounted) Navigator.of(context).pop();
       await Share.shareXFiles([XFile(file.path)], text: 'Laporan Keuangan');
     } catch (e) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal export PDF: $e'),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
+        });
+      }
+    } finally {
+      if (dialogShowing && context.mounted) Navigator.of(context).pop();
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _printPDF(ReportData data) async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          build: (pw.Context context) {
+            return [
+              pw.Header(
+                level: 0,
+                text: 'Laporan Keuangan',
+                textStyle: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.Paragraph(
+                text: 'Periode: $_selectedFilter',
+                style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey),
+              ),
+              pw.SizedBox(height: 20),
+              pw.Header(level: 1, text: 'Ringkasan'),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  _pdfStat(
+                    'Total Pemasukan',
+                    CurrencyFormatter.format(data.filteredTotalIncome),
+                    PdfColors.green,
+                  ),
+                  _pdfStat(
+                    'Total Pengeluaran',
+                    CurrencyFormatter.format(data.filteredTotalExpense),
+                    PdfColors.red,
+                  ),
+                  _pdfStat(
+                    'Saldo',
+                    CurrencyFormatter.format(data.filteredTotalBalance),
+                    PdfColors.blue,
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Header(level: 1, text: 'Pemasukan per Kategori'),
+              _pdfCategoryTable(context, data.filteredIncomes
+                  .map((i) => _Cat(i.category, i.amount))
+                  .toList(), 'Pemasukan'),
+              pw.SizedBox(height: 20),
+              pw.Header(level: 1, text: 'Pengeluaran per Kategori'),
+              _pdfCategoryTable(context, data.filteredExpenses
+                  .map((e) => _Cat(e.category, e.amount))
+                  .toList(), 'Pengeluaran'),
+              pw.SizedBox(height: 20),
+              pw.Header(level: 1, text: 'Transaksi'),
+              _pdfTransactionTable(context, data),
+            ];
+          },
+        ),
+      );
+      await Printing.layoutPdf(
+        onLayout: (_) => pdf.save(),
+        format: PdfPageFormat.a4,
+        name: 'Laporan Keuangan',
+      );
+    } catch (e) {
       if (context.mounted) {
-        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal export PDF: $e'),
+            content: Text('Gagal print: $e'),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -522,6 +614,25 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.expenseColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _printPDF(data),
+                        icon: const Icon(Icons.print, size: 18),
+                        label: const Text(
+                          'Print',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.savingsColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(

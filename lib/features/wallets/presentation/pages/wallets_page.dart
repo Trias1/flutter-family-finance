@@ -6,6 +6,7 @@ import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/wallet_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/wallets/presentation/providers/wallet_provider.dart';
 
 class WalletsPage extends ConsumerStatefulWidget {
@@ -136,7 +137,7 @@ class _TotalBalanceCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
         ),
         borderRadius: BorderRadius.circular(16),
@@ -181,11 +182,7 @@ class _WalletCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final typeIcon = wallet.type == WalletType.bank
-        ? Icons.account_balance
-        : wallet.type == WalletType.ewallet
-        ? Icons.phone_iphone
-        : Icons.money;
+    final badge = _walletBadge(wallet);
     final typeLabel = wallet.type == WalletType.bank
         ? 'Bank'
         : wallet.type == WalletType.ewallet
@@ -202,12 +199,24 @@ class _WalletCard extends ConsumerWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                color: badge.color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(typeIcon, color: AppTheme.primaryColor, size: 24),
+              child: Center(
+                child: badge.label != null
+                    ? Text(
+                        badge.label!,
+                        style: TextStyle(
+                          color: badge.color,
+                          fontSize: badge.label!.length > 3 ? 10 : 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      )
+                    : Icon(badge.icon, color: badge.color, size: 24),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -233,7 +242,7 @@ class _WalletCard extends ConsumerWidget {
             ),
             Text(
               CurrencyFormatter.format(wallet.balance),
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
                 color: AppTheme.primaryColor,
@@ -256,6 +265,47 @@ class _WalletCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  _WalletBadge _walletBadge(WalletModel wallet) {
+    final name = wallet.name.toLowerCase();
+    if (name.contains('bca')) return _WalletBadge('BCA', null, Colors.blue);
+    if (name.contains('bri')) return _WalletBadge('BRI', null, Colors.indigo);
+    if (name.contains('bni')) return _WalletBadge('BNI', null, Colors.orange);
+    if (name.contains('mandiri'))
+      return _WalletBadge('MDR', null, Colors.amber);
+    if (name.contains('cimb')) return _WalletBadge('CIMB', null, Colors.red);
+    if (name.contains('permata'))
+      return _WalletBadge('PMT', null, Colors.redAccent);
+    if (name.contains('jago')) return _WalletBadge('JAGO', null, Colors.orange);
+    if (name.contains('seabank') || name.contains('sea bank')) {
+      return _WalletBadge('SEA', null, Colors.deepOrange);
+    }
+    if (name.contains('dana')) return _WalletBadge('DANA', null, Colors.blue);
+    if (name.contains('gopay') || name.contains('go pay')) {
+      return _WalletBadge('GPAY', null, Colors.green);
+    }
+    if (name.contains('ovo')) return _WalletBadge('OVO', null, Colors.purple);
+    if (name.contains('shopee'))
+      return _WalletBadge('SPAY', null, Colors.deepOrange);
+    if (name.contains('linkaja') || name.contains('link aja')) {
+      return _WalletBadge('LINK', null, Colors.red);
+    }
+    if (wallet.type == WalletType.bank) {
+      return _WalletBadge(
+        null,
+        Icons.account_balance,
+        AppTheme.primaryColor,
+      );
+    }
+    if (wallet.type == WalletType.ewallet) {
+      return const _WalletBadge(
+        null,
+        Icons.phone_iphone,
+        AppTheme.savingsColor,
+      );
+    }
+    return const _WalletBadge(null, Icons.money, AppTheme.warningColor);
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -296,6 +346,14 @@ class _WalletCard extends ConsumerWidget {
   }
 }
 
+class _WalletBadge {
+  final String? label;
+  final IconData? icon;
+  final Color color;
+
+  const _WalletBadge(this.label, this.icon, this.color);
+}
+
 class _WalletFormSheet extends ConsumerStatefulWidget {
   final WalletModel? wallet;
   const _WalletFormSheet({this.wallet});
@@ -309,6 +367,7 @@ class _WalletFormSheetState extends ConsumerState<_WalletFormSheet> {
   final _nameController = TextEditingController();
   final _balanceController = TextEditingController();
   WalletType _type = WalletType.cash;
+  bool _isSubmitting = false;
 
   bool get _isEdit => widget.wallet != null;
 
@@ -407,7 +466,7 @@ class _WalletFormSheetState extends ConsumerState<_WalletFormSheet> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submit,
+                  onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -416,7 +475,13 @@ class _WalletFormSheetState extends ConsumerState<_WalletFormSheet> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Simpan'),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Simpan'),
                 ),
               ),
             ],
@@ -427,7 +492,10 @@ class _WalletFormSheetState extends ConsumerState<_WalletFormSheet> {
   }
 
   void _submit() async {
+    if (_isSubmitting) return;
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
     final wallet = widget.wallet;
     final familyId = ref.read(financeScopeIdProvider);
     final balance =
@@ -449,14 +517,20 @@ class _WalletFormSheetState extends ConsumerState<_WalletFormSheet> {
     final err = _isEdit
         ? await notifier.updateWallet(data)
         : await notifier.createWallet(data);
+    ref.invalidate(walletStreamProvider(familyId));
+    ref.invalidate(dashboardProvider);
     if (mounted) {
-      Navigator.pop(context);
       if (err != null) {
+        setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
         );
-      } else if (_isEdit) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      if (_isEdit) {
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Dompet berhasil diperbarui'),
             backgroundColor: AppTheme.incomeColor,
@@ -481,6 +555,7 @@ class _TransferSheetState extends ConsumerState<_TransferSheet> {
   final _noteController = TextEditingController();
   String? _fromWalletId;
   String? _toWalletId;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -604,7 +679,7 @@ class _TransferSheetState extends ConsumerState<_TransferSheet> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submit,
+                  onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -613,7 +688,13 @@ class _TransferSheetState extends ConsumerState<_TransferSheet> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Transfer'),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Transfer'),
                 ),
               ),
             ],
@@ -624,7 +705,10 @@ class _TransferSheetState extends ConsumerState<_TransferSheet> {
   }
 
   void _submit() async {
+    if (_isSubmitting) return;
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
     final familyId = ref.read(financeScopeIdProvider);
     final amount = double.parse(
       _amountController.text.replaceAll('.', '').replaceAll(',', '.'),
@@ -642,20 +726,24 @@ class _TransferSheetState extends ConsumerState<_TransferSheet> {
           _noteController.text.isEmpty ? null : _noteController.text.trim(),
           familyId,
         );
+    ref.invalidate(walletStreamProvider(familyId));
+    ref.invalidate(dashboardProvider);
     if (mounted) {
-      Navigator.pop(context);
       if (err != null) {
+        setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        return;
+      }
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(
           const SnackBar(
             content: Text('Transfer berhasil'),
             backgroundColor: AppTheme.incomeColor,
           ),
-        );
-      }
+      );
     }
   }
 }

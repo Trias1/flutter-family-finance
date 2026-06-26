@@ -10,8 +10,11 @@ import 'package:family_finance_manager/data/models/expense_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/pages/categories_page.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/expense/presentation/providers/expense_provider.dart';
+import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
 import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
+import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
 import 'package:family_finance_manager/features/wallets/presentation/providers/wallet_provider.dart';
 
 class ExpensePage extends ConsumerWidget {
@@ -240,6 +243,7 @@ class ExpensePage extends ConsumerWidget {
     final noteController = TextEditingController(text: expense?.note ?? '');
     DateTime selectedDate = expense?.date ?? DateTime.now();
     String? selectedSavingId;
+    bool isSaving = false;
 
     if (!context.mounted) return;
 
@@ -293,7 +297,7 @@ class ExpensePage extends ConsumerWidget {
                       ...categories.map(
                         (c) => DropdownMenuItem(value: c, child: Text(c)),
                       ),
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                         value: '__add_category__',
                         child: Text(
                           '+ Tambah Kategori',
@@ -391,8 +395,12 @@ class ExpensePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () async {
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                      FocusScope.of(ctx).unfocus();
                       if (!formKey.currentState!.validate()) return;
+                      setSheetState(() => isSaving = true);
                       final fId = ref.read(financeScopeIdProvider);
                       final uid =
                           ref.read(currentUserProvider).valueOrNull?.id ?? '';
@@ -426,21 +434,40 @@ class ExpensePage extends ConsumerWidget {
                             .read(expenseNotifierProvider.notifier)
                             .updateExpense(model);
                       }
+                      ref.invalidate(expenseStreamProvider(fId));
+                      ref.invalidate(dashboardProvider);
+                      ref.invalidate(reportProvider(fId));
+                      await ref.read(transactionHistoryProvider.notifier).load(fId);
                       if (ctx.mounted) Navigator.pop(ctx);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.expenseColor,
                       foregroundColor: Colors.white,
                     ),
-                    child: Text(expense == null ? 'Tambah' : 'Simpan'),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(expense == null ? 'Tambah' : 'Simpan'),
                   ),
                   if (expense != null) ...[
                     const SizedBox(height: 8),
                     TextButton(
-                      onPressed: () async {
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                        FocusScope.of(ctx).unfocus();
+                        setSheetState(() => isSaving = true);
                         await ref
                             .read(expenseNotifierProvider.notifier)
                             .deleteExpense(expense.id);
+                        final fId = ref.read(financeScopeIdProvider);
+                        ref.invalidate(expenseStreamProvider(fId));
+                        ref.invalidate(dashboardProvider);
+                        ref.invalidate(reportProvider(fId));
+                        await ref.read(transactionHistoryProvider.notifier).load(fId);
                         if (ctx.mounted) Navigator.pop(ctx);
                       },
                       style: TextButton.styleFrom(

@@ -7,13 +7,38 @@ import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/app_update_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
+import 'package:family_finance_manager/core/theme/theme_provider.dart';
 import 'package:family_finance_manager/core/utils/image_utils.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
+import 'package:family_finance_manager/features/budget/presentation/pages/budget_page.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:family_finance_manager/features/transactions/presentation/pages/transactions_page.dart';
+import 'package:family_finance_manager/features/wallets/presentation/pages/wallets_page.dart';
+
+const _tabRoutes = ['/dashboard', '/wallets', '/transactions', '/budget'];
+const _tabPages = <Widget>[
+  DashboardPage(),
+  WalletsPage(),
+  TransactionsPage(),
+  BudgetPage(),
+];
+
+int _tabIndex(String loc) {
+  if (loc.startsWith('/wallets')) return 1;
+  if (loc.startsWith('/transactions')) return 2;
+  if (loc.startsWith('/budget')) return 3;
+  return 0;
+}
+
+bool _isTabRoute(String loc) {
+  return _tabRoutes.any((r) => loc.startsWith(r));
+}
 
 class MainShell extends ConsumerStatefulWidget {
   final Widget child;
+  final String location;
 
-  const MainShell({super.key, required this.child});
+  const MainShell({super.key, required this.child, required this.location});
 
   @override
   ConsumerState<MainShell> createState() => _MainShellState();
@@ -21,11 +46,54 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   bool _checkedUpdate = false;
+  late PageController _pageController;
+  bool _isProgrammaticUpdate = false;
+  bool _syncScheduled = false;
+  int _currentPage = 0;
+  String _lastLocation = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPage = _tabIndex(widget.location);
+    _pageController = PageController(initialPage: _currentPage);
+    _lastLocation = widget.location;
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onPageChanged(int index) {
+    if (!mounted) return;
+    setState(() {
+      _currentPage = index;
+    });
+    if (!_isProgrammaticUpdate && widget.location != _tabRoutes[index]) {
+      context.go(_tabRoutes[index]);
+    }
+  }
+
+  String _tabTitle(AppStrings strings, int index) {
+    switch (index) {
+      case 0:
+        return strings.dashboard;
+      case 1:
+        return strings.wallets;
+      case 2:
+        return strings.transactions;
+      case 3:
+        return strings.budget;
+      default:
+        return strings.dashboard;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authNotifierProvider).valueOrNull;
-    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     if (user != null && !_checkedUpdate) {
       _checkedUpdate = true;
@@ -34,8 +102,103 @@ class _MainShellState extends ConsumerState<MainShell> {
       );
     }
 
-    if (isDesktop) return _DesktopShell(child: widget.child);
-    return _MobileShell(child: widget.child);
+    final location = widget.location;
+    final isTab = _isTabRoute(location);
+    final targetIndex = _tabIndex(location);
+
+    if (location != _lastLocation) {
+      _lastLocation = location;
+      if (isTab &&
+          _pageController.hasClients &&
+          !_isProgrammaticUpdate &&
+          !_syncScheduled &&
+          _currentPage != targetIndex) {
+        _syncScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_pageController.hasClients) return;
+          _syncScheduled = false;
+          _isProgrammaticUpdate = true;
+          _pageController
+              .animateToPage(
+                targetIndex,
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+              )
+              .whenComplete(() {
+                if (mounted) _isProgrammaticUpdate = false;
+              });
+        });
+      }
+    }
+
+    final strings = AppStrings(ref.watch(localeProvider));
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: !isTab && context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: Text(
+          isTab
+              ? _tabTitle(strings, _currentPage)
+              : strings.titleForRoute(location),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        actions: [_ProfilePopup(user: user)],
+      ),
+      drawer: null,
+      body: SafeArea(
+        child: isTab
+            ? PageView(
+                controller: _pageController,
+                physics: const BouncingScrollPhysics(),
+                onPageChanged: _onPageChanged,
+                children: List.generate(
+                  _tabPages.length,
+                  (i) => _AnimatedPageView(
+                    controller: _pageController,
+                    index: i,
+                    child: _tabPages[i],
+                  ),
+                ),
+              )
+            : widget.child,
+      ),
+      bottomNavigationBar: isTab
+          ? _FloatingBottomNav(
+              currentIndex: _currentPage,
+              onTabChanged: (i) async {
+                if (i == _currentPage) return;
+                _isProgrammaticUpdate = true;
+                await _pageController.animateToPage(
+                  i,
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOutCubic,
+                );
+                if (mounted) {
+                  context.go(_tabRoutes[i]);
+                  _isProgrammaticUpdate = false;
+                }
+              },
+              onFabTap: () => _showAddSheet(context, strings),
+            )
+          : null,
+    );
+  }
+
+  void _showAddSheet(BuildContext context, AppStrings strings) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AddBottomSheet(strings: strings),
+    );
   }
 
   Future<void> _syncDeviceAndCheckUpdate(String uid) async {
@@ -44,9 +207,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       await service.registerDevice(uid);
       final update = await service.checkForUpdate();
       if (update != null && mounted) _showUpdateDialog(update);
-    } catch (_) {
-      // Update tracking must never block users from using the app.
-    }
+    } catch (_) {}
   }
 
   void _showUpdateDialog(AppUpdateInfo update) {
@@ -99,496 +260,259 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 }
 
-class _DesktopShell extends ConsumerWidget {
-  final Widget child;
-  const _DesktopShell({required this.child});
+class _FloatingBottomNav extends ConsumerWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTabChanged;
+  final VoidCallback onFabTap;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authNotifierProvider);
-    final user = authState.valueOrNull;
-    final location = GoRouterState.of(context).matchedLocation;
-
-    return Row(
-      children: [
-        _Sidebar(user: user, currentLocation: location),
-        VerticalDivider(
-          width: 1,
-          thickness: 1,
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
-        Expanded(child: child),
-      ],
-    );
-  }
-}
-
-class _MobileShell extends ConsumerWidget {
-  final Widget child;
-  const _MobileShell({required this.child});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authNotifierProvider);
-    final user = authState.valueOrNull;
-    final location = GoRouterState.of(context).matchedLocation;
-    final strings = AppStrings(ref.watch(localeProvider));
-    final title = strings.titleForRoute(location);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-      ),
-      drawer: _DrawerMenu(user: user, currentLocation: location),
-      body: SafeArea(child: child),
-      bottomNavigationBar: _BottomNav(currentLocation: location),
-    );
-  }
-}
-
-class _BottomNav extends ConsumerWidget {
-  final String currentLocation;
-  const _BottomNav({required this.currentLocation});
-
-  int _index(String loc) {
-    if (loc.startsWith('/income')) return 1;
-    if (loc.startsWith('/expense')) return 2;
-    if (loc.startsWith('/savings')) return 3;
-    if (loc.startsWith('/budget')) return 4;
-    return 0;
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final index = _index(currentLocation);
-    final strings = AppStrings(ref.watch(localeProvider));
-    return NavigationBar(
-      selectedIndex: index,
-      onDestinationSelected: (i) {
-        final routes = [
-          '/dashboard',
-          '/income',
-          '/expense',
-          '/savings',
-          '/budget',
-        ];
-        context.go(routes[i]);
-      },
-      indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-      destinations: [
-        NavigationDestination(
-          icon: const Icon(Icons.dashboard_outlined),
-          selectedIcon: const Icon(
-            Icons.dashboard_rounded,
-            color: AppTheme.primaryColor,
-          ),
-          label: strings.dashboard,
-        ),
-        NavigationDestination(
-          icon: const Icon(Icons.trending_up_outlined),
-          selectedIcon: const Icon(
-            Icons.trending_up_rounded,
-            color: AppTheme.incomeColor,
-          ),
-          label: strings.income,
-        ),
-        NavigationDestination(
-          icon: const Icon(Icons.trending_down_outlined),
-          selectedIcon: const Icon(
-            Icons.trending_down_rounded,
-            color: AppTheme.expenseColor,
-          ),
-          label: strings.expense,
-        ),
-        NavigationDestination(
-          icon: const Icon(Icons.savings_outlined),
-          selectedIcon: const Icon(
-            Icons.savings_rounded,
-            color: AppTheme.savingsColor,
-          ),
-          label: strings.savings,
-        ),
-        NavigationDestination(
-          icon: const Icon(Icons.account_balance_wallet_outlined),
-          selectedIcon: const Icon(
-            Icons.account_balance_wallet_rounded,
-            color: AppTheme.primaryColor,
-          ),
-          label: strings.budget,
-        ),
-      ],
-    );
-  }
-}
-
-class _Sidebar extends ConsumerWidget {
-  final dynamic user;
-  final String currentLocation;
-
-  const _Sidebar({required this.user, required this.currentLocation});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final strings = AppStrings(ref.watch(localeProvider));
-    return Container(
-      width: 250,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          right: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-              ),
-            ),
-            child: Column(
-              children: [
-                GestureDetector(
-                  onTap: () => context.push('/settings'),
-                  child: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    backgroundImage: getAvatarProvider(user?.photoUrl),
-                    child: user?.photoUrl == null
-                        ? Text(
-                            user?.name.isNotEmpty == true
-                                ? user.name[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  user?.name ?? strings.user,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  user?.email ?? '',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 11,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          _SidebarItem(
-            icon: Icons.dashboard_rounded,
-            label: strings.dashboard,
-            route: '/dashboard',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.trending_up_rounded,
-            label: strings.income,
-            route: '/income',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.trending_down_rounded,
-            label: strings.expense,
-            route: '/expense',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.receipt_long_rounded,
-            label: strings.transactions,
-            route: '/transactions',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.swap_horiz_rounded,
-            label: strings.debts,
-            route: '/debts',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.account_balance_wallet_rounded,
-            label: strings.wallets,
-            route: '/wallets',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.savings_rounded,
-            label: strings.savings,
-            route: '/savings',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.account_balance_wallet_rounded,
-            label: strings.budget,
-            route: '/budget',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.assessment_rounded,
-            label: strings.reports,
-            route: '/reports',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.repeat_rounded,
-            label: strings.recurring,
-            route: '/recurring',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.category_rounded,
-            label: strings.categories,
-            route: '/categories',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.family_restroom_rounded,
-            label: strings.family,
-            route: '/family',
-            currentLocation: currentLocation,
-          ),
-          const Spacer(),
-          const Divider(height: 1),
-          _SidebarItem(
-            icon: Icons.settings_rounded,
-            label: strings.settings,
-            route: '/settings',
-            currentLocation: currentLocation,
-          ),
-          _SidebarItem(
-            icon: Icons.privacy_tip_rounded,
-            label: strings.privacySecurity,
-            route: '/privacy-security',
-            currentLocation: currentLocation,
-          ),
-          _LogoutButton(),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
-}
-
-class _SidebarItem extends ConsumerWidget {
-  final IconData icon;
-  final String label;
-  final String route;
-  final String currentLocation;
-
-  const _SidebarItem({
-    required this.icon,
-    required this.label,
-    required this.route,
-    required this.currentLocation,
+  const _FloatingBottomNav({
+    required this.currentIndex,
+    required this.onTabChanged,
+    required this.onFabTap,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final active = currentLocation.startsWith(route);
+    final strings = AppStrings(ref.watch(localeProvider));
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: ListTile(
-        dense: true,
-        selected: active,
-        selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.08),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        leading: Icon(
-          icon,
-          size: 20,
-          color: active
-              ? AppTheme.primaryColor
-              : Theme.of(context).colorScheme.onSurfaceVariant,
+      padding: EdgeInsets.fromLTRB(16, 0, 16, isDesktop ? 16 : 12),
+      child: SizedBox(
+        height: 64,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Spacer(),
+                  _NavItem(
+                    icon: Icons.dashboard_outlined,
+                    selectedIcon: Icons.dashboard_rounded,
+                    label: strings.dashboard,
+                    selected: currentIndex == 0,
+                    onTap: () => onTabChanged(0),
+                  ),
+                  const Spacer(),
+                  _NavItem(
+                    icon: Icons.account_balance_wallet_outlined,
+                    selectedIcon: Icons.account_balance_wallet_rounded,
+                    label: strings.wallets,
+                    selected: currentIndex == 1,
+                    onTap: () => onTabChanged(1),
+                  ),
+                  const Spacer(flex: 2),
+                  _NavItem(
+                    icon: Icons.receipt_long_outlined,
+                    selectedIcon: Icons.receipt_long_rounded,
+                    label: strings.transactions,
+                    selected: currentIndex == 2,
+                    onTap: () => onTabChanged(2),
+                  ),
+                  const Spacer(),
+                  _NavItem(
+                    icon: Icons.pie_chart_outline_outlined,
+                    selectedIcon: Icons.pie_chart_rounded,
+                    label: strings.budget,
+                    selected: currentIndex == 3,
+                    onTap: () => onTabChanged(3),
+                  ),
+                  const Spacer(),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: -20,
+              child: Center(
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: FloatingActionButton(
+                    onPressed: onFabTap,
+                    backgroundColor: AppTheme.primaryColor,
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    child: const Icon(Icons.add_rounded, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-            color: active
-                ? AppTheme.primaryColor
-                : Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        onTap: () => context.go(route),
       ),
     );
   }
 }
 
-class _DrawerMenu extends ConsumerWidget {
-  final dynamic user;
-  final String currentLocation;
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _DrawerMenu({required this.user, required this.currentLocation});
+  const _NavItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: Offset(0, selected ? -3 : 0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? selectedIcon : icon,
+                size: 22,
+                color: selected
+                    ? AppTheme.primaryColor
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected
+                      ? AppTheme.primaryColor
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfilePopup extends ConsumerWidget {
+  final dynamic user;
+
+  const _ProfilePopup({required this.user});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeModeProvider);
     final strings = AppStrings(ref.watch(localeProvider));
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-              ),
+    final isId = locale.languageCode == 'id';
+
+    void openRoute(String route) {
+      Future<void>.delayed(Duration.zero, () {
+        if (context.mounted) context.push(route);
+      });
+    }
+
+    void toggleTheme() {
+      Future<void>.delayed(Duration.zero, () async {
+        final themeNotifier = ref.read(themeModeProvider.notifier);
+        await themeNotifier.toggle();
+      });
+    }
+
+    void logout() {
+      Future<void>.delayed(Duration.zero, () async {
+        final prefs = await SharedPreferences.getInstance();
+        final uid = prefs.getString('biometric_last_uid');
+        final bioEnabled =
+            uid != null && (prefs.getBool('biometric_enabled_$uid') ?? false);
+        if (bioEnabled) {
+          await prefs.setBool('biometric_skip_auto_login', true);
+        }
+        await ref
+            .read(authNotifierProvider.notifier)
+            .signOut(keepGoogleSession: bioEnabled);
+        if (context.mounted) context.go('/login');
+      });
+    }
+
+    return PopupMenuButton<void>(
+      offset: const Offset(0, 48),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          onTap: () => openRoute('/settings/profile'),
+          child: ListTile(
+            leading: const Icon(Icons.person_rounded),
+            title: Text(strings.profile),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () => openRoute('/settings'),
+          child: ListTile(
+            leading: const Icon(Icons.settings_rounded),
+            title: Text(strings.settings),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: toggleTheme,
+          child: ListTile(
+            leading: Icon(
+              themeMode == ThemeMode.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.push('/settings');
-                  },
-                  child: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    backgroundImage: getAvatarProvider(user?.photoUrl),
-                    child: user?.photoUrl == null
-                        ? Text(
-                            user?.name.isNotEmpty == true
-                                ? user.name[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  user?.name ?? strings.user,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  user?.email ?? '',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            title: Text(
+              themeMode == ThemeMode.dark
+                  ? (isId ? 'Mode Terang' : 'Light Mode')
+                  : (isId ? 'Mode Gelap' : 'Dark Mode'),
             ),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
           ),
-          _DrawerItem(
-            icon: Icons.dashboard_rounded,
-            label: strings.dashboard,
-            route: '/dashboard',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.trending_up_rounded,
-            label: strings.income,
-            route: '/income',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.trending_down_rounded,
-            label: strings.expense,
-            route: '/expense',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.receipt_long_rounded,
-            label: strings.transactions,
-            route: '/transactions',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.swap_horiz_rounded,
-            label: strings.debts,
-            route: '/debts',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.account_balance_wallet_rounded,
-            label: strings.wallets,
-            route: '/wallets',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.savings_rounded,
-            label: strings.savings,
-            route: '/savings',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.account_balance_wallet_rounded,
-            label: strings.budget,
-            route: '/budget',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.assessment_rounded,
-            label: strings.reports,
-            route: '/reports',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.repeat_rounded,
-            label: strings.recurring,
-            route: '/recurring',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.category_rounded,
-            label: strings.categories,
-            route: '/categories',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.family_restroom_rounded,
-            label: strings.family,
-            route: '/family',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.settings_rounded,
-            label: strings.settings,
-            route: '/settings',
-            currentLocation: currentLocation,
-          ),
-          _DrawerItem(
-            icon: Icons.privacy_tip_rounded,
-            label: strings.privacySecurity,
-            route: '/privacy-security',
-            currentLocation: currentLocation,
-          ),
-          const Divider(),
-          ListTile(
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: logout,
+          child: ListTile(
             leading: const Icon(
               Icons.logout_rounded,
               color: AppTheme.errorColor,
@@ -597,19 +521,92 @@ class _DrawerMenu extends ConsumerWidget {
               strings.logout,
               style: const TextStyle(color: AppTheme.errorColor),
             ),
-            onTap: () async {
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: CircleAvatar(
+            radius: 18,
+            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+            backgroundImage: getAvatarProvider(user?.photoUrl),
+            child: user?.photoUrl == null
+                ? Text(
+                    user?.name.isNotEmpty == true
+                        ? user.name[0].toUpperCase()
+                        : '?',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  )
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddBottomSheet extends ConsumerWidget {
+  final AppStrings strings;
+
+  const _AddBottomSheet({required this.strings});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final locale = ref.watch(localeProvider);
+    final isId = locale.languageCode == 'id';
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 16, 24, isDesktop ? 24 : 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _AddOption(
+            icon: Icons.trending_up_rounded,
+            color: AppTheme.incomeColor,
+            label: strings.income,
+            onTap: () {
               Navigator.pop(context);
-              final prefs = await SharedPreferences.getInstance();
-              final uid = prefs.getString('biometric_last_uid');
-              final bioEnabled =
-                  uid != null &&
-                  (prefs.getBool('biometric_enabled_$uid') ?? false);
-              if (bioEnabled)
-                await prefs.setBool('biometric_skip_auto_login', true);
-              await ref
-                  .read(authNotifierProvider.notifier)
-                  .signOut(keepGoogleSession: bioEnabled);
-              if (context.mounted) context.go('/login');
+              context.push('/income');
+            },
+          ),
+          const SizedBox(height: 12),
+          _AddOption(
+            icon: Icons.trending_down_rounded,
+            color: AppTheme.expenseColor,
+            label: strings.expense,
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/expense');
+            },
+          ),
+          const SizedBox(height: 12),
+          _AddOption(
+            icon: Icons.camera_alt_rounded,
+            color: AppTheme.savingsColor,
+            label: isId ? 'Pindai Struk' : 'Scan Receipt',
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/scan-receipt');
             },
           ),
         ],
@@ -618,77 +615,87 @@ class _DrawerMenu extends ConsumerWidget {
   }
 }
 
-class _DrawerItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String route;
-  final String currentLocation;
+class _AnimatedPageView extends AnimatedWidget {
+  final int index;
+  final Widget child;
 
-  const _DrawerItem({
-    required this.icon,
-    required this.label,
-    required this.route,
-    required this.currentLocation,
-  });
+  const _AnimatedPageView({
+    required PageController controller,
+    required this.index,
+    required this.child,
+  }) : super(listenable: controller);
 
   @override
   Widget build(BuildContext context) {
-    final active = currentLocation.startsWith(route);
-    return ListTile(
-      leading: Icon(icon, color: active ? AppTheme.primaryColor : null),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-          color: active ? AppTheme.primaryColor : null,
-        ),
+    final controller = listenable as PageController;
+    if (!controller.hasClients) return child;
+
+    final page = controller.page ?? index.toDouble();
+    final distance = (page - index).abs().clamp(0.0, 1.0);
+
+    final scale = 1.0 - (distance * 0.15);
+    final opacity = 1.0 - (distance * 0.6);
+
+    return Opacity(
+      opacity: opacity,
+      child: Transform.scale(
+        scale: scale,
+        alignment: Alignment.center,
+        child: child,
       ),
-      selected: active,
-      selectedTileColor: AppTheme.primaryColor.withValues(alpha: 0.08),
-      onTap: () {
-        Navigator.pop(context);
-        context.go(route);
-      },
     );
   }
 }
 
-class _LogoutButton extends ConsumerWidget {
+class _AddOption extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+
+  const _AddOption({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final strings = AppStrings(ref.watch(localeProvider));
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () async {
-          final prefs = await SharedPreferences.getInstance();
-          final uid = prefs.getString('biometric_last_uid');
-          final bioEnabled =
-              uid != null && (prefs.getBool('biometric_enabled_$uid') ?? false);
-          if (bioEnabled)
-            await prefs.setBool('biometric_skip_auto_login', true);
-          await ref
-              .read(authNotifierProvider.notifier)
-              .signOut(keepGoogleSession: bioEnabled);
-          if (context.mounted) context.go('/login');
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withValues(alpha: 0.12)),
+          ),
           child: Row(
             children: [
-              const Icon(
-                Icons.logout_rounded,
-                size: 20,
-                color: AppTheme.errorColor,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                strings.logout,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),
