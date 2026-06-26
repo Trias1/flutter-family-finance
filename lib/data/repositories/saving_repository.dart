@@ -16,6 +16,11 @@ class SavingRepository {
     return _dataSource.streamSavings(familyId);
   }
 
+  Future<List<SavingModel>> getSavings(String familyId) async {
+    final snapshot = await _dataSource.streamSavings(familyId).first;
+    return snapshot.docs.map((doc) => SavingModel.fromFirestore(doc)).toList();
+  }
+
   Future<void> updateSaving(SavingModel saving) {
     return _dataSource.updateSaving(saving);
   }

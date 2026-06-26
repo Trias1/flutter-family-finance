@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
-import 'package:family_finance_manager/core/services/prediction_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
-import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
+import 'package:family_finance_manager/data/models/expense_model.dart';
+import 'package:family_finance_manager/data/models/income_model.dart';
 import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_settings_page.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 
@@ -43,9 +44,23 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
     return dashboardAsync.when(
       loading: () => const LoadingWidget(message: 'Memuat dashboard...'),
-      error: (e, _) => AppErrorWidget(
-        message: 'Gagal memuat dashboard: $e',
-        onRetry: () => ref.invalidate(dashboardProvider),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(title: const Text('Dashboard')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Gagal memuat dashboard: $e'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(dashboardProvider),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
       ),
       data: (data) {
         return RefreshIndicator(
@@ -66,10 +81,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 if (dashboardSections['progress'] ?? true) ...[
                   const SizedBox(height: 16),
                   _buildProgressRow(data, isId),
-                ],
-                if (data.prediction != null) ...[
-                  const SizedBox(height: 12),
-                  _buildPredictionCard(data.prediction!, isId),
                 ],
                 if (dashboardSections['calendar'] ?? true) ...[
                   const SizedBox(height: 16),
@@ -238,69 +249,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPredictionCard(PredictionResult prediction, bool isId) {
-    final isPositive = prediction.predictedEndBalance >= 0;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isPositive
-              ? [AppTheme.incomeColor.withValues(alpha: 0.08), AppTheme.incomeColor.withValues(alpha: 0.02)]
-              : [AppTheme.expenseColor.withValues(alpha: 0.08), AppTheme.expenseColor.withValues(alpha: 0.02)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isPositive
-              ? AppTheme.incomeColor.withValues(alpha: 0.2)
-              : AppTheme.expenseColor.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.timeline_rounded,
-                size: 16,
-                color: isPositive ? AppTheme.incomeColor : AppTheme.expenseColor,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                isId ? 'Prediksi 30 Hari' : '30-Day Prediction',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _PredMiniStat(
-                label: isId ? 'Rata2 Pemasukan' : 'Avg Income',
-                value: CurrencyFormatter.format(prediction.averageDailyIncome),
-                color: AppTheme.incomeColor,
-              ),
-              _PredMiniStat(
-                label: isId ? 'Rata2 Pengeluaran' : 'Avg Expense',
-                value: CurrencyFormatter.format(prediction.averageDailyExpense),
-                color: AppTheme.expenseColor,
-              ),
-              _PredMiniStat(
-                label: isId ? 'Proyeksi Akhir' : 'Projected End',
-                value: CurrencyFormatter.format(prediction.predictedEndBalance),
-                color: isPositive ? AppTheme.incomeColor : AppTheme.expenseColor,
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 

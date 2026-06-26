@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
+import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/data/repositories/budget_repository.dart';
+import 'package:family_finance_manager/data/repositories/saving_repository.dart';
 import 'package:family_finance_manager/data/repositories/transaction_repository.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
@@ -38,17 +40,52 @@ Future<void> _updateBudgetForExpense(BudgetRepository budgetRepo, String familyI
   await budgetRepo.updateBudget(updated);
 }
 
+Future<void> _updateGoalsForSavingsExpense(SavingRepository savingRepo, String familyId, String note, double amount) async {
+  // If expense is Tabungan category, deduct from matching Goals by name in note
+  final savings = await savingRepo.getSavings(familyId);
+  
+  // Try to find matching saving by name in note
+  final noteLower = note.toLowerCase();
+  final match = savings.where((s) => noteLower.contains(s.name.toLowerCase())).firstOrNull;
+  
+  if (match != null && match.currentAmount >= amount) {
+    final updated = SavingModel(
+      id: match.id,
+      familyId: match.familyId,
+      name: match.name,
+      targetAmount: match.targetAmount,
+      currentAmount: match.currentAmount - amount,
+      bankName: match.bankName,
+      targetDate: match.targetDate,
+      createdAt: match.createdAt,
+      category: match.category,
+      goldType: match.goldType,
+      goldGrams: match.goldGrams,
+      purchasePricePerGram: match.purchasePricePerGram,
+      currentPricePerGram: match.currentPricePerGram,
+      purchaseSource: match.purchaseSource,
+    );
+    await savingRepo.updateSaving(updated);
+  }
+}
+
 class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   final TransactionRepository _repository;
   final BudgetRepository _budgetRepo;
+  final SavingRepository _savingRepo;
 
-  ExpenseNotifier(this._repository, this._budgetRepo) : super(const AsyncValue.data(null));
+  ExpenseNotifier(this._repository, this._budgetRepo, this._savingRepo) : super(const AsyncValue.data(null));
 
   Future<void> addExpense(ExpenseModel expense) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       await _repository.createExpense(expense);
       await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, expense.amount, expense.date);
+      
+      // If expense is Tabungan, deduct from matching Goals
+      if ((expense.category == 'Tabungan' || expense.category == 'Savings') && expense.note != null && expense.note!.isNotEmpty) {
+        await _updateGoalsForSavingsExpense(_savingRepo, expense.familyId, expense.note!, expense.amount);
+      }
     });
   }
 
@@ -98,5 +135,6 @@ final expenseNotifierProvider = StateNotifierProvider<ExpenseNotifier, AsyncValu
   return ExpenseNotifier(
     ref.watch(transactionRepositoryProvider),
     BudgetRepository(dataSource: ref.watch(firestoreDataSourceProvider)),
+    SavingRepository(dataSource: ref.watch(firestoreDataSourceProvider)),
   );
 });

@@ -81,11 +81,11 @@ class _MainShellState extends ConsumerState<MainShell> {
       case 0:
         return strings.dashboard;
       case 1:
-        return strings.wallets;
-      case 2:
         return strings.transactions;
-      case 3:
+      case 2:
         return strings.budget;
+      case 3:
+        return strings.profile;
       default:
         return strings.dashboard;
     }
