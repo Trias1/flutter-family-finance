@@ -13,17 +13,20 @@ import 'package:family_finance_manager/features/auth/presentation/providers/auth
 import 'package:family_finance_manager/features/budget/presentation/pages/budget_page.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/transactions_page.dart';
+import 'package:family_finance_manager/features/settings/presentation/pages/profile_page.dart';
 
-const _tabRoutes = ['/dashboard', '/transactions', '/budget'];
+const _tabRoutes = ['/dashboard', '/transactions', '/budget', '/profile'];
 const _tabPages = <Widget>[
   DashboardPage(),
   TransactionsPage(),
   BudgetPage(),
+  ProfilePage(),
 ];
 
 int _tabIndex(String loc) {
   if (loc.startsWith('/transactions')) return 1;
   if (loc.startsWith('/budget')) return 2;
+  if (loc.startsWith('/profile')) return 3;
   return 0;
 }
 
@@ -277,71 +280,60 @@ class _FloatingBottomNav extends ConsumerWidget {
       padding: EdgeInsets.fromLTRB(16, 0, 16, isDesktop ? 16 : 12),
       child: SizedBox(
         height: 64,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              height: 56,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+        child: Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
               ),
-              child: Row(
-                children: [
-                  const Spacer(),
-                  _NavItem(
-                    icon: Icons.dashboard_outlined,
-                    selectedIcon: Icons.dashboard_rounded,
-                    label: strings.dashboard,
-                    selected: currentIndex == 0,
-                    onTap: () => onTabChanged(0),
-                  ),
-                  const Spacer(flex: 2),
-                  _NavItem(
-                    icon: Icons.receipt_long_outlined,
-                    selectedIcon: Icons.receipt_long_rounded,
-                    label: strings.transactions,
-                    selected: currentIndex == 1,
-                    onTap: () => onTabChanged(1),
-                  ),
-                  const Spacer(),
-                  _NavItem(
-                    icon: Icons.pie_chart_outline_outlined,
-                    selectedIcon: Icons.pie_chart_rounded,
-                    label: strings.budget,
-                    selected: currentIndex == 2,
-                    onTap: () => onTabChanged(2),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: -20,
-              child: Center(
-                child: SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: FloatingActionButton(
-                    onPressed: onFabTap,
-                    backgroundColor: AppTheme.primaryColor,
-                    shape: const CircleBorder(),
-                    elevation: 4,
-                    child: const Icon(Icons.add_rounded, color: Colors.white),
-                  ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.dashboard_outlined,
+                  selectedIcon: Icons.dashboard_rounded,
+                  label: strings.dashboard,
+                  selected: currentIndex == 0,
+                  onTap: () => onTabChanged(0),
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.receipt_long_outlined,
+                  selectedIcon: Icons.receipt_long_rounded,
+                  label: strings.transactions,
+                  selected: currentIndex == 1,
+                  onTap: () => onTabChanged(1),
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.pie_chart_outline_outlined,
+                  selectedIcon: Icons.pie_chart_rounded,
+                  label: strings.budget,
+                  selected: currentIndex == 2,
+                  onTap: () => onTabChanged(2),
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.person_outline_rounded,
+                  selectedIcon: Icons.person_rounded,
+                  label: strings.profile,
+                  selected: currentIndex == 3,
+                  onTap: () => onTabChanged(3),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -365,52 +357,38 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: Offset(0, selected ? -3 : 0),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppTheme.primaryColor.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                selected ? selectedIcon : icon,
-                size: 22,
-                color: selected
-                    ? AppTheme.primaryColor
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.primaryColor.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              selected ? selectedIcon : icon,
+              color: selected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurfaceVariant,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                color: selected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected
-                      ? AppTheme.primaryColor
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
@@ -458,84 +436,26 @@ class _ProfilePopup extends ConsumerWidget {
       });
     }
 
-    return PopupMenuButton<void>(
-      offset: const Offset(0, 48),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          onTap: () => openRoute('/settings/profile'),
-          child: ListTile(
-            leading: const Icon(Icons.person_rounded),
-            title: Text(strings.profile),
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        PopupMenuItem(
-          onTap: () => openRoute('/settings'),
-          child: ListTile(
-            leading: const Icon(Icons.settings_rounded),
-            title: Text(strings.settings),
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          onTap: toggleTheme,
-          child: ListTile(
-            leading: Icon(
-              themeMode == ThemeMode.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
-            ),
-            title: Text(
-              themeMode == ThemeMode.dark
-                  ? (isId ? 'Mode Terang' : 'Light Mode')
-                  : (isId ? 'Mode Gelap' : 'Dark Mode'),
-            ),
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          onTap: logout,
-          child: ListTile(
-            leading: const Icon(
-              Icons.logout_rounded,
-              color: AppTheme.errorColor,
-            ),
-            title: Text(
-              strings.logout,
-              style: const TextStyle(color: AppTheme.errorColor),
-            ),
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-      ],
-      child: SizedBox(
-        width: 48,
-        height: 48,
-        child: Center(
-          child: CircleAvatar(
-            radius: 18,
-            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-            backgroundImage: getAvatarProvider(user?.photoUrl),
-            child: user?.photoUrl == null
-                ? Text(
-                    user?.name.isNotEmpty == true
-                        ? user.name[0].toUpperCase()
-                        : '?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
-                  )
-                : null,
-          ),
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Center(
+        child: CircleAvatar(
+          radius: 18,
+          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+          backgroundImage: getAvatarProvider(user?.photoUrl),
+          child: user?.photoUrl == null
+              ? Text(
+                  user?.name.isNotEmpty == true
+                      ? user.name[0].toUpperCase()
+                      : '?',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                )
+              : null,
         ),
       ),
     );

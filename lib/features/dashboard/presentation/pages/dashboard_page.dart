@@ -117,7 +117,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       (e) => e.date.year == now.year && e.date.month == now.month,
     );
     final monthIncome = monthIncomes.fold<double>(0, (s, e) => s + e.amount);
-    final monthExpense = monthExpenses.fold<double>(0, (s, e) => s + e.amount);
+    // Exclude Tabungan/Savings from expense calculation for budget tracking
+    final monthExpense = monthExpenses.where((e) => e.category != 'Tabungan' && e.category != 'Savings').fold<double>(0, (s, e) => s + e.amount);
 
     final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
     final daysLeft = daysInMonth - now.day + 1;
@@ -680,29 +681,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           padding: const EdgeInsets.only(left: 4, bottom: 12),
           child: Row(
             children: [
-              Expanded(
-                child: Text(
-                  isId ? 'Menu Utama' : 'Main Menu',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: () => context.push('/dashboard-settings'),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.tune_rounded,
-                    size: 18,
-                    color: AppTheme.primaryColor,
-                  ),
+              Text(
+                isId ? 'Menu Utama' : 'Main Menu',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -1059,13 +1042,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   void _showSavingHistory(DashboardData data, SavingModel saving, bool isId) {
     // Filter transactions related to this saving (category "Tabungan" or "Savings")
+    // For expenses: show all Tabungan/Savings category (not filtered by saving name)
     final relatedIncomes = data.allIncomes.where(
-      (i) => (i.category == 'Tabungan' || i.category == 'Savings') && 
-             (i.note?.toLowerCase().contains(saving.name.toLowerCase()) ?? false),
+      (i) => (i.category == 'Tabungan' || i.category == 'Savings'),
     ).toList();
     final relatedExpenses = data.allExpenses.where(
-      (e) => (e.category == 'Tabungan' || e.category == 'Savings') && 
-             (e.note?.toLowerCase().contains(saving.name.toLowerCase()) ?? false),
+      (e) => (e.category == 'Tabungan' || e.category == 'Savings'),
     ).toList();
 
     // Combine and sort by date

@@ -92,6 +92,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const BudgetPage(),
           ),
           GoRoute(
+            path: '/profile',
+            name: 'profile',
+            builder: (context, state) => const ProfilePage(),
+          ),
+          GoRoute(
             path: '/reports',
             name: 'reports',
             builder: (context, state) => const ReportsPage(),

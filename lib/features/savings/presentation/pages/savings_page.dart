@@ -166,7 +166,9 @@ class SavingsPage extends ConsumerWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '${CurrencyFormatter.format(saving.currentAmount)} / ${CurrencyFormatter.format(saving.targetAmount)}',
+                                  saving.isGoldInvestment && saving.goldGrams != null
+                                      ? '${saving.goldGrams!.toStringAsFixed(2)} gram'
+                                      : '${CurrencyFormatter.format(saving.currentAmount)} / ${CurrencyFormatter.format(saving.targetAmount)}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Theme.of(
@@ -175,24 +177,71 @@ class SavingsPage extends ConsumerWidget {
                                   ),
                                 ),
                                 Text(
-                                  '${progress.toStringAsFixed(0)}%',
-                                  style: const TextStyle(
+                                  saving.isGoldInvestment 
+                                      ? '${saving.goldProfitLoss >= 0 ? '+' : ''}${CurrencyFormatter.format(saving.goldProfitLoss)}'
+                                      : '${progress.toStringAsFixed(0)}%',
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
+                                    color: saving.isGoldInvestment
+                                        ? (saving.goldProfitLoss >= 0 ? AppTheme.incomeColor : AppTheme.expenseColor)
+                                        : null,
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              'Target: ${DateFormatter.format(saving.targetDate)}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
+                            if (saving.isGoldInvestment) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${saving.goldType ?? 'Emas'} • ${saving.purchaseSource ?? '-'}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${saving.goldProfitLossPercent >= 0 ? '+' : ''}${saving.goldProfitLossPercent.toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: saving.goldProfitLoss >= 0 ? AppTheme.incomeColor : AppTheme.expenseColor,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                              const SizedBox(height: 2),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Beli: ${CurrencyFormatter.format(saving.purchasePricePerGram ?? 0)}/g',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Sekarang: ${CurrencyFormatter.format(saving.currentPricePerGram ?? 0)}/g',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ] else
+                              Text(
+                                'Target: ${DateFormatter.format(saving.targetDate)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
                           ],
                         ),
                       );
@@ -226,6 +275,21 @@ class SavingsPage extends ConsumerWidget {
     String? selectedBank = saving?.bankName;
     DateTime targetDate =
         saving?.targetDate ?? DateTime.now().add(const Duration(days: 365));
+    SavingCategory selectedCategory = saving?.category ?? SavingCategory.general;
+    
+    // Gold investment fields
+    final goldTypeController = TextEditingController(text: saving?.goldType ?? '');
+    final goldGramsController = TextEditingController(
+      text: saving?.goldGrams != null ? saving!.goldGrams.toString() : '',
+    );
+    final purchasePriceController = TextEditingController(
+      text: saving?.purchasePricePerGram != null ? saving!.purchasePricePerGram.toString() : '',
+    );
+    final currentPriceController = TextEditingController(
+      text: saving?.currentPricePerGram != null ? saving!.currentPricePerGram.toString() : '',
+    );
+    String? selectedSource = saving?.purchaseSource;
+    
     bool isSaving = false;
 
     showModalBottomSheet(
@@ -264,33 +328,120 @@ class SavingsPage extends ConsumerWidget {
                         : null,
                   ),
                   const SizedBox(height: 16),
+                  DropdownButtonFormField<SavingCategory>(
+                    value: selectedCategory,
+                    decoration: const InputDecoration(
+                      labelText: 'Kategori',
+                      prefixIcon: Icon(Icons.category),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: SavingCategory.general, child: Text('Umum')),
+                      DropdownMenuItem(value: SavingCategory.emergency, child: Text('Dana Darurat')),
+                      DropdownMenuItem(value: SavingCategory.vacation, child: Text('Liburan')),
+                      DropdownMenuItem(value: SavingCategory.house, child: Text('Rumah/Properti')),
+                      DropdownMenuItem(value: SavingCategory.education, child: Text('Pendidikan')),
+                      DropdownMenuItem(value: SavingCategory.gold, child: Text('Investasi Emas')),
+                    ],
+                    onChanged: (v) => setSheetState(() => selectedCategory = v ?? SavingCategory.general),
+                  ),
+                  const SizedBox(height: 16),
+                  if (selectedCategory == SavingCategory.gold) ...[
+                    DropdownButtonFormField<String>(
+                      value: selectedSource,
+                      decoration: const InputDecoration(
+                        labelText: 'Sumber Pembelian',
+                        prefixIcon: Icon(Icons.store),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'Tokopedia', child: Text('Tokopedia')),
+                        DropdownMenuItem(value: 'Bukalapak', child: Text('Bukalapak')),
+                        DropdownMenuItem(value: 'Shopee', child: Text('Shopee')),
+                        DropdownMenuItem(value: 'Pegadaian', child: Text('Pegadaian')),
+                        DropdownMenuItem(value: 'Toko Emas', child: Text('Toko Emas')),
+                        DropdownMenuItem(value: 'Antam', child: Text('Antam')),
+                        DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
+                      ],
+                      onChanged: (v) => setSheetState(() => selectedSource = v),
+                      validator: (v) => v == null ? 'Pilih sumber pembelian' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: goldTypeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Jenis Emas',
+                        prefixIcon: Icon(Icons.diamond),
+                        hintText: 'Contoh: LM 0.5gr, Antam 1gr, UBS 5gr',
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? 'Jenis emas tidak boleh kosong' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: goldGramsController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Jumlah Gram',
+                        prefixIcon: Icon(Icons.scale),
+                        suffixText: 'gram',
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? 'Jumlah gram tidak boleh kosong' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: purchasePriceController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Harga Beli per Gram',
+                        prefixIcon: Icon(Icons.attach_money),
+                        prefixText: 'Rp ',
+                        hintText: 'Harga saat beli',
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? 'Harga beli tidak boleh kosong' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: currentPriceController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Harga Sekarang per Gram',
+                        prefixIcon: Icon(Icons.trending_up),
+                        prefixText: 'Rp ',
+                        hintText: 'Update manual harga terkini',
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? 'Harga sekarang tidak boleh kosong' : null,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   TextFormField(
                     controller: targetController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Nominal Target',
-                      prefixIcon: Icon(Icons.money),
+                    decoration: InputDecoration(
+                      labelText: selectedCategory == SavingCategory.gold ? 'Target Profit (Opsional)' : 'Nominal Target',
+                      prefixIcon: const Icon(Icons.money),
                       prefixText: 'Rp ',
+                      hintText: selectedCategory == SavingCategory.gold ? 'Kosongkan jika tidak ada target' : null,
                     ),
-                    validator: (v) => v == null || v.isEmpty
-                        ? 'Nominal tidak boleh kosong'
-                        : null,
+                    validator: (v) {
+                      if (selectedCategory == SavingCategory.gold) return null; // Optional for gold
+                      return v == null || v.isEmpty ? 'Nominal tidak boleh kosong' : null;
+                    },
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    value: selectedBank,
-                    decoration: const InputDecoration(
-                      labelText: 'Pilih Bank',
-                      prefixIcon: Icon(Icons.account_balance),
+                  if (selectedCategory != SavingCategory.gold) ...[
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: selectedBank,
+                      decoration: const InputDecoration(
+                        labelText: 'Pilih Bank',
+                        prefixIcon: Icon(Icons.account_balance),
+                      ),
+                      items: AppConstants.allBanks
+                          .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                          .toList(),
+                      onChanged: (v) => setSheetState(() => selectedBank = v),
+                      validator: (v) => v == null ? 'Pilih bank' : null,
                     ),
-                    items: AppConstants.allBanks
-                        .map((b) => DropdownMenuItem(value: b, child: Text(b)))
-                        .toList(),
-                    onChanged: (v) => setSheetState(() => selectedBank = v),
-                    validator: (v) => v == null ? 'Pilih bank' : null,
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.calendar_today),
@@ -314,14 +465,35 @@ class SavingsPage extends ConsumerWidget {
                       if (!formKey.currentState!.validate()) return;
                       setSheetState(() => isSaving = true);
                       final fId = ref.read(financeScopeIdProvider);
+                      
+                      // Calculate target for gold investment
+                      double finalTarget = 0;
+                      if (selectedCategory == SavingCategory.gold && goldGramsController.text.isNotEmpty && purchasePriceController.text.isNotEmpty) {
+                        finalTarget = double.parse(goldGramsController.text) * double.parse(purchasePriceController.text);
+                      } else if (targetController.text.isNotEmpty) {
+                        finalTarget = double.parse(targetController.text);
+                      }
+                      
                       final model = SavingModel(
                         id: saving?.id ?? '',
                         familyId: fId,
                         name: nameController.text,
-                        targetAmount: double.parse(targetController.text),
+                        targetAmount: finalTarget,
                         currentAmount: saving?.currentAmount ?? 0,
-                        bankName: selectedBank,
+                        bankName: selectedCategory == SavingCategory.gold ? null : selectedBank,
                         targetDate: targetDate,
+                        category: selectedCategory,
+                        goldType: selectedCategory == SavingCategory.gold ? goldTypeController.text : null,
+                        goldGrams: selectedCategory == SavingCategory.gold && goldGramsController.text.isNotEmpty 
+                            ? double.parse(goldGramsController.text) 
+                            : null,
+                        purchasePricePerGram: selectedCategory == SavingCategory.gold && purchasePriceController.text.isNotEmpty
+                            ? double.parse(purchasePriceController.text)
+                            : null,
+                        currentPricePerGram: selectedCategory == SavingCategory.gold && currentPriceController.text.isNotEmpty
+                            ? double.parse(currentPriceController.text)
+                            : null,
+                        purchaseSource: selectedCategory == SavingCategory.gold ? selectedSource : null,
                       );
                       if (saving == null)
                         await ref
