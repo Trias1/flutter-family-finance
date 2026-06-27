@@ -10,4 +10,5 @@ class FirestoreConstants {
   static const String debts = 'debts';
   static const String debtPayments = 'debt_payments';
   static const String recurringTransactions = 'recurring_transactions';
+  static const String bills = 'bills';
 }

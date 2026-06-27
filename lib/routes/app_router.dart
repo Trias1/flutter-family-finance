@@ -22,6 +22,7 @@ import 'package:family_finance_manager/features/settings/presentation/pages/prof
 import 'package:family_finance_manager/features/transactions/presentation/pages/transactions_page.dart';
 import 'package:family_finance_manager/features/categories/presentation/pages/categories_page.dart';
 import 'package:family_finance_manager/features/debts/presentation/pages/debts_page.dart';
+import 'package:family_finance_manager/features/bills/presentation/pages/bills_page.dart';
 import 'package:family_finance_manager/features/recurring/presentation/pages/recurring_page.dart';
 import 'package:family_finance_manager/features/receipt_scanner/presentation/pages/receipt_scanner_page.dart';
 
@@ -140,6 +141,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/debts',
             name: 'debts',
             builder: (context, state) => const DebtsPage(),
+          ),
+          GoRoute(
+            path: '/bills',
+            name: 'bills',
+            builder: (context, state) => const BillsPage(),
           ),
           GoRoute(
             path: '/recurring',

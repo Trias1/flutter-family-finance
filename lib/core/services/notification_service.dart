@@ -31,4 +31,8 @@ class NotificationService {
     const iosDetails = DarwinNotificationDetails();
     await _plugin.show(id, title, body, const NotificationDetails(android: androidDetails, iOS: iosDetails), payload: payload);
   }
+
+  Future<void> cancel(int id) async {
+    await _plugin.cancel(id);
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/services/prediction_service.dart';
 import 'package:family_finance_manager/core/services/widget_service.dart';
+import 'package:family_finance_manager/data/models/bill_model.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
 import 'package:family_finance_manager/data/models/income_model.dart';
@@ -35,7 +36,9 @@ class DashboardData {
   final List<BudgetModel> budgets;
   final List<IncomeModel> allIncomes;
   final List<ExpenseModel> allExpenses;
+  final List<BillModel> upcomingBills;
   final Map<DateTime, DailySummary> dailySummary;
+  final Map<DateTime, List<BillModel>> billsByDate;
   final PredictionResult? prediction;
 
   DashboardData({
@@ -49,7 +52,9 @@ class DashboardData {
     required this.budgets,
     required this.allIncomes,
     required this.allExpenses,
+    required this.upcomingBills,
     required this.dailySummary,
+    required this.billsByDate,
     this.prediction,
   });
 
@@ -108,12 +113,14 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
           '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
       return budgetRepo.getBudgetsByMonth(familyId, month);
     }),
+    _safeQuery(() => dataSource.getBills(familyId)),
   ]);
 
   final incomes = results[0] as List<IncomeModel>;
   final expenses = results[1] as List<ExpenseModel>;
   final savings = results[2] as List<SavingModel>;
   final budgets = results[3] as List<BudgetModel>;
+  final allBills = results[4] as List<BillModel>;
 
   final totalIncome = incomes.fold<double>(0, (sum, e) => sum + e.amount);
   final totalExpense = expenses.fold<double>(0, (sum, e) => sum + e.amount);
@@ -127,6 +134,17 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
 
   WidgetService.updateBalance(totalIncome - totalExpense);
 
+  final upcomingBills = allBills
+      .where((b) => b.status != BillStatus.paid)
+      .toList()
+    ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+
+  final Map<DateTime, List<BillModel>> billsByDate = {};
+  for (final bill in allBills) {
+    final day = DateTime(bill.dueDate.year, bill.dueDate.month, bill.dueDate.day);
+    billsByDate.putIfAbsent(day, () => []).add(bill);
+  }
+
   return DashboardData(
     totalIncome: totalIncome,
     totalExpense: totalExpense,
@@ -138,7 +156,9 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
     budgets: budgets,
     allIncomes: incomes,
     allExpenses: expenses,
+    upcomingBills: upcomingBills.take(3).toList(),
     dailySummary: _buildDailySummary(incomes, expenses),
+    billsByDate: billsByDate,
     prediction: PredictionService().predict30Days(
       incomes: incomes,
       expenses: expenses,

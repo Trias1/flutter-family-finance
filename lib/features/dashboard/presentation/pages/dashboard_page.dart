@@ -7,13 +7,11 @@ import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
-import 'package:family_finance_manager/data/models/expense_model.dart';
-import 'package:family_finance_manager/data/models/income_model.dart';
+import 'package:family_finance_manager/data/models/bill_model.dart';
 import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_settings_page.dart';
-import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -81,6 +79,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 if (dashboardSections['progress'] ?? true) ...[
                   const SizedBox(height: 16),
                   _buildProgressRow(data, isId),
+                ],
+                if (data.upcomingBills.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildUpcomingBills(data, isId),
                 ],
                 if (dashboardSections['calendar'] ?? true) ...[
                   const SizedBox(height: 16),
@@ -252,6 +254,91 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
+  Widget _buildUpcomingBills(DashboardData data, bool isId) {
+    final bills = data.upcomingBills;
+    if (bills.isEmpty) return const SizedBox();
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.warningColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.warningColor.withValues(alpha: 0.2)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => context.push('/bills'),
+            child: Row(
+              children: [
+                const Icon(Icons.receipt_long_rounded, size: 16, color: AppTheme.warningColor),
+                const SizedBox(width: 6),
+                Text(
+                  isId ? 'Tagihan Mendatang' : 'Upcoming Bills',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Text(
+                  isId ? 'Lihat Semua' : 'See All',
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+                Icon(Icons.chevron_right, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...bills.map((b) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: b.dueDate.isBefore(DateTime.now())
+                        ? AppTheme.errorColor.withValues(alpha: 0.1)
+                        : AppTheme.warningColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    b.dueDate.isBefore(DateTime.now()) ? Icons.warning_amber_rounded : Icons.receipt_long,
+                    size: 14,
+                    color: b.dueDate.isBefore(DateTime.now()) ? AppTheme.errorColor : AppTheme.warningColor,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(b.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                ),
+                Text(
+                  CurrencyFormatter.format(b.amount),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _daysUntilDue(b.dueDate, isId),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: b.dueDate.isBefore(DateTime.now())
+                        ? AppTheme.errorColor
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  String _daysUntilDue(DateTime dueDate, bool isId) {
+    final diff = dueDate.difference(DateTime.now()).inDays;
+    if (diff < 0) return isId ? 'Terlambat ${-diff} hari' : '${-diff} days overdue';
+    if (diff == 0) return isId ? 'Hari ini' : 'Today';
+    if (diff == 1) return isId ? 'Besok' : 'Tomorrow';
+    return isId ? '$diff hari lagi' : '$diff days left';
+  }
+
   Widget _buildCalendar(DashboardData data, bool isId) {
     final summary = data.dailySummary[_selectedDay];
 
@@ -324,37 +411,43 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, date, events) {
                 final daySummary = data.dailySummary[date];
-                if (daySummary == null) return null;
+                final dayBills = data.billsByDate[date];
+                final hasBill = dayBills != null && dayBills.any((b) => b.status != BillStatus.paid);
                 final isOutside = date.month != _focusedDay.month;
                 if (isOutside) return null;
+                final children = <Widget>[];
+                if (hasBill) {
+                  children.add(
+                    Container(
+                      width: 4, height: 4,
+                      margin: const EdgeInsets.only(bottom: 1),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.warningColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  );
+                }
+                if (daySummary != null) {
+                  if (daySummary.totalIncome > 0) {
+                    children.add(Text(
+                      '+${_shortAmount(daySummary.totalIncome, isId)}',
+                      style: const TextStyle(fontSize: 7, color: AppTheme.incomeColor, height: 1.1, fontWeight: FontWeight.w600),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ));
+                  }
+                  if (daySummary.totalExpense > 0) {
+                    children.add(Text(
+                      '-${_shortAmount(daySummary.totalExpense, isId)}',
+                      style: const TextStyle(fontSize: 7, color: AppTheme.expenseColor, height: 1.1, fontWeight: FontWeight.w600),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ));
+                  }
+                }
+                if (children.isEmpty) return null;
                 return Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (daySummary.totalIncome > 0)
-                      Text(
-                        '+${_shortAmount(daySummary.totalIncome, isId)}',
-                        style: const TextStyle(
-                          fontSize: 7,
-                          color: AppTheme.incomeColor,
-                          height: 1.1,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (daySummary.totalExpense > 0)
-                      Text(
-                        '-${_shortAmount(daySummary.totalExpense, isId)}',
-                        style: const TextStyle(
-                          fontSize: 7,
-                          color: AppTheme.expenseColor,
-                          height: 1.1,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
+                  children: children,
                 );
               },
             ),
@@ -685,19 +778,26 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   void _showDayTransactions(DashboardData data, DateTime day, bool isId) {
     final summary = data.dailySummary[day];
-    if (summary == null ||
-        (summary.incomes.isEmpty && summary.expenses.isEmpty)) return;
+    final dayBills = data.billsByDate[day];
+    final hasAny = (summary != null && (summary.incomes.isNotEmpty || summary.expenses.isNotEmpty)) ||
+        (dayBills != null && dayBills.isNotEmpty);
+    if (!hasAny) return;
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Padding(
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, scrollController) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: ListView(
+          controller: scrollController,
           children: [
             Center(
               child: Container(
@@ -721,6 +821,33 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
             ),
             const SizedBox(height: 12),
+            if (dayBills != null && dayBills.isNotEmpty) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warningColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      isId ? 'Tagihan' : 'Bills',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.warningColor),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              ...dayBills.map((b) => _MiniTransactionRow(
+                icon: b.status == BillStatus.paid ? Icons.check_circle : Icons.receipt_long,
+                category: b.name,
+                note: b.status == BillStatus.paid ? 'Dibayar' : null,
+                amount: b.amount,
+                color: b.status == BillStatus.paid ? AppTheme.incomeColor : AppTheme.warningColor,
+              )),
+              const SizedBox(height: 8),
+            ],
+            if (summary != null) ...[
             if (summary.totalExpense > 0) ...[
               Row(
                 children: [
@@ -835,9 +962,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ],
             ),
           ],
+          ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildRecentTransactions(DashboardData data, bool isId) {
@@ -1352,6 +1481,12 @@ final _menuItemsEn = [
     AppTheme.secondaryColor,
     '/ai-advisor',
   ),
+  _MenuItemData(
+    Icons.receipt_long_rounded,
+    'Bills',
+    AppTheme.expenseColor,
+    '/bills',
+  ),
 ];
 
 final _menuItemsId = [
@@ -1390,6 +1525,12 @@ final _menuItemsId = [
     'AI Advisor',
     AppTheme.secondaryColor,
     '/ai-advisor',
+  ),
+  _MenuItemData(
+    Icons.receipt_long_rounded,
+    'Tagihan',
+    AppTheme.expenseColor,
+    '/bills',
   ),
 ];
 

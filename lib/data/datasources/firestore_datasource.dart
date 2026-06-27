@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:family_finance_manager/core/constants/firestore_constants.dart';
+import 'package:family_finance_manager/data/models/bill_model.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/models/category_model.dart';
 import 'package:family_finance_manager/data/models/debt_model.dart';
@@ -353,6 +354,40 @@ class FirestoreDataSource {
 
   Future<void> deleteRecurring(String id) {
     return _recurrings.doc(id).delete();
+  }
+
+  CollectionReference<Map<String, dynamic>> get _bills =>
+      _firestore.collection(FirestoreConstants.bills);
+
+  Future<void> createBill(BillModel bill) {
+    return _bills.add(bill.toFirestore());
+  }
+
+  Future<BillModel?> getBill(String id) async {
+    final doc = await _bills.doc(id).get();
+    if (!doc.exists) return null;
+    return BillModel.fromFirestore(doc);
+  }
+
+  Future<List<BillModel>> getBills(String familyId) async {
+    final snapshot = await _bills.where('familyId', isEqualTo: familyId).get();
+    final list = snapshot.docs
+        .map((doc) => BillModel.fromFirestore(doc))
+        .toList();
+    list.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    return list;
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamBills(String familyId) {
+    return _bills.where('familyId', isEqualTo: familyId).snapshots();
+  }
+
+  Future<void> updateBill(BillModel bill) {
+    return _bills.doc(bill.id).update(bill.toFirestore());
+  }
+
+  Future<void> deleteBill(String id) {
+    return _bills.doc(id).delete();
   }
 
   Future<void> createCategory(CategoryModel category) {
