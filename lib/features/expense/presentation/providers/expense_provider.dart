@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
 import 'package:family_finance_manager/data/models/saving_model.dart';
@@ -40,33 +39,57 @@ Future<void> _updateBudgetForExpense(BudgetRepository budgetRepo, String familyI
   await budgetRepo.updateBudget(updated);
 }
 
-Future<void> _updateGoalsForSavingsExpense(SavingRepository savingRepo, String familyId, String note, double amount) async {
-  // If expense is Tabungan category, deduct from matching Goals by name in note
+Future<void> _updateGoalsForExpense(SavingRepository savingRepo, String familyId, String note, double amount) async {
+  // If expense is Tabungan/Savings category, add amount to matching Goals by name in note
   final savings = await savingRepo.getSavings(familyId);
-  
-  // Try to find matching saving by name in note
   final noteLower = note.toLowerCase();
   final match = savings.where((s) => noteLower.contains(s.name.toLowerCase())).firstOrNull;
-  
-  if (match != null && match.currentAmount >= amount) {
-    final updated = SavingModel(
-      id: match.id,
-      familyId: match.familyId,
-      name: match.name,
-      targetAmount: match.targetAmount,
-      currentAmount: match.currentAmount - amount,
-      bankName: match.bankName,
-      targetDate: match.targetDate,
-      createdAt: match.createdAt,
-      category: match.category,
-      goldType: match.goldType,
-      goldGrams: match.goldGrams,
-      purchasePricePerGram: match.purchasePricePerGram,
-      currentPricePerGram: match.currentPricePerGram,
-      purchaseSource: match.purchaseSource,
-    );
-    await savingRepo.updateSaving(updated);
-  }
+  if (match == null) return;
+
+  final updated = SavingModel(
+    id: match.id,
+    familyId: match.familyId,
+    name: match.name,
+    targetAmount: match.targetAmount,
+    currentAmount: match.currentAmount + amount,
+    bankName: match.bankName,
+    targetDate: match.targetDate,
+    createdAt: match.createdAt,
+    category: match.category,
+    goldType: match.goldType,
+    goldGrams: match.goldGrams,
+    purchasePricePerGram: match.purchasePricePerGram,
+    currentPricePerGram: match.currentPricePerGram,
+    purchaseSource: match.purchaseSource,
+  );
+  await savingRepo.updateSaving(updated);
+}
+
+Future<void> _reverseGoalsForExpense(SavingRepository savingRepo, String familyId, String note, double amount) async {
+  // Reverse goals effect: subtract amount from matching Goals (clamp at 0)
+  final savings = await savingRepo.getSavings(familyId);
+  final noteLower = note.toLowerCase();
+  final match = savings.where((s) => noteLower.contains(s.name.toLowerCase())).firstOrNull;
+  if (match == null) return;
+
+  final newAmount = (match.currentAmount - amount).clamp(0, double.infinity).toDouble();
+  final updated = SavingModel(
+    id: match.id,
+    familyId: match.familyId,
+    name: match.name,
+    targetAmount: match.targetAmount,
+    currentAmount: newAmount,
+    bankName: match.bankName,
+    targetDate: match.targetDate,
+    createdAt: match.createdAt,
+    category: match.category,
+    goldType: match.goldType,
+    goldGrams: match.goldGrams,
+    purchasePricePerGram: match.purchasePricePerGram,
+    currentPricePerGram: match.currentPricePerGram,
+    purchaseSource: match.purchaseSource,
+  );
+  await savingRepo.updateSaving(updated);
 }
 
 class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
@@ -76,58 +99,81 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
 
   ExpenseNotifier(this._repository, this._budgetRepo, this._savingRepo) : super(const AsyncValue.data(null));
 
-  Future<void> addExpense(ExpenseModel expense) async {
+  Future<String?> addExpense(ExpenseModel expense) async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       await _repository.createExpense(expense);
       await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, expense.amount, expense.date);
-      
-      // If expense is Tabungan, deduct from matching Goals
-      if ((expense.category == 'Tabungan' || expense.category == 'Savings') && expense.note != null && expense.note!.isNotEmpty) {
-        await _updateGoalsForSavingsExpense(_savingRepo, expense.familyId, expense.note!, expense.amount);
+
+      if ((expense.category == 'Tabungan' || expense.category == 'Savings') &&
+          expense.note != null && expense.note!.isNotEmpty) {
+        await _updateGoalsForExpense(_savingRepo, expense.familyId, expense.note!, expense.amount);
       }
     });
+    state = result.error != null
+        ? AsyncValue<void>.error(result.error!, result.stackTrace!)
+        : const AsyncValue.data(null);
+    return result.error?.toString();
   }
 
-  Future<void> updateExpense(ExpenseModel expense) async {
+  Future<String?> updateExpense(ExpenseModel expense) async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       final old = await _repository.getExpense(expense.id);
       await _repository.updateExpense(expense);
       if (old == null) return;
-      
-      // Skip budget update for savings-related transactions
-      final isOldSavings = old.category == 'Tabungan' || old.category == 'Savings';
-      final isNewSavings = expense.category == 'Tabungan' || expense.category == 'Savings';
-      
+
+      final wasSavings = old.category == 'Tabungan' || old.category == 'Savings';
+      final isSavings = expense.category == 'Tabungan' || expense.category == 'Savings';
+
+      // Goals: reverse old effect, then apply new effect
+      if (wasSavings && old.note != null && old.note!.isNotEmpty) {
+        await _reverseGoalsForExpense(_savingRepo, expense.familyId, old.note!, old.amount);
+      }
+      if (isSavings && expense.note != null && expense.note!.isNotEmpty) {
+        await _updateGoalsForExpense(_savingRepo, expense.familyId, expense.note!, expense.amount);
+      }
+
+      // Budget update (skip Tabungan/Savings)
       if (old.category == expense.category) {
-        if (!isNewSavings) {
+        if (!isSavings) {
           final diff = expense.amount - old.amount;
           if (diff != 0) await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, diff, expense.date);
         }
       } else {
-        if (!isOldSavings) {
+        if (!wasSavings) {
           await _updateBudgetForExpense(_budgetRepo, expense.familyId, old.category, -old.amount, old.date);
         }
-        if (!isNewSavings) {
+        if (!isSavings) {
           await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, expense.amount, expense.date);
         }
       }
     });
+    state = result.error != null
+        ? AsyncValue<void>.error(result.error!, result.stackTrace!)
+        : const AsyncValue.data(null);
+    return result.error?.toString();
   }
 
-  Future<void> deleteExpense(String id) async {
+  Future<String?> deleteExpense(String id) async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       final expense = await _repository.getExpense(id);
       await _repository.deleteExpense(id);
-      if (expense != null) {
-        // Skip budget update for savings-related transactions
-        if (expense.category != 'Tabungan' && expense.category != 'Savings') {
-          await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, -expense.amount, expense.date);
+      if (expense == null) return;
+
+      if (expense.category == 'Tabungan' || expense.category == 'Savings') {
+        if (expense.note != null && expense.note!.isNotEmpty) {
+          await _reverseGoalsForExpense(_savingRepo, expense.familyId, expense.note!, expense.amount);
         }
+      } else {
+        await _updateBudgetForExpense(_budgetRepo, expense.familyId, expense.category, -expense.amount, expense.date);
       }
     });
+    state = result.error != null
+        ? AsyncValue<void>.error(result.error!, result.stackTrace!)
+        : const AsyncValue.data(null);
+    return result.error?.toString();
   }
 }
 

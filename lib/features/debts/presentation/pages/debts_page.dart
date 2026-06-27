@@ -60,7 +60,10 @@ class _DebtsPageState extends ConsumerState<DebtsPage>
               child: debtsAsync.when(
                 loading: () => const LoadingWidget(message: 'Memuat hutang...'),
                 error: (e, _) =>
-                    AppErrorWidget(message: 'Gagal memuat: $e', onRetry: () {}),
+                    AppErrorWidget(
+                      message: 'Gagal memuat: $e',
+                      onRetry: () => ref.invalidate(debtStreamProvider(familyId)),
+                    ),
                 data: (allDebts) {
                   final filtered = _tabController.index == 0
                       ? allDebts

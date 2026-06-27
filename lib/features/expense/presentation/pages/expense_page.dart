@@ -7,14 +7,13 @@ import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
-import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/pages/categories_page.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/expense/presentation/providers/expense_provider.dart';
 import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
-import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
+
 import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
 
 class ExpensePage extends ConsumerWidget {
@@ -334,8 +333,15 @@ class ExpensePage extends ConsumerWidget {
                             ),
                           )
                           .toList(),
-                      onChanged: (v) =>
-                          setSheetState(() => selectedSavingId = v),
+                      onChanged: (v) {
+                        setSheetState(() {
+                          selectedSavingId = v;
+                          final match = savings.where((s) => s.id == v).firstOrNull;
+                          if (match != null && noteController.text.isEmpty) {
+                            noteController.text = match.name;
+                          }
+                        });
+                      },
                       validator: (v) =>
                           v == null ? 'Pilih target tabungan' : null,
                     ),
@@ -370,46 +376,66 @@ class ExpensePage extends ConsumerWidget {
                     onPressed: isSaving
                         ? null
                         : () async {
+                      if (isSaving) return;
                       FocusScope.of(ctx).unfocus();
                       if (!formKey.currentState!.validate()) return;
                       setSheetState(() => isSaving = true);
-                      final fId = ref.read(financeScopeIdProvider);
-                      final uid =
-                          ref.read(currentUserProvider).valueOrNull?.id ?? '';
-                      final model = ExpenseModel(
-                        id: expense?.id ?? '',
-                        familyId: fId,
-                        userId: uid,
-                        amount: double.parse(amountController.text),
-                        category: selectedCategory,
-                        note: noteController.text.isEmpty
-                            ? null
-                            : noteController.text,
-                        date: selectedDate,
-                      );
-                      if (expense == null) {
-                        await ref
-                            .read(expenseNotifierProvider.notifier)
-                            .addExpense(model);
-                        if (selectedCategory == 'Tabungan' &&
-                            selectedSavingId != null) {
-                          await ref
-                              .read(savingNotifierProvider.notifier)
-                              .addToSaving(
-                                selectedSavingId!,
-                                double.parse(amountController.text),
-                              );
+                      try {
+                        final fId = ref.read(financeScopeIdProvider);
+                        final uid =
+                            ref.read(currentUserProvider).valueOrNull?.id ?? '';
+                        final model = ExpenseModel(
+                          id: expense?.id ?? '',
+                          familyId: fId,
+                          userId: uid,
+                          amount: double.parse(amountController.text),
+                          category: selectedCategory,
+                          note: noteController.text.isEmpty
+                              ? null
+                              : noteController.text,
+                          date: selectedDate,
+                        );
+                        String? error;
+                        if (expense == null) {
+                          error = await ref
+                              .read(expenseNotifierProvider.notifier)
+                              .addExpense(model);
+                        } else {
+                          error = await ref
+                              .read(expenseNotifierProvider.notifier)
+                              .updateExpense(model);
                         }
-                      } else {
-                        await ref
-                            .read(expenseNotifierProvider.notifier)
-                            .updateExpense(model);
+                        if (error != null) throw Exception(error);
+                        ref.invalidate(expenseStreamProvider(fId));
+                        ref.invalidate(dashboardProvider);
+                        ref.invalidate(reportProvider(fId));
+                        await ref.read(transactionHistoryProvider.notifier).load(fId);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                expense == null
+                                    ? 'Pengeluaran berhasil ditambahkan'
+                                    : 'Pengeluaran berhasil diperbarui',
+                              ),
+                              backgroundColor: AppTheme.incomeColor,
+                            ),
+                          );
+                          Navigator.pop(ctx);
+                        }
+                      } catch (e) {
+                        setSheetState(() => isSaving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                _friendlyError(e),
+                              ),
+                              backgroundColor: AppTheme.errorColor,
+                            ),
+                          );
+                        }
                       }
-                      ref.invalidate(expenseStreamProvider(fId));
-                      ref.invalidate(dashboardProvider);
-                      ref.invalidate(reportProvider(fId));
-                      await ref.read(transactionHistoryProvider.notifier).load(fId);
-                      if (ctx.mounted) Navigator.pop(ctx);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.expenseColor,
@@ -429,17 +455,39 @@ class ExpensePage extends ConsumerWidget {
                       onPressed: isSaving
                           ? null
                           : () async {
+                        if (isSaving) return;
                         FocusScope.of(ctx).unfocus();
                         setSheetState(() => isSaving = true);
-                        await ref
-                            .read(expenseNotifierProvider.notifier)
-                            .deleteExpense(expense.id);
-                        final fId = ref.read(financeScopeIdProvider);
-                        ref.invalidate(expenseStreamProvider(fId));
-                        ref.invalidate(dashboardProvider);
-                        ref.invalidate(reportProvider(fId));
-                        await ref.read(transactionHistoryProvider.notifier).load(fId);
-                        if (ctx.mounted) Navigator.pop(ctx);
+                        try {
+                          final error = await ref
+                              .read(expenseNotifierProvider.notifier)
+                              .deleteExpense(expense.id);
+                          if (error != null) throw Exception(error);
+                          final fId = ref.read(financeScopeIdProvider);
+                          ref.invalidate(expenseStreamProvider(fId));
+                          ref.invalidate(dashboardProvider);
+                          ref.invalidate(reportProvider(fId));
+                          await ref.read(transactionHistoryProvider.notifier).load(fId);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(
+                                content: Text('Pengeluaran berhasil dihapus'),
+                                backgroundColor: AppTheme.incomeColor,
+                              ),
+                            );
+                            Navigator.pop(ctx);
+                          }
+                        } catch (e) {
+                          setSheetState(() => isSaving = false);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text(_friendlyError(e)),
+                                backgroundColor: AppTheme.errorColor,
+                              ),
+                            );
+                          }
+                        }
                       },
                       style: TextButton.styleFrom(
                         foregroundColor: AppTheme.errorColor,
@@ -455,6 +503,14 @@ class ExpensePage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _friendlyError(dynamic e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('network-request-failed')) return 'Tidak ada koneksi internet';
+    if (msg.contains('permission-denied')) return 'Tidak punya akses untuk menyimpan data';
+    if (msg.contains('not-found')) return 'Data tidak ditemukan';
+    return 'Gagal menyimpan data. Coba lagi.';
   }
 
   void _showAddCategorySheet(BuildContext context, WidgetRef ref) {

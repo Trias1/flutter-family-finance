@@ -7,14 +7,12 @@ import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/income_model.dart';
-import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/pages/categories_page.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
 import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
-import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
 import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
 
 class IncomePage extends ConsumerWidget {
@@ -342,38 +340,64 @@ class IncomePage extends ConsumerWidget {
                     onPressed: isSaving
                         ? null
                         : () async {
+                      if (isSaving) return;
                       FocusScope.of(ctx).unfocus();
                       if (!formKey.currentState!.validate()) return;
                       setSheetState(() => isSaving = true);
-                      final fId = ref.read(financeScopeIdProvider);
-                      final uid =
-                          ref.read(currentUserProvider).valueOrNull?.id ?? '';
-                      final model = IncomeModel(
-                        id: income?.id ?? '',
-                        familyId: fId,
-                        userId: uid,
-                        amount: double.parse(amountController.text),
-                        category: selectedCategory,
-                        note: noteController.text.isEmpty
-                            ? null
-                            : noteController.text,
-                        date: selectedDate,
-                      );
-                      if (income == null) {
-                        await ref
-                            .read(incomeNotifierProvider.notifier)
-                            .addIncome(model);
-                      } else {
-                        await ref
-                            .read(incomeNotifierProvider.notifier)
-                            .updateIncome(model);
+                      try {
+                        final fId = ref.read(financeScopeIdProvider);
+                        final uid =
+                            ref.read(currentUserProvider).valueOrNull?.id ?? '';
+                        final model = IncomeModel(
+                          id: income?.id ?? '',
+                          familyId: fId,
+                          userId: uid,
+                          amount: double.parse(amountController.text),
+                          category: selectedCategory,
+                          note: noteController.text.isEmpty
+                              ? null
+                              : noteController.text,
+                          date: selectedDate,
+                        );
+                        String? error;
+                        if (income == null) {
+                          error = await ref
+                              .read(incomeNotifierProvider.notifier)
+                              .addIncome(model);
+                        } else {
+                          error = await ref
+                              .read(incomeNotifierProvider.notifier)
+                              .updateIncome(model);
+                        }
+                        if (error != null) throw Exception(error);
+                        ref.invalidate(incomeStreamProvider(fId));
+                        ref.invalidate(dashboardProvider);
+                        ref.invalidate(reportProvider(fId));
+                        await ref.read(transactionHistoryProvider.notifier).load(fId);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                income == null
+                                    ? 'Pemasukan berhasil ditambahkan'
+                                    : 'Pemasukan berhasil diperbarui',
+                              ),
+                              backgroundColor: AppTheme.incomeColor,
+                            ),
+                          );
+                          Navigator.pop(ctx);
+                        }
+                      } catch (e) {
+                        setSheetState(() => isSaving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(_friendlyError(e)),
+                              backgroundColor: AppTheme.errorColor,
+                            ),
+                          );
+                        }
                       }
-                      ref.invalidate(incomeStreamProvider(fId));
-                      ref.invalidate(dashboardProvider);
-                      ref.invalidate(reportProvider(fId));
-                      await ref.read(transactionHistoryProvider.notifier).load(fId);
-                      if (!ctx.mounted) return;
-                      Navigator.pop(ctx);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.incomeColor,
@@ -393,18 +417,39 @@ class IncomePage extends ConsumerWidget {
                       onPressed: isSaving
                           ? null
                           : () async {
+                        if (isSaving) return;
                         FocusScope.of(ctx).unfocus();
                         setSheetState(() => isSaving = true);
-                        await ref
-                            .read(incomeNotifierProvider.notifier)
-                            .deleteIncome(income.id);
-                        final fId = ref.read(financeScopeIdProvider);
-                        ref.invalidate(incomeStreamProvider(fId));
-                        ref.invalidate(dashboardProvider);
-                        ref.invalidate(reportProvider(fId));
-                        await ref.read(transactionHistoryProvider.notifier).load(fId);
-                        if (!ctx.mounted) return;
-                        Navigator.pop(ctx);
+                        try {
+                          final error = await ref
+                              .read(incomeNotifierProvider.notifier)
+                              .deleteIncome(income.id);
+                          if (error != null) throw Exception(error);
+                          final fId = ref.read(financeScopeIdProvider);
+                          ref.invalidate(incomeStreamProvider(fId));
+                          ref.invalidate(dashboardProvider);
+                          ref.invalidate(reportProvider(fId));
+                          await ref.read(transactionHistoryProvider.notifier).load(fId);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(
+                                content: Text('Pemasukan berhasil dihapus'),
+                                backgroundColor: AppTheme.incomeColor,
+                              ),
+                            );
+                            Navigator.pop(ctx);
+                          }
+                        } catch (e) {
+                          setSheetState(() => isSaving = false);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text(_friendlyError(e)),
+                                backgroundColor: AppTheme.errorColor,
+                              ),
+                            );
+                          }
+                        }
                       },
                       style: TextButton.styleFrom(
                         foregroundColor: AppTheme.errorColor,
@@ -420,6 +465,14 @@ class IncomePage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _friendlyError(dynamic e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('network-request-failed')) return 'Tidak ada koneksi internet';
+    if (msg.contains('permission-denied')) return 'Tidak punya akses untuk menyimpan data';
+    if (msg.contains('not-found')) return 'Data tidak ditemukan';
+    return 'Gagal menyimpan data. Coba lagi.';
   }
 
   void _showAddCategorySheet(BuildContext context, WidgetRef ref) {

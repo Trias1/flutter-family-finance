@@ -121,10 +121,9 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
     0,
     (sum, e) => sum + e.currentAmount,
   );
-  final totalBudgetRemaining = budgets.fold<double>(
-    0,
-    (sum, e) => sum + e.remaining,
-  );
+  final totalBudgetRemaining = budgets
+      .where((b) => b.category != 'Tabungan' && b.category != 'Savings')
+      .fold<double>(0, (sum, e) => sum + e.remaining);
 
   WidgetService.updateBalance(totalIncome - totalExpense);
 

@@ -33,7 +33,10 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
           loading: () =>
               const LoadingWidget(message: 'Memuat transaksi berulang...'),
           error: (e, _) =>
-              AppErrorWidget(message: 'Gagal memuat: $e', onRetry: () {}),
+              AppErrorWidget(
+                message: 'Gagal memuat: $e',
+                onRetry: () => ref.invalidate(recurringStreamProvider(familyId)),
+              ),
           data: (list) {
             if (list.isEmpty) {
               return const EmptyWidget(
