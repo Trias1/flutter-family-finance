@@ -200,6 +200,14 @@ service cloud.firestore {
       allow delete: if isAuth() && canReadFinance();
     }
 
+    match /bills/{docId} {
+      allow get: if isAuth() && canReadFinance();
+      allow list: if isAuth() && canReadFinance();
+      allow create: if isAuth() && canWriteFinance();
+      allow update: if isAuth() && canUpdateFinance();
+      allow delete: if isAuth() && canReadFinance();
+    }
+
     match /transfers/{docId} {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
