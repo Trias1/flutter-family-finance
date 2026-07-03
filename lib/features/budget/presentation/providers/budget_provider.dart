@@ -19,6 +19,10 @@ final budgetsByMonthProvider = FutureProvider.family<List<BudgetModel>, String>(
   return ref.watch(budgetRepositoryProvider).getBudgetsByMonth(familyId, month);
 });
 
+final budgetHistoryProvider = FutureProvider.family<List<BudgetModel>, String>((ref, familyId) {
+  return ref.watch(budgetRepositoryProvider).getAllBudgets(familyId);
+});
+
 final budgetAlertWatcherProvider = Provider<void>((ref) {
   final familyId = ref.watch(financeScopeIdProvider);
   final budgetsAsync = ref.watch(budgetStreamProvider(familyId));

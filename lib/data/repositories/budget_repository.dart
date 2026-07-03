@@ -20,6 +20,10 @@ class BudgetRepository {
     return _dataSource.streamBudgets(familyId);
   }
 
+  Future<List<BudgetModel>> getAllBudgets(String familyId) {
+    return _dataSource.getAllBudgets(familyId);
+  }
+
   Future<void> updateBudget(BudgetModel budget) {
     return _dataSource.updateBudget(budget);
   }

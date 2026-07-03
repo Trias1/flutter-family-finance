@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:family_finance_manager/core/constants/app_constants.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
@@ -44,9 +45,30 @@ class BudgetPage extends ConsumerWidget {
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                    itemCount: budgets.length,
+                    itemCount: budgets.length + 1,
                     itemBuilder: (context, index) {
-                      final budget = budgets[index];
+                      if (index == 0) {
+                        final isId = Localizations.localeOf(context).languageCode == 'id';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => context.push('/budget/history'),
+                                icon: const Icon(Icons.history, size: 18),
+                                label: Text(isId ? 'Riwayat' : 'History'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.incomeColor,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  textStyle: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      final budget = budgets[index - 1];
                       final isExceeded = budget.isExceeded;
                       final isWarning = budget.isAlmostExceeded;
                       return Container(
@@ -204,14 +226,7 @@ class BudgetPage extends ConsumerWidget {
                                 ).colorScheme.onSurfaceVariant,
                               ),
                             ),
-                            if (budget.rolloverAmount > 0)
-                              Text(
-                                'Sisa bln lalu: ${CurrencyFormatter.format(budget.rolloverAmount)}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.incomeColor,
-                                ),
-                              ),
+                            // rolloverAmount hidden from current budget, shown in history
                           ],
                         ),
                       );

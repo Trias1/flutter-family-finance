@@ -247,23 +247,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                 ],
               ),
-              if (data.budgets.any((b) => b.rolloverAmount > 0))
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
-                    children: [
-                      Icon(Icons.history, size: 10, color: AppTheme.incomeColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${isId ? "Sisa bulan lalu" : "Rollover"}: ${CurrencyFormatter.formatWithoutSymbol(data.budgets.fold<double>(0, (s, b) => s + (b.rolloverAmount > 0 ? b.rolloverAmount : 0)))}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppTheme.incomeColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // rollover display removed, shown in budget history page
             ],
           ),
         ),
@@ -1401,17 +1385,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         ),
                       ),
                     ),
-                    if (b.rolloverAmount > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '${isId ? "Sisa bln lalu" : "Last month left"}: ${CurrencyFormatter.formatWithoutSymbol(b.rolloverAmount)}',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: AppTheme.incomeColor,
-                          ),
-                        ),
-                      ),
+                    // rolloverAmount hidden from current budget, shown in history
                   ],
                 ),
               ),

@@ -7,6 +7,7 @@ import 'package:family_finance_manager/features/auth/presentation/pages/forgot_p
 import 'package:family_finance_manager/features/auth/presentation/pages/login_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/register_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
+import 'package:family_finance_manager/features/budget/presentation/pages/budget_history_page.dart';
 import 'package:family_finance_manager/features/budget/presentation/pages/budget_page.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_settings_page.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_page.dart';
@@ -91,6 +92,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/budget',
             name: 'budget',
             builder: (context, state) => const BudgetPage(),
+            routes: [
+              GoRoute(
+                path: 'history',
+                name: 'budget-history',
+                builder: (context, state) => const BudgetHistoryPage(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/profile',

@@ -248,6 +248,16 @@ class FirestoreDataSource {
     return _budgets.where('familyId', isEqualTo: familyId).snapshots();
   }
 
+  Future<List<BudgetModel>> getAllBudgets(String familyId) async {
+    final snapshot = await _budgets
+        .where('familyId', isEqualTo: familyId)
+        .orderBy('month', descending: true)
+        .get();
+    return snapshot.docs
+        .map((doc) => BudgetModel.fromFirestore(doc))
+        .toList();
+  }
+
   Future<void> updateBudget(BudgetModel budget) {
     return _budgets.doc(budget.id).update(budget.toFirestore());
   }
