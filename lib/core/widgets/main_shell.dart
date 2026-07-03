@@ -24,14 +24,14 @@ const _tabPages = <Widget>[
 ];
 
 int _tabIndex(String loc) {
-  if (loc.startsWith('/transactions')) return 1;
-  if (loc.startsWith('/budget')) return 2;
-  if (loc.startsWith('/profile')) return 3;
+  if (loc == '/transactions' || loc.startsWith('/transactions/')) return 1;
+  if (loc == '/budget' || loc.startsWith('/budget/')) return 2;
+  if (loc == '/profile' || loc.startsWith('/profile/')) return 3;
   return 0;
 }
 
 bool _isTabRoute(String loc) {
-  return _tabRoutes.any((r) => loc.startsWith(r));
+  return _tabRoutes.contains(loc);
 }
 
 class MainShell extends ConsumerStatefulWidget {
