@@ -109,6 +109,7 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
     _safeQuery(() => dataSource.getExpenses(familyId)),
     _safeQuery(() => dataSource.getSavings(familyId)),
     _safeQuery(() async {
+      await budgetRepo.rolloverIfNeeded(familyId);
       final month =
           '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
       return budgetRepo.getBudgetsByMonth(familyId, month);

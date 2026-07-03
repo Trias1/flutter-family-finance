@@ -27,4 +27,29 @@ class BudgetRepository {
   Future<void> deleteBudget(String id) {
     return _dataSource.deleteBudget(id);
   }
+
+  Future<void> rolloverIfNeeded(String familyId) async {
+    final now = DateTime.now();
+    final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final prev = DateTime(now.year, now.month - 1, 1);
+    final prevMonth = '${prev.year}-${prev.month.toString().padLeft(2, '0')}';
+
+    final current = await getBudgetsByMonth(familyId, currentMonth);
+    if (current.isNotEmpty) return;
+
+    final prevBudgets = await getBudgetsByMonth(familyId, prevMonth);
+    if (prevBudgets.isEmpty) return;
+
+    for (final b in prevBudgets) {
+      await setBudget(BudgetModel(
+        id: '',
+        familyId: familyId,
+        month: currentMonth,
+        category: b.category,
+        budgetAmount: b.budgetAmount,
+        usedAmount: 0,
+        rolloverAmount: b.remaining > 0 ? b.remaining : 0,
+      ));
+    }
+  }
 }

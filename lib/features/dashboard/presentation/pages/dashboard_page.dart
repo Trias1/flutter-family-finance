@@ -247,6 +247,23 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                 ],
               ),
+              if (data.budgets.any((b) => b.rolloverAmount > 0))
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.history, size: 10, color: AppTheme.incomeColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${isId ? "Sisa bulan lalu" : "Rollover"}: ${CurrencyFormatter.formatWithoutSymbol(data.budgets.fold<double>(0, (s, b) => s + (b.rolloverAmount > 0 ? b.rolloverAmount : 0)))}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.incomeColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -1367,27 +1384,38 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: b.percentage.clamp(0.0, 1.0),
-                      minHeight: 6,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      valueColor: AlwaysStoppedAnimation(
-                        b.isExceeded
-                            ? AppTheme.expenseColor
-                            : b.isAlmostExceeded
-                                ? AppTheme.warningColor
-                                : AppTheme.incomeColor,
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: b.percentage.clamp(0.0, 1.0),
+                        minHeight: 6,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        valueColor: AlwaysStoppedAnimation(
+                          b.isExceeded
+                              ? AppTheme.expenseColor
+                              : b.isAlmostExceeded
+                                  ? AppTheme.warningColor
+                                  : AppTheme.incomeColor,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    if (b.rolloverAmount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '${isId ? "Sisa bln lalu" : "Last month left"}: ${CurrencyFormatter.formatWithoutSymbol(b.rolloverAmount)}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: AppTheme.incomeColor,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

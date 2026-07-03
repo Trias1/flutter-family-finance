@@ -204,6 +204,14 @@ class BudgetPage extends ConsumerWidget {
                                 ).colorScheme.onSurfaceVariant,
                               ),
                             ),
+                            if (budget.rolloverAmount > 0)
+                              Text(
+                                'Sisa bln lalu: ${CurrencyFormatter.format(budget.rolloverAmount)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.incomeColor,
+                                ),
+                              ),
                           ],
                         ),
                       );
