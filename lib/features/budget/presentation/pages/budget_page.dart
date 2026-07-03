@@ -20,6 +20,8 @@ class BudgetPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final familyId = ref.watch(financeScopeIdProvider);
     final budgetsAsync = ref.watch(budgetsByMonthProvider(familyId));
+    final isId = Localizations.localeOf(context).languageCode == 'id';
+    final router = GoRouter.of(context);
 
     return budgetsAsync.when(
       loading: () => const LoadingWidget(message: 'Memuat anggaran...'),
@@ -46,22 +48,32 @@ class BudgetPage extends ConsumerWidget {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
                     itemCount: budgets.length + 1,
-                    itemBuilder: (context, index) {
+                    itemBuilder: (ctx, index) {
                       if (index == 0) {
-                        final isId = Localizations.localeOf(context).languageCode == 'id';
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              TextButton.icon(
-                                onPressed: () => context.push('/budget/history'),
-                                icon: const Icon(Icons.history, size: 18),
-                                label: Text(isId ? 'Riwayat' : 'History'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppTheme.incomeColor,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  textStyle: const TextStyle(fontSize: 13),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () => router.push('/budget/history'),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.history, size: 18, color: AppTheme.incomeColor),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          isId ? 'Riwayat' : 'History',
+                                          style: TextStyle(fontSize: 13, color: AppTheme.incomeColor, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
