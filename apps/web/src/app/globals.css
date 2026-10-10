@@ -1,45 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --primary: #6B3F2A;
-  --primary-light: #A16207;
-  --primary-lighter: #D97706;
-  --primary-bg: #F3E7D8;
+  --primary: #1D4ED8;
+  --primary-light: #2563EB;
+  --primary-lighter: #38BDF8;
+  --primary-bg: #DBEAFE;
   --expense-bg: #FFEBEE;
-  --income: #4CAF50;
-  --expense: #EF5350;
-  --savings: #42A5F5;
-  --bg: #FAF7F2;
+  --income: #10B981;
+  --expense: #EF4444;
+  --savings: #0EA5E9;
+  --bg: #F8FAFC;
   --bg-card: #FFFFFF;
-  --text-primary: #1B1B1F;
-  --text-secondary: #6B7280;
-  --text-muted: #9CA3AF;
-  --border: #E5E7EB;
-  --surface-soft: #F9FAFB;
-  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --border: #DCE7F3;
+  --surface-soft: #EEF6FF;
+  --shadow-soft: 0 24px 70px rgba(15, 23, 42, 0.10);
   --warning-bg: #FFF8E1;
   --warning-text: #795548;
 }
 
 [data-theme="dark"] {
-  --primary: #D6A56D;
-  --primary-light: #F59E0B;
-  --primary-lighter: #FBBF24;
-  --primary-bg: rgba(214, 165, 109, 0.14);
-  --expense-bg: rgba(239, 83, 80, 0.12);
-  --income: #81C784;
-  --expense: #FF8A80;
-  --savings: #64B5F6;
-  --bg: #17120E;
-  --bg-card: #211914;
-  --text-primary: #F9FAFB;
+  --primary: #60A5FA;
+  --primary-light: #38BDF8;
+  --primary-lighter: #93C5FD;
+  --primary-bg: rgba(96, 165, 250, 0.16);
+  --expense-bg: rgba(239, 68, 68, 0.14);
+  --income: #34D399;
+  --expense: #F87171;
+  --savings: #38BDF8;
+  --bg: #07111F;
+  --bg-card: #0F1B2D;
+  --text-primary: #F8FAFC;
   --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
-  --border: #33261E;
-  --surface-soft: #120D0A;
-  --shadow-soft: 0 10px 30px rgba(2, 6, 23, 0.45);
-  --warning-bg: rgba(255, 248, 225, 0.12);
-  --warning-text: #FCD34D;
+  --border: #22324A;
+  --surface-soft: #132338;
+  --shadow-soft: 0 24px 70px rgba(2, 6, 23, 0.42);
+  --warning-bg: rgba(250, 204, 21, 0.12);
+  --warning-text: #FACC15;
 }
 
 html {
@@ -75,111 +75,75 @@ body {
 }
 
 [data-color-theme="softPink"] {
-  --primary: #BE185D;
-  --primary-light: #DB2777;
-  --primary-lighter: #F472B6;
-  --primary-bg: #FFF1F5;
-  --bg: #FFF1F5;
+  --primary: #1D4ED8;
+  --primary-light: #2563EB;
+  --primary-lighter: #38BDF8;
+  --primary-bg: #DBEAFE;
+  --bg: #F8FAFC;
 }
 
 [data-color-theme="roseGold"] {
-  --primary: #9F1239;
-  --primary-light: #BE123C;
-  --primary-lighter: #D97706;
-  --primary-bg: #FFE4E6;
-  --bg: #FFF7ED;
+  --primary: #1D4ED8;
+  --primary-light: #2563EB;
+  --primary-lighter: #38BDF8;
+  --primary-bg: #DBEAFE;
+  --bg: #F8FAFC;
 }
 
 [data-color-theme="oceanBlue"] {
   --primary: #1D4ED8;
   --primary-light: #2563EB;
-  --primary-lighter: #06B6D4;
+  --primary-lighter: #38BDF8;
   --primary-bg: #DBEAFE;
   --bg: #F8FAFC;
 }
 
 [data-color-theme="lavender"] {
-  --primary: #7C3AED;
-  --primary-light: #8B5CF6;
-  --primary-lighter: #EC4899;
-  --primary-bg: #EDE9FE;
-  --bg: #F5F3FF;
+  --primary: #1D4ED8;
+  --primary-light: #2563EB;
+  --primary-lighter: #38BDF8;
+  --primary-bg: #DBEAFE;
+  --bg: #F8FAFC;
 }
 
 [data-color-theme="charcoalGold"] {
-  --primary: #111827;
-  --primary-light: #374151;
-  --primary-lighter: #D97706;
-  --primary-bg: #E5E7EB;
-  --bg: #F9FAFB;
+  --primary: #1D4ED8;
+  --primary-light: #2563EB;
+  --primary-lighter: #38BDF8;
+  --primary-bg: #DBEAFE;
+  --bg: #F8FAFC;
 }
 
 [data-color-theme="sage"] {
-  --primary: #64748B;
-  --primary-light: #94A3B8;
-  --primary-lighter: #A16207;
-  --primary-bg: #E2E8F0;
-  --bg: #F8FAF5;
+  --primary: #1D4ED8;
+  --primary-light: #2563EB;
+  --primary-lighter: #38BDF8;
+  --primary-bg: #DBEAFE;
+  --bg: #F8FAFC;
 }
 
 [data-theme="dark"][data-color-theme="softPink"] {
-  --primary: #FDA4AF;
-  --primary-light: #FB7185;
-  --primary-lighter: #F59E0B;
-  --primary-bg: rgba(253, 164, 175, 0.14);
-  --bg: #17120E;
-  --bg-card: #211914;
-  --surface-soft: #120D0A;
+  --primary: #F472B6; --primary-light: #FDA4AF; --primary-lighter: #FBCFE8; --primary-bg: rgba(244, 114, 182, 0.16);
 }
 
 [data-theme="dark"][data-color-theme="roseGold"] {
-  --primary: #FB7185;
-  --primary-light: #FDA4AF;
-  --primary-lighter: #D97706;
-  --primary-bg: rgba(251, 113, 133, 0.14);
-  --bg: #17120E;
-  --bg-card: #211914;
-  --surface-soft: #120D0A;
+  --primary: #FB7185; --primary-light: #FDA4AF; --primary-lighter: #FED7AA; --primary-bg: rgba(251, 113, 133, 0.16);
 }
 
 [data-theme="dark"][data-color-theme="oceanBlue"] {
-  --primary: #93C5FD;
-  --primary-light: #60A5FA;
-  --primary-lighter: #22D3EE;
-  --primary-bg: rgba(147, 197, 253, 0.14);
-  --bg: #17120E;
-  --bg-card: #211914;
-  --surface-soft: #120D0A;
+  --primary: #60A5FA; --primary-light: #38BDF8; --primary-lighter: #93C5FD; --primary-bg: rgba(96, 165, 250, 0.16);
 }
 
 [data-theme="dark"][data-color-theme="lavender"] {
-  --primary: #C4B5FD;
-  --primary-light: #A78BFA;
-  --primary-lighter: #F0ABFC;
-  --primary-bg: rgba(196, 181, 253, 0.14);
-  --bg: #17120E;
-  --bg-card: #211914;
-  --surface-soft: #120D0A;
+  --primary: #A78BFA; --primary-light: #C4B5FD; --primary-lighter: #DDD6FE; --primary-bg: rgba(167, 139, 250, 0.16);
 }
 
 [data-theme="dark"][data-color-theme="charcoalGold"] {
-  --primary: #FBBF24;
-  --primary-light: #F59E0B;
-  --primary-lighter: #D97706;
-  --primary-bg: rgba(251, 191, 36, 0.14);
-  --bg: #17120E;
-  --bg-card: #211914;
-  --surface-soft: #120D0A;
+  --primary: #FBBF24; --primary-light: #FCD34D; --primary-lighter: #FDE68A; --primary-bg: rgba(251, 191, 36, 0.16);
 }
 
 [data-theme="dark"][data-color-theme="sage"] {
-  --primary: #CBD5E1;
-  --primary-light: #94A3B8;
-  --primary-lighter: #D6A56D;
-  --primary-bg: rgba(203, 213, 225, 0.14);
-  --bg: #17120E;
-  --bg-card: #211914;
-  --surface-soft: #120D0A;
+  --primary: #86EFAC; --primary-light: #A7F3D0; --primary-lighter: #D1FAE5; --primary-bg: rgba(134, 239, 172, 0.16);
 }
 
 button,
@@ -394,4 +358,111 @@ a:focus-visible {
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+
+
+/* Sleek digital banking glassmorphism foundation */
+body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(37, 99, 235, 0.20), transparent 34rem),
+    radial-gradient(circle at 90% 6%, rgba(14, 165, 233, 0.20), transparent 30rem),
+    linear-gradient(135deg, #f8fbff 0%, #eef6ff 48%, #f8fafc 100%);
+}
+
+.banking-page-bg {
+  background:
+    radial-gradient(circle at 10% 8%, rgba(37, 99, 235, 0.28), transparent 28rem),
+    radial-gradient(circle at 88% 0%, rgba(16, 185, 129, 0.16), transparent 26rem),
+    linear-gradient(145deg, #f8fbff 0%, #eff6ff 48%, #f8fafc 100%);
+}
+
+.glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: linear-gradient(145deg, rgba(255,255,255,0.78), rgba(239,246,255,0.58));
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.10);
+  backdrop-filter: blur(22px);
+}
+
+.glass-panel-dark {
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  background: linear-gradient(145deg, rgba(15,23,42,0.94), rgba(30,64,175,0.84));
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+}
+
+.trust-gradient-text {
+  background: linear-gradient(120deg, #0F172A, #1D4ED8, #0EA5E9);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Responsive typography scale */
+:root {
+  --fs-xs: clamp(0.72rem, 0.68rem + 0.18vw, 0.82rem);
+  --fs-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.95rem);
+  --fs-base: clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem);
+  --fs-lg: clamp(1.08rem, 1rem + 0.42vw, 1.28rem);
+  --fs-xl: clamp(1.35rem, 1.15rem + 1vw, 1.9rem);
+  --fs-2xl: clamp(2rem, 1.42rem + 2.7vw, 3.8rem);
+  --fs-hero: clamp(2.55rem, 1.65rem + 4.4vw, 5rem);
+}
+
+.text-fluid-xs { font-size: var(--fs-xs); }
+.text-fluid-sm { font-size: var(--fs-sm); }
+.text-fluid-base { font-size: var(--fs-base); }
+.text-fluid-lg { font-size: var(--fs-lg); }
+.text-fluid-xl { font-size: var(--fs-xl); }
+.text-fluid-2xl { font-size: var(--fs-2xl); }
+.text-fluid-hero { font-size: var(--fs-hero); }
+
+.responsive-copy {
+  font-size: var(--fs-base);
+  line-height: 1.75;
+}
+
+.responsive-section-title {
+  font-size: var(--fs-xl);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.responsive-hero-title {
+  font-size: var(--fs-hero);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+@media (max-width: 640px) {
+  .glass-card,
+  .glass-panel-dark {
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.09);
+  }
+}
+
+[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(37, 99, 235, 0.18), transparent 34rem),
+    radial-gradient(circle at 90% 6%, rgba(14, 165, 233, 0.14), transparent 30rem),
+    linear-gradient(135deg, #07111f 0%, #0b1628 48%, #07111f 100%);
+}
+
+[data-theme="dark"] .banking-page-bg {
+  background:
+    radial-gradient(circle at 10% 8%, rgba(37, 99, 235, 0.28), transparent 28rem),
+    radial-gradient(circle at 88% 0%, rgba(16, 185, 129, 0.12), transparent 26rem),
+    linear-gradient(145deg, #07111f 0%, #0b1628 52%, #08111f 100%);
+}
+
+[data-theme="dark"] .glass-card {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: linear-gradient(145deg, rgba(15, 27, 45, 0.82), rgba(19, 35, 56, 0.62));
+  box-shadow: 0 24px 70px rgba(2, 6, 23, 0.42);
+}
+
+[data-theme="dark"] .trust-gradient-text {
+  background: linear-gradient(120deg, #F8FAFC, #60A5FA, #38BDF8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

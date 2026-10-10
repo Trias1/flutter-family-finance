@@ -1,22 +1,41 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Monitor, Moon, Palette, Sun } from "lucide-react"
 
-import { applyColorTheme, applyTheme, colorThemes, readStoredColorTheme, readStoredTheme, setStoredColorTheme, setStoredTheme, ColorThemeId, ThemeMode } from "@/lib/theme"
+import {
+  applyColorTheme,
+  applyTheme,
+  colorThemes,
+  readStoredColorTheme,
+  readStoredTheme,
+  setStoredColorTheme,
+  setStoredTheme,
+  ColorThemeId,
+  ThemeMode,
+} from "@/lib/theme"
 
 const modes: ThemeMode[] = ["system", "light", "dark"]
 
+function ThemeIcon({ mode }: { mode: ThemeMode }) {
+  if (mode === "dark") return <Moon size={15} />
+  if (mode === "light") return <Sun size={15} />
+  return <Monitor size={15} />
+}
+
 export default function ThemeToggle() {
   const [mode, setMode] = useState<ThemeMode>("system")
-  const [colorTheme, setColorTheme] = useState<ColorThemeId>("mochaBrown")
+  const [colorTheme, setColorTheme] = useState<ColorThemeId>("oceanBlue")
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const stored = readStoredTheme()
-    setMode(stored)
     const storedColor = readStoredColorTheme()
+    setMode(stored)
     setColorTheme(storedColor)
     applyTheme(stored)
     applyColorTheme(storedColor)
+    setMounted(true)
 
     const media = window.matchMedia("(prefers-color-scheme: dark)")
     const handleChange = () => {
@@ -33,10 +52,6 @@ export default function ThemeToggle() {
     applyTheme(next)
   }
 
-  const label = mode === "system" ? "System" : mode === "dark" ? "Dark" : "Light"
-  const icon = mode === "system" ? "🖥️" : mode === "dark" ? "🌙" : "☀️"
-  const selectedColorTheme = colorThemes.find((theme) => theme.id === colorTheme) || colorThemes[0]
-
   const cycleColorTheme = () => {
     const index = colorThemes.findIndex((theme) => theme.id === colorTheme)
     const next = colorThemes[(index + 1) % colorThemes.length]
@@ -45,35 +60,32 @@ export default function ThemeToggle() {
     applyColorTheme(next.id)
   }
 
+  const label = mode === "system" ? "System" : mode === "dark" ? "Dark" : "Light"
+  const selectedColorTheme = colorThemes.find((theme) => theme.id === colorTheme) || colorThemes[0]
+
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={cycleTheme}
-        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium smooth-card"
-        style={{
-          backgroundColor: "var(--bg-card)",
-          borderColor: "var(--border)",
-          color: "var(--text-secondary)",
-        }}
+        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-transform hover:-translate-y-0.5 glass-card"
+        style={{ color: "var(--text-secondary)" }}
         title={`Theme: ${label}`}
+        aria-label={`Theme: ${label}`}
       >
-        <span>{icon}</span>
+        <ThemeIcon mode={mounted ? mode : "system"} />
         <span className="hidden sm:inline">{label}</span>
       </button>
       <button
         type="button"
         onClick={cycleColorTheme}
-        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium smooth-card"
-        style={{
-          backgroundColor: "var(--bg-card)",
-          borderColor: "var(--border)",
-          color: "var(--text-secondary)",
-        }}
+        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-transform hover:-translate-y-0.5 glass-card"
+        style={{ color: "var(--text-secondary)" }}
         title={`Color: ${selectedColorTheme.name}`}
+        aria-label={`Color: ${selectedColorTheme.name}`}
       >
+        <Palette size={15} />
         <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "var(--primary)" }} />
-        <span className="hidden sm:inline">{selectedColorTheme.name}</span>
       </button>
     </div>
   )

@@ -1,7 +1,7 @@
 import "./globals.css"
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google"
 
-const themeScript = `(() => { try { const key = 'family-finance-theme'; const colorKey = 'family-finance-color-theme'; const stored = localStorage.getItem(key); const mode = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'; const color = localStorage.getItem(colorKey) || 'mochaBrown'; const resolved = mode === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode; document.documentElement.dataset.theme = resolved; document.documentElement.dataset.colorTheme = color; document.documentElement.style.colorScheme = resolved; } catch (_) {} })();`
+const themeScript = `(() => { try { const key = 'family-finance-theme'; const colorKey = 'family-finance-color-theme'; const stored = localStorage.getItem(key); const mode = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'; const rawColor = localStorage.getItem(colorKey); const allowed = ['oceanBlue','sage','lavender','charcoalGold','mochaBrown','softPink','roseGold']; const color = allowed.includes(rawColor || '') ? rawColor : 'oceanBlue'; const resolved = mode === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode; document.documentElement.dataset.theme = resolved; document.documentElement.dataset.colorTheme = color; document.documentElement.style.colorScheme = resolved; } catch (_) {} })();`
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta-sans",
@@ -24,3 +24,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   )
 }
+

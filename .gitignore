@@ -51,6 +51,7 @@ push-github.txt
 .env.*
 *.jks
 *.keystore
+key.properties
 tabunganapps-firebase-adminsdk-*.json
 
 # Local release artifacts

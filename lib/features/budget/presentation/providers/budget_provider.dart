@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/budget_alert_service.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/repositories/budget_repository.dart';
@@ -26,8 +27,10 @@ final budgetHistoryProvider = FutureProvider.family<List<BudgetModel>, String>((
 final budgetAlertWatcherProvider = Provider<void>((ref) {
   final familyId = ref.watch(financeScopeIdProvider);
   final budgetsAsync = ref.watch(budgetStreamProvider(familyId));
+  final locale = ref.watch(localeProvider);
+  final isId = locale.languageCode == 'id';
   budgetsAsync.whenData((budgets) {
-    BudgetAlertService().checkBudgets(budgets);
+    BudgetAlertService().checkBudgets(budgets, isIndonesian: isId);
   });
 });
 

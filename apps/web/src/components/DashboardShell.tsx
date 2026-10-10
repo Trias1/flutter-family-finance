@@ -74,12 +74,12 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "var(--bg)", color: "var(--text-primary)" }}>
+    <div className="flex h-screen overflow-hidden" style={{ color: "var(--text-primary)" }}>
       <Sidebar user={user} role={role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Navbar */}
-        <header className="sticky top-0 z-30 border-b backdrop-blur-md" style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 88%, transparent)", borderColor: "var(--border)" }}>
+        <header className="sticky top-0 z-30 border-b backdrop-blur-md" style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 72%, transparent)", borderColor: "rgba(255,255,255,0.62)", backdropFilter: "blur(22px)" }}>
           <div className="flex h-16 items-center justify-between px-4 lg:px-6">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -157,3 +157,4 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     </div>
   )
 }
+

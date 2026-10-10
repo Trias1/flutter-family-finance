@@ -137,7 +137,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/settings/profile',
-            name: 'profile',
+            name: 'settingsProfile',
             builder: (context, state) => const ProfilePage(),
           ),
           GoRoute(

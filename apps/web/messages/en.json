@@ -292,6 +292,9 @@
     "count": "Count",
     "syncedUsernames": "Sync complete: {count} usernames processed.",
     "androidConfigSynced": "Android config synced to v{versionName}+{versionCode}.",
-    "usersLabel": "users"
+    "usersLabel": "users",
+    "aiCenter": "AI Center",
+    "aiAssistant": "AI Assistant",
+    "aiAssistantHint": "Secure provider from admin server"
   }
 }

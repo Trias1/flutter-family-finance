@@ -130,14 +130,6 @@ service cloud.firestore {
     //  get: strict — sameFamily() pake get(), works for single-doc reads
     // list: pake resource.data — query WAJIB punya where('familyId', ...)
 
-    match /wallets/{docId} {
-      allow get: if isAuth() && canReadFinance();
-      allow list: if isAuth() && canReadFinance();
-      allow create: if isAuth() && canWriteFinance();
-      allow update: if isAuth() && canUpdateFinance();
-      allow delete: if isAuth() && canReadFinance();
-    }
-
     match /incomes/{docId} {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
@@ -208,23 +200,7 @@ service cloud.firestore {
       allow delete: if isAuth() && canReadFinance();
     }
 
-    match /transfers/{docId} {
-      allow get: if isAuth() && canReadFinance();
-      allow list: if isAuth() && canReadFinance();
-      allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && canUpdateOwnedFinance();
-      allow delete: if isAuth() && canReadFinance();
-    }
-
     match /categories/{docId} {
-      allow get: if isAuth() && canReadFinance();
-      allow list: if isAuth() && canReadFinance();
-      allow create: if isAuth() && canWriteFinance();
-      allow update: if isAuth() && canUpdateFinance();
-      allow delete: if isAuth() && canReadFinance();
-    }
-
-    match /wishlist/{docId} {
       allow get: if isAuth() && canReadFinance();
       allow list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance();
@@ -257,3 +233,4 @@ service cloud.firestore {
     }
   }
 }
+

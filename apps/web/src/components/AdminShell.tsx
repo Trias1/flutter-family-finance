@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { signOut, User } from "firebase/auth"
-import { Menu, X } from "lucide-react"
+import { BarChart3, Bot, Menu, MonitorSmartphone, PackageCheck, Users, X } from "lucide-react"
 
 import LocaleToggle from "@/components/LocaleToggle"
 import ThemeToggle from "@/components/ThemeToggle"
@@ -15,17 +15,17 @@ import { useRouter } from "@/lib/i18n"
 export default function AdminShell({ user, children }: { user: User | null; children: React.ReactNode }) {
   const router = useRouter()
   const t = useTranslations()
+  const locale = useLocale()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const items = [
-    { href: "#overview", label: t("admin.overview") },
-    { href: "#charts", label: t("admin.charts") },
-    { href: "#users", label: t("admin.users") },
-    { href: "#registry", label: t("admin.usersRegistry") },
-    { href: "#devices", label: t("admin.devicePresence") },
-    { href: "#versions", label: t("admin.versionControl") },
+    { href: `/${locale}/admin#overview`, label: t("admin.overview"), icon: MonitorSmartphone },
+    { href: `/${locale}/admin#charts`, label: t("admin.charts"), icon: BarChart3 },
+    { href: `/${locale}/admin#users`, label: t("admin.users"), icon: Users },
+    { href: `/${locale}/admin#versions`, label: t("admin.versionControl"), icon: PackageCheck },
+    { href: `/${locale}/admin/ai`, label: t("admin.aiCenter"), icon: Bot },
   ]
 
   useEffect(() => {
@@ -45,11 +45,11 @@ export default function AdminShell({ user, children }: { user: User | null; chil
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "var(--bg)", color: "var(--text-primary)" }}>
+    <div className="min-h-screen" style={{ color: "var(--text-primary)" }}>
       <div className="flex min-h-screen">
         {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-        <aside className={`fixed inset-y-0 left-0 z-40 w-72 border-r transition-transform lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border)" }}>
+        <aside className={`fixed inset-y-0 left-0 z-40 w-72 border-r transition-transform lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 78%, transparent)", borderColor: "rgba(255,255,255,0.62)", boxShadow: "var(--shadow-soft)", backdropFilter: "blur(22px)" }}>
           <div className="flex h-16 items-center justify-between border-b px-5" style={{ borderColor: "var(--border)" }}>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.26em]" style={{ color: "var(--text-muted)" }}>{t("admin.workspace")}</p>
@@ -64,17 +64,35 @@ export default function AdminShell({ user, children }: { user: User | null; chil
               <p className="mt-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>v{APP_VERSION_LABEL}</p>
             </div>
             <nav className="mt-6 space-y-2">
-              {items.map((item) => (
-                <Link key={item.href} href={item.href} className="block rounded-xl px-4 py-3 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-                  {item.label}
-                </Link>
-              ))}
+              {items.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all hover:-translate-y-0.5" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: "var(--primary-bg)", color: "var(--primary)" }}>
+                      <Icon size={17} />
+                    </span>
+                    {item.label}
+                  </Link>
+                )
+              })}
             </nav>
+
+            <div className="mt-6 rounded-3xl border p-4" style={{ background: "linear-gradient(135deg, var(--primary-bg), var(--surface-soft))", borderColor: "var(--border)" }}>
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl text-white" style={{ backgroundColor: "var(--primary)" }}>
+                  <Bot size={18} />
+                </span>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{t("admin.aiAssistant")}</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("admin.aiAssistantHint")}</p>
+                </div>
+              </div>
+            </div>
           </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="sticky top-0 z-20 border-b backdrop-blur-md" style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 92%, transparent)", borderColor: "var(--border)" }}>
+          <header className="sticky top-0 z-20 border-b backdrop-blur-md" style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 72%, transparent)", borderColor: "rgba(255,255,255,0.62)", backdropFilter: "blur(22px)" }}>
             <div className="mx-auto flex h-16 max-w-full items-center justify-between px-4 lg:px-6">
               <div className="flex items-center gap-3">
                 <button className="rounded-xl p-2 lg:hidden" onClick={() => setSidebarOpen(true)}><Menu size={18} /></button>
@@ -131,3 +149,5 @@ export default function AdminShell({ user, children }: { user: User | null; chil
     </div>
   )
 }
+
+

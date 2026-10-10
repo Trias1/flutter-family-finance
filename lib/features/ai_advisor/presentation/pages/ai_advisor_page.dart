@@ -1,10 +1,8 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
+import 'package:family_finance_manager/features/ai_advisor/presentation/providers/ai_advisor_service.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 
 class AiAdvisorPage extends ConsumerStatefulWidget {
@@ -17,9 +15,9 @@ class AiAdvisorPage extends ConsumerStatefulWidget {
 class _AiAdvisorPageState extends ConsumerState<AiAdvisorPage> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  final _messages = <_ChatMessage>[
-    const _ChatMessage(
-      role: _ChatRole.assistant,
+  final _messages = <AiChatMessage>[
+    const AiChatMessage(
+      role: AiChatRole.assistant,
       text:
           'Halo, aku AI Advisor. Tanya apa aja soal cashflow, budget, tabungan, atau cara ngatur pengeluaran kamu.',
     ),
@@ -129,42 +127,23 @@ class _AiAdvisorPageState extends ConsumerState<AiAdvisorPage> {
     if (text.isEmpty || _loading) return;
 
     setState(() {
-      _messages.add(_ChatMessage(role: _ChatRole.user, text: text));
+      _messages.add(AiChatMessage(role: AiChatRole.user, text: text));
       _controller.clear();
       _loading = true;
     });
     _scrollToBottom();
 
-    final dashboard = ref.read(dashboardProvider).valueOrNull;
-    final prompt = _buildPrompt(text, dashboard);
-    final reply = await _GroqAdvisor().ask(prompt);
+    final history = _messages.length > 1
+        ? _messages.sublist(1, _messages.length - 1)
+        : <AiChatMessage>[];
+    final reply = await AiAdvisorService().ask(message: text, history: history);
 
     if (!mounted) return;
     setState(() {
-      _messages.add(_ChatMessage(role: _ChatRole.assistant, text: reply));
+      _messages.add(AiChatMessage(role: AiChatRole.assistant, text: reply));
       _loading = false;
     });
     _scrollToBottom();
-  }
-
-  String _buildPrompt(String question, DashboardData? data) {
-    final buffer = StringBuffer()
-      ..writeln(
-        'Kamu adalah advisor keuangan personal untuk aplikasi Family Finance.',
-      )
-      ..writeln('Jawab santai, praktis, singkat, dalam Bahasa Indonesia.')
-      ..writeln('Jangan mengarang data yang tidak tersedia.')
-      ..writeln('Pertanyaan user: $question');
-
-    if (data != null) {
-      buffer
-        ..writeln('Konteks finance:')
-        ..writeln('- Total pemasukan: ${data.totalIncome}')
-        ..writeln('- Total pengeluaran: ${data.totalExpense}')
-        ..writeln('- Total tabungan: ${data.totalSavings}')
-        ..writeln('- Sisa budget: ${data.totalBudgetRemaining}');
-    }
-    return buffer.toString();
   }
 
   void _scrollToBottom() {
@@ -176,51 +155,6 @@ class _AiAdvisorPageState extends ConsumerState<AiAdvisorPage> {
         curve: Curves.easeOutCubic,
       );
     });
-  }
-}
-
-class _GroqAdvisor {
-  static const _apiKey = String.fromEnvironment('GROQ_API_KEY');
-
-  Future<String> ask(String prompt) async {
-    if (_apiKey.isEmpty) {
-      return 'Groq belum aktif karena API key belum dipasang. Jalankan build dengan --dart-define=GROQ_API_KEY=KEY_KAMU biar chat AI bisa online.';
-    }
-
-    try {
-      final uri = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
-      final client = HttpClient();
-      final request = await client.postUrl(uri);
-      request.headers.contentType = ContentType.json;
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $_apiKey');
-      request.write(
-        jsonEncode({
-          'model': 'llama-3.1-8b-instant',
-          'temperature': 0.4,
-          'messages': [
-            {'role': 'user', 'content': prompt},
-          ],
-        }),
-      );
-
-      final response = await request.close();
-      final body = await response.transform(utf8.decoder).join();
-      client.close(force: true);
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return 'Groq gagal merespons (${response.statusCode}). Coba lagi nanti.';
-      }
-
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final choices = json['choices'] as List<dynamic>?;
-      final message = choices?.firstOrNull?['message'] as Map<String, dynamic>?;
-      final text = message?['content'] as String?;
-      return text?.trim().isNotEmpty == true
-          ? text!.trim()
-          : 'Groq belum memberi jawaban. Coba tanya ulang dengan detail sedikit.';
-    } catch (e) {
-      return 'Koneksi ke Groq gagal: $e';
-    }
   }
 }
 
@@ -275,13 +209,13 @@ class _FinanceContextCard extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  final _ChatMessage message;
+  final AiChatMessage message;
 
   const _MessageBubble({required this.message});
 
   @override
   Widget build(BuildContext context) {
-    final isUser = message.role == _ChatRole.user;
+    final isUser = message.role == AiChatRole.user;
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -315,11 +249,4 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-enum _ChatRole { user, assistant }
 
-class _ChatMessage {
-  final _ChatRole role;
-  final String text;
-
-  const _ChatMessage({required this.role, required this.text});
-}

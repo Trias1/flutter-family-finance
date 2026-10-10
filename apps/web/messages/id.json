@@ -292,6 +292,9 @@
     "count": "Jumlah",
     "syncedUsernames": "Sync selesai: {count} username diproses.",
     "androidConfigSynced": "Config Android disinkronkan ke v{versionName}+{versionCode}.",
-    "usersLabel": "pengguna"
+    "usersLabel": "pengguna",
+    "aiCenter": "AI Center",
+    "aiAssistant": "AI Assistant",
+    "aiAssistantHint": "Provider aman dari server admin"
   }
 }

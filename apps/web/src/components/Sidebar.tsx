@@ -60,7 +60,7 @@ export default function Sidebar({ user, role, isOpen, onClose }: SidebarProps) {
 
       <aside
         className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
-        style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border)", height: "100dvh" }}
+        style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 78%, transparent)", borderColor: "rgba(255,255,255,0.62)", height: "100dvh", boxShadow: "var(--shadow-soft)", backdropFilter: "blur(22px)" }}
       >
         {/* Logo */}
         <div className="flex h-16 items-center border-b px-6" style={{ borderColor: "var(--border)" }}>
@@ -110,3 +110,4 @@ export default function Sidebar({ user, role, isOpen, onClose }: SidebarProps) {
     </>
   )
 }
+

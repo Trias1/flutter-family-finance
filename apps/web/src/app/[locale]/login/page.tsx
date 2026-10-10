@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useEffect, useState } from "react"
-import { ArrowRight, LockKeyhole, Mail } from "lucide-react"
+import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from "lucide-react"
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -11,11 +11,19 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
 
 import AppPhonePreview from "@/components/public/AppPhonePreview"
-import AppThemedBackground from "@/components/public/AppThemedBackground"
 import BrandMark from "@/components/public/BrandMark"
+import ThemeToggle from "@/components/ThemeToggle"
 import { auth, db } from "@/lib/firebase"
 import { Link, useRouter } from "@/lib/i18n"
 import { useTranslations } from "next-intl"
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const genericAuthError = "Email atau password tidak valid. Coba cek lagi atau gunakan Google Sign-In."
+const weakPasswordError = "Password minimal 8 karakter dan sebaiknya gunakan kombinasi huruf dan angka."
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase()
+}
 
 function LoginForm() {
   const router = useRouter()
@@ -24,13 +32,38 @@ function LoginForm() {
   const [password, setPassword] = useState("")
   const [isRegister, setIsRegister] = useState(false)
   const [error, setError] = useState("")
+  const [status, setStatus] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
+  const [cooldownUntil, setCooldownUntil] = useState(0)
 
   useEffect(() => {
     if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
     setIsRegister(params.get("register") === "1")
   }, [])
+
+  const isCoolingDown = Date.now() < cooldownUntil
+  const emailReady = emailPattern.test(normalizeEmail(email))
+  const passwordReady = isRegister ? password.length >= 8 : password.length > 0
+  const canSubmit = emailReady && passwordReady && !submitting && !isCoolingDown
+
+  const getAuthErrorMessage = (error: unknown) => {
+    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: unknown }).code) : ""
+    if (code.includes("operation-not-allowed")) return "Login email/password belum aktif di Firebase Authentication. Aktifkan Email/Password provider dulu."
+    if (code.includes("too-many-requests")) return "Terlalu banyak percobaan dari perangkat ini. Tunggu beberapa saat lalu coba lagi."
+    if (code.includes("network-request-failed")) return "Koneksi bermasalah. Cek internet lalu coba lagi."
+    if (code.includes("weak-password")) return weakPasswordError
+    if (code.includes("email-already-in-use")) return "Email ini sudah terdaftar. Coba masuk/login saja."
+    return genericAuthError
+  }
+
+  const registerFailure = (message = genericAuthError) => {
+    const nextFailures = failedAttempts + 1
+    setFailedAttempts(nextFailures)
+    if (nextFailures >= 5) setCooldownUntil(Date.now() + 30_000)
+    setError(nextFailures >= 5 ? "Terlalu banyak percobaan. Tunggu 30 detik lalu coba lagi." : message)
+  }
 
   const ensureUserDoc = async (uid: string, userEmail: string, displayName?: string | null) => {
     const ref = doc(db, "users", uid)
@@ -53,15 +86,32 @@ function LoginForm() {
 
   const handleEmailAuth = async () => {
     setError("")
+    setStatus("")
+    const safeEmail = normalizeEmail(email)
+    if (!emailPattern.test(safeEmail)) {
+      setError("Masukkan email yang valid. Login username belum didukung untuk web; gunakan email akun Firebase.")
+      return
+    }
+    if (isRegister && password.length < 8) {
+      setError(weakPasswordError)
+      return
+    }
+    if (Date.now() < cooldownUntil) {
+      setError("Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.")
+      return
+    }
     setSubmitting(true)
     try {
       const cred = isRegister
-        ? await createUserWithEmailAndPassword(auth, email, password)
-        : await signInWithEmailAndPassword(auth, email, password)
-      const userSnap = await ensureUserDoc(cred.user.uid, email, cred.user.displayName)
+        ? await createUserWithEmailAndPassword(auth, safeEmail, password)
+        : await signInWithEmailAndPassword(auth, safeEmail, password)
+      setFailedAttempts(0)
+      setCooldownUntil(0)
+      setStatus("Login sukses. Mengalihkan ke dashboard...")
+      const userSnap = await ensureUserDoc(cred.user.uid, safeEmail, cred.user.displayName)
       router.push(userSnap.data()?.systemRole === "superadmin" ? "/admin" : "/dashboard")
-    } catch (e: any) {
-      setError(e.message)
+    } catch (error: unknown) {
+      registerFailure(getAuthErrorMessage(error))
     } finally {
       setSubmitting(false)
     }
@@ -69,145 +119,165 @@ function LoginForm() {
 
   const handleGoogleAuth = async () => {
     setError("")
+    setStatus("")
+    if (Date.now() < cooldownUntil) {
+      setError("Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.")
+      return
+    }
     setSubmitting(true)
     try {
       const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({ prompt: "select_account" })
       const cred = await signInWithPopup(auth, provider)
+      setFailedAttempts(0)
+      setCooldownUntil(0)
+      setStatus("Login sukses. Mengalihkan ke dashboard...")
       const userSnap = await ensureUserDoc(cred.user.uid, cred.user.email ?? "", cred.user.displayName)
       router.push(userSnap.data()?.systemRole === "superadmin" ? "/admin" : "/dashboard")
-    } catch (e: any) {
-      setError(e.message)
+    } catch {
+      registerFailure("Google Sign-In gagal. Coba lagi atau gunakan email.")
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black px-4 py-8">
-      <AppThemedBackground compact />
-      <div className="fixed inset-0 bg-black/10 backdrop-blur-sm" />
+    <main className="banking-page-bg relative min-h-screen overflow-hidden px-4 py-8">
+      <div className="pointer-events-none absolute left-8 top-8 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 right-8 h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
 
-      <div className="relative z-10 mx-auto flex min-h-[650px] w-full max-w-[1040px] flex-col overflow-hidden rounded-[2.5rem] border border-gray-200 bg-white shadow-[0_40px_120px_rgba(0,0,0,0.35)] lg:flex-row">
-        <div className="relative min-h-[260px] lg:min-h-full lg:w-[45%]">
-          <div className="absolute inset-4 overflow-hidden rounded-[2rem] bg-[#0c0c0e]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(217,119,6,0.24),_transparent_34%),linear-gradient(180deg,_#2A1C14_0%,_#17100C_48%,_#050505_100%)]" />
-            <AppPhonePreview variant="dashboard" className="absolute left-1/2 top-8 -translate-x-1/2 scale-[0.95] rotate-[-5deg]" />
-            <AppPhonePreview variant="reports" className="absolute -bottom-10 right-[-18px] scale-[0.72] rotate-[12deg] opacity-90" />
-          </div>
-        </div>
+      <div className="relative z-10 mx-auto mb-6 flex w-full max-w-6xl items-center justify-between">
+        <Link href="/" className="flex items-center gap-2 rounded-full px-4 py-2 text-fluid-sm font-black glass-card" style={{ color: "var(--text-primary)" }}>
+          <BrandMark dark />
+          Family Finance
+        </Link>
+        <ThemeToggle />
+      </div>
 
-        <div className="relative flex flex-1 flex-col justify-between px-6 py-8 sm:px-10 lg:w-[55%] lg:px-14 lg:py-12">
-          <div className="absolute left-0 top-0 h-64 w-64 rounded-full blur-[80px]" style={{ background: "linear-gradient(135deg, rgba(255,81,47,0.2), rgba(240,152,25,0.2))" }} />
-
-          <div className="relative z-10">
-            <Link href="/" className="mx-auto mb-8 flex w-fit items-center gap-2 rounded-full border border-gray-200 bg-white/70 px-4 py-2 text-sm font-semibold text-[#111111] backdrop-blur-sm">
-              <BrandMark dark />
-              Family Finance
-            </Link>
-
-            <div className="text-center">
-              <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-[#111111] sm:text-[40px]">
-                {isRegister ? t("auth.createYourAccount") : t("auth.welcomeBack")}
-              </h1>
-              <p className="mt-2 text-sm text-gray-500">
-                {isRegister ? t("auth.secureWorkspace") : t("auth.signInToAccount")}
-              </p>
+      <div className="relative z-10 mx-auto grid min-h-[680px] w-full max-w-6xl overflow-hidden rounded-[2rem] glass-card lg:grid-cols-[0.95fr_1.05fr]">
+        <section className="relative hidden overflow-hidden p-8 lg:block">
+          <div className="absolute inset-8 rounded-[2rem] glass-panel-dark" />
+          <div className="relative z-10 flex h-full flex-col justify-between p-8 text-white">
+            <div>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-bold text-white/80 backdrop-blur">
+                <ShieldCheck size={15} /> Secure access
+              </div>
+              <h2 className="max-w-sm responsive-section-title font-black">Masuk ke dashboard finance yang lebih trusted.</h2>
+              <p className="mt-4 max-w-sm text-sm leading-7 text-white/68">Pantau cashflow, budget, goals, dan report dari web dengan visual digital banking yang konsisten.</p>
             </div>
+            <div className="relative h-[360px]">
+              <AppPhonePreview variant="dashboard" className="absolute left-8 top-0 scale-[0.88] rotate-[-6deg]" />
+              <AppPhonePreview variant="reports" className="absolute bottom-[-70px] right-0 scale-[0.72] rotate-[10deg] opacity-90" />
+            </div>
+          </div>
+        </section>
 
-            <div className="mt-8 grid gap-3">
-              <SocialButton label={t("auth.continueWithGoogle")} onClick={handleGoogleAuth}>
+        <section className="flex flex-col justify-center px-6 py-10 sm:px-10 lg:px-14">
+          <div className="mx-auto w-full max-w-md">
+            <p className="text-fluid-sm font-bold uppercase tracking-[0.24em]" style={{ color: "var(--primary)" }}>
+              {isRegister ? t("auth.createAccount") : t("auth.loginAccount")}
+            </p>
+            <h1 className="mt-3 responsive-section-title font-black" style={{ color: "var(--text-primary)" }}>
+              {isRegister ? t("auth.createYourAccount") : t("auth.welcomeBack")}
+            </h1>
+            <p className="mt-3 text-fluid-sm leading-6" style={{ color: "var(--text-secondary)" }}>
+              {isRegister ? t("auth.secureWorkspace") : t("auth.signInToAccount")}
+            </p>
+
+            <div className="mt-8 space-y-4">
+              <SocialButton label={t("auth.continueWithGoogle")} onClick={handleGoogleAuth} disabled={submitting}>
                 <GoogleLogo />
               </SocialButton>
-            </div>
 
-            <div className="my-7 flex items-center gap-3">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-gray-200" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-gray-400">{t("auth.or")}</span>
-              <div className="h-px flex-1 bg-gradient-to-l from-transparent via-gray-200 to-gray-200" />
-            </div>
-
-            <div className="space-y-4">
-              <div className="group rounded-[1.25rem] border border-gray-200 bg-gray-50 p-2 transition-all focus-within:border-gray-400 focus-within:bg-white">
-                <div className="flex items-center gap-3">
-                  <div className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] px-3 py-2.5">
-                    <Mail className="h-4.5 w-4.5 text-gray-400" />
-                    <div className="min-w-0 flex-1 text-left">
-                      <p className="text-[11px] font-medium text-gray-500">{t("auth.email")}</p>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder={t("auth.enterEmail")}
-                        className="w-full bg-transparent text-sm text-[#111111] outline-none placeholder:text-gray-400"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleEmailAuth}
-                    disabled={submitting}
-                    className="group/submit relative flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full"
-                  >
-                    <span className="absolute inset-0 rounded-full bg-[conic-gradient(#00c6ff,#0072ff,#ff007a,#ff8a00,#00c6ff)] p-[3px] transition-transform duration-500 group-hover/submit:animate-spin">
-                      <span className="block h-full w-full rounded-full bg-white" />
-                    </span>
-                    <span className="absolute inset-[-8px] rounded-full bg-[conic-gradient(#00c6ff,#0072ff,#ff007a,#ff8a00,#00c6ff)] opacity-0 blur-md transition-opacity duration-300 group-hover/submit:animate-spin group-hover/submit:opacity-100" />
-                    <span className="relative z-10 flex h-[46px] w-[46px] items-center justify-center rounded-full bg-[#111111] shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),inset_0_-4px_8px_rgba(0,0,0,0.4)]">
-                      <ArrowRight className="h-4.5 w-4.5 text-white transition-transform duration-200 group-hover/submit:translate-x-0.5" />
-                    </span>
-                  </button>
-                </div>
+              <div className="flex items-center gap-3 py-2 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: "var(--text-muted)" }}>
+                <span className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
+                {t("auth.or")}
+                <span className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
               </div>
 
-              <div className="rounded-[1.25rem] border border-gray-200 bg-gray-50 px-4 py-3 transition-all focus-within:border-gray-400 focus-within:bg-white">
-                <div className="flex items-center gap-3">
-                  <LockKeyhole className="h-4.5 w-4.5 text-gray-400" />
-                  <div className="min-w-0 flex-1 text-left">
-                      <p className="text-[11px] font-medium text-gray-500">{t("auth.password")}</p>
-                      <input
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                        placeholder={t("auth.enterPassword")}
-                      className="w-full bg-transparent text-sm text-[#111111] outline-none placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-              </div>
+              <Field icon={<Mail size={18} />} label={t("auth.email")}>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder={t("auth.enterEmail")}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  style={{ color: "var(--text-primary)" }}
+                />
+              </Field>
+
+              <Field icon={<LockKeyhole size={18} />} label={t("auth.password")}>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete={isRegister ? "new-password" : "current-password"}
+                  placeholder={t("auth.enterPassword")}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  style={{ color: "var(--text-primary)" }}
+                />
+              </Field>
+
+              <button
+                type="button"
+                onClick={handleEmailAuth}
+                disabled={submitting || isCoolingDown}
+                className="flex w-full items-center justify-center gap-3 rounded-2xl px-5 py-4 text-fluid-sm font-black text-white shadow-lg transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ backgroundColor: "var(--primary)" }}
+              >
+                {isCoolingDown ? "Tunggu sebentar" : submitting ? t("auth.loading") : isRegister ? t("auth.register") : t("auth.signIn")}
+                <ArrowRight size={17} />
+              </button>
             </div>
 
+            {!emailReady && email.length > 0 && <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">Masukkan format email yang valid. Untuk saat ini login web belum pakai username.</p>}
+            {isRegister && password.length > 0 && password.length < 8 && <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{weakPasswordError}</p>}
+            {status && <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{status}</p>}
             {error && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
-          </div>
 
-          <p className="relative z-10 mt-8 text-center text-sm text-gray-500">
-            {isRegister ? t("auth.haveAccount") : t("auth.noAccount")}{" "}
-            <button
-              type="button"
-              onClick={() => setIsRegister((value) => !value)}
-              className="bg-gradient-to-r from-[#FF512F] to-[#F09819] bg-clip-text font-semibold text-transparent"
-            >
-              {isRegister ? t("auth.loginLink") : t("auth.registerLink")}
-            </button>
-          </p>
+            <p className="mt-8 text-center text-sm" style={{ color: "var(--text-secondary)" }}>
+              {isRegister ? t("auth.haveAccount") : t("auth.noAccount")} {" "}
+              <button type="button" onClick={() => setIsRegister((value) => !value)} className="font-black" style={{ color: "var(--primary)" }}>
+                {isRegister ? t("auth.loginLink") : t("auth.registerLink")}
+              </button>
+            </p>
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl px-4 py-3 glass-card">
+      <div className="flex items-center gap-3">
+        <span style={{ color: "var(--primary)" }}>{icon}</span>
+        <div className="min-w-0 flex-1 text-left">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--text-muted)" }}>{label}</p>
+          <div className="mt-1">{children}</div>
         </div>
       </div>
     </div>
   )
 }
 
-function SocialButton({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
+function SocialButton({ children, label, onClick, disabled }: { children: React.ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between rounded-[1.25rem] border border-gray-200 bg-gray-50 px-4 py-4 text-sm font-medium text-[#111111] transition-all hover:border-gray-300 hover:bg-white"
+      disabled={disabled}
+      className="flex w-full items-center justify-between rounded-2xl px-4 py-4 text-fluid-sm font-bold transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 glass-card"
+      style={{ color: "var(--text-primary)" }}
     >
       <span className="flex items-center gap-3">
         <span className="flex h-5 w-5 items-center justify-center">{children}</span>
         {label}
       </span>
-      <ArrowRight className="h-4.5 w-4.5 text-gray-500 transition-colors group-hover:text-[#111111]" />
+      <ArrowRight size={17} style={{ color: "var(--text-muted)" }} />
     </button>
   )
 }
@@ -225,8 +295,11 @@ function GoogleLogo() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+    <Suspense fallback={<div className="banking-page-bg min-h-screen" />}>
       <LoginForm />
     </Suspense>
   )
 }
+
+
+
