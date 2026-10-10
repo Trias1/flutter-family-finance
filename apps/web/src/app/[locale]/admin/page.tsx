@@ -146,7 +146,7 @@ export default function AdminPage() {
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
-  const [busy, setBusy] = useState<"" | "backfill" | "config">("")
+  const [busy, setBusy] = useState<"" | "backfill" | "config" | "invites">("")
 
   useEffect(() => {
     let stopPresence: (() => void) | undefined
@@ -188,12 +188,15 @@ export default function AdminPage() {
     })
   }, [overview?.users, search, filter])
 
-  const run = async (kind: "backfill" | "config") => {
+  const run = async (kind: "backfill" | "config" | "invites") => {
     if (!user) return
     setBusy(kind)
     setNotice(null)
     try {
-      if (kind === "backfill") {
+      if (kind === "invites") {
+        const payload = await callAdminApi(user, "/api/admin/backfill-family-invites")
+        setNotice({ tone: "ok", text: t("invitesSynced", { count: Number(payload.created ?? 0) }) })
+      } else if (kind === "backfill") {
         const payload = await callAdminApi(user, "/api/admin/backfill-user-public")
         setNotice({ tone: "ok", text: t("syncedUsernames", { count: Number(payload.written ?? 0) }) })
       } else {
@@ -227,6 +230,9 @@ export default function AdminPage() {
             description={t("dashboardDesc")}
             actions={
               <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => run("invites")} disabled={busy !== ""} className="auth-btn-secondary !h-9 !w-auto px-3">
+                  {busy === "invites" ? t("processing") : t("syncInvites")}
+                </button>
                 <button type="button" onClick={() => run("config")} disabled={busy !== ""} className="auth-btn-secondary !h-9 !w-auto px-3">
                   {busy === "config" ? t("processing") : t("syncAndroidConfig")}
                 </button>

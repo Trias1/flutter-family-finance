@@ -321,7 +321,9 @@
     "noUsersMatch": "Tidak ada user yang cocok",
     "never": "Belum pernah",
     "noVersions": "Belum ada data versi",
-    "activeDevicesCount": "{count} sesi perangkat"
+    "activeDevicesCount": "{count} sesi perangkat",
+    "syncInvites": "Sync Kode Undangan",
+    "invitesSynced": "{count} kode undangan keluarga lama dibuat."
   },
   "home": {
     "eyebrow": "Keuangan keluarga",

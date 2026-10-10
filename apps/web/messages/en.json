@@ -321,7 +321,9 @@
     "noUsersMatch": "No users match",
     "never": "Never",
     "noVersions": "No version data yet",
-    "activeDevicesCount": "{count} device sessions"
+    "activeDevicesCount": "{count} device sessions",
+    "syncInvites": "Sync Invite Codes",
+    "invitesSynced": "{count} invite codes created for older families."
   },
   "home": {
     "eyebrow": "Family finance",
