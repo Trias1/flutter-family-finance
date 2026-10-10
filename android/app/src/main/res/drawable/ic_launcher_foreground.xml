@@ -1,31 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- A ledger card: the same mark as the web BrandMark. Kept inside the
+     66dp safe zone so every launcher mask shows all of it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- wallet body -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M36,38L72,38C75.3,38 78,40.7 78,44L78,68C78,71.3 75.3,74 72,74L36,74C32.7,74 30,71.3 30,68L30,44C30,40.7 32.7,38 36,38Z" />
-    <!-- wallet top flap -->
+        android:fillColor="#FFF4EFE6"
+        android:pathData="M40,35H68A7,7 0,0 1,75 42V66A7,7 0,0 1,68 73H40A7,7 0,0 1,33 66V42A7,7 0,0 1,40 35Z" />
     <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.5"
-        android:pathData="M36,38L72,38L66,32L42,32L36,38Z" />
-    <!-- coin circle -->
+        android:fillColor="#FF2B4C6F"
+        android:pathData="M43,46H65A2,2 0,0 1,67 48V48.5A2,2 0,0 1,65 50.5H43A2,2 0,0 1,41 48.5V48A2,2 0,0 1,43 46Z" />
     <path
-        android:fillColor="#D97706"
-        android:pathData="M49,56m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
-    <!-- dollar sign -->
+        android:fillColor="#FF2B4C6F"
+        android:pathData="M43,56H55A2,2 0,0 1,57 58V58.5A2,2 0,0 1,55 60.5H43A2,2 0,0 1,41 58.5V58A2,2 0,0 1,43 56Z" />
     <path
-        android:fillColor="#FFFFFF"
-        android:strokeWidth="1.5"
-        android:strokeColor="#FFFFFF"
-        android:pathData="M50,50L50,62M47,53L53,53M47,59L53,59" />
-    <!-- roof / house shape on top -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.3"
-        android:pathData="M54,22L72,36L36,36Z" />
+        android:fillColor="#FFB98A47"
+        android:pathData="M62,56H65A2,2 0,0 1,67 58V58.5A2,2 0,0 1,65 60.5H62A2,2 0,0 1,60 58.5V58A2,2 0,0 1,62 56Z" />
 </vector>
