@@ -1,216 +1,159 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { collection, query, where, getDocs, getDoc, doc, Timestamp } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
-import { auth, db } from "@/lib/firebase"
-import { useTranslations } from "next-intl"
-import DashboardShell from "@/components/DashboardShell"
-import { SkeletonCard, SkeletonLine } from "@/components/Skeleton"
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell,
-} from "recharts"
+import { useMemo, useState } from "react"
+import { useLocale, useTranslations } from "next-intl"
 
-const COLORS = ["#6B3F2A", "#A16207", "#D97706", "#F59E0B", "#F3E7D8", "#EF5350", "#42A5F5", "#AB47BC", "#26A69A", "#8B5CF6"]
-const INCOME = "#4CAF50"
-const EXPENSE = "#EF5350"
+import CashflowChart from "@/components/CashflowChart"
+import { EmptyState, Money, PageHeader, Section, Skeleton } from "@/components/ui"
+import { useFamilyData } from "@/lib/family-data"
+import { byCategory, cashflowSeries, change, monthTotals } from "@/lib/finance"
 
-function fmt(n: number) {
-  return "Rp" + Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-}
-
-type Period = "daily" | "weekly" | "monthly" | "yearly"
+const ranges = [6, 12] as const
 
 export default function ReportsPage() {
-  const t = useTranslations()
-  const [incomes, setIncomes] = useState<any[]>([])
-  const [expenses, setExpenses] = useState<any[]>([])
-  const [period, setPeriod] = useState<Period>("monthly")
-  const [loading, setLoading] = useState(true)
+  const t = useTranslations("dash")
+  const locale = useLocale()
+  const data = useFamilyData()
+  const [range, setRange] = useState<(typeof ranges)[number]>(6)
+  const [offset, setOffset] = useState(0)
+  const [now] = useState(() => new Date())
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      try {
-        if (!u) return
-        const snap = await getDoc(doc(db, "users", u.uid))
-        const fid = snap.data()?.familyId
-        if (!fid) return
-        const [incSnap, expSnap] = await Promise.all([
-          getDocs(query(collection(db, "incomes"), where("familyId", "==", fid))),
-          getDocs(query(collection(db, "expenses"), where("familyId", "==", fid))),
-        ])
-        const parse = (d: any) => ({ id: d.id, amount: (d.data().amount as number) || 0, category: d.data().category || "", date: (d.data().date as Timestamp)?.toDate?.() || new Date(), note: d.data().note || "" })
-        setIncomes(incSnap.docs.map(parse))
-        setExpenses(expSnap.docs.map(parse))
-      } finally {
-        setLoading(false)
-      }
-    })
-    return unsub
-  }, [])
+  const view = useMemo(() => {
+    const current = monthTotals(data.incomes, data.expenses, now, offset)
+    const previous = monthTotals(data.incomes, data.expenses, now, offset - 1)
+    const categories = byCategory(data.expenses, current.from, current.to)
+    const prevCategories = new Map(byCategory(data.expenses, previous.from, previous.to).map((c) => [c.category, c.amount]))
+    const series = cashflowSeries(data.incomes, data.expenses, now, range, locale)
+    const months = Array.from({ length: range }, (_, i) => monthTotals(data.incomes, data.expenses, now, -i))
+    return { current, previous, categories, prevCategories, series, months }
+  }, [data.incomes, data.expenses, now, offset, range, locale])
 
-  const now = new Date()
-  const periodStart = (p: Period) => {
-    switch (p) {
-      case "daily": return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      case "weekly": { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); return d }
-      case "monthly": return new Date(now.getFullYear(), now.getMonth(), 1)
-      case "yearly": return new Date(now.getFullYear(), 0, 1)
-    }
-  }
+  const monthFmt = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" })
+  const shortFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" })
+  const savingRate = view.current.income > 0 ? (view.current.net / view.current.income) * 100 : null
 
-  const start = periodStart(period)
-  const filteredIncomes = incomes.filter((i) => i.date >= start)
-  const filteredExpenses = expenses.filter((e) => e.date >= start)
-  const totalIncome = filteredIncomes.reduce((s, i) => s + i.amount, 0)
-  const totalExpense = filteredExpenses.reduce((s, e) => s + e.amount, 0)
-
-  const catMap: Record<string, number> = {}
-  filteredExpenses.forEach((e) => { catMap[e.category] = (catMap[e.category] || 0) + e.amount })
-  const expenseByCat = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, value], i) => ({ name: name || t("dashboard.others"), value, color: COLORS[i % COLORS.length] }))
-
-  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
-  const trend: any[] = []
-  for (let i = 11; i >= 0; i--) {
-    const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
-    trend.push({
-      month: months[mStart.getMonth()],
-      income: incomes.filter((inc) => inc.date >= mStart && inc.date <= mEnd).reduce((s, inc) => s + inc.amount, 0),
-      expense: expenses.filter((e) => e.date >= mStart && e.date <= mEnd).reduce((s, e) => s + e.amount, 0),
-    })
-  }
-
-  const periods: Period[] = ["daily", "weekly", "monthly", "yearly"]
-  const periodLabels: Record<Period, string> = { daily: "Harian", weekly: "Mingguan", monthly: "Bulanan", yearly: "Tahunan" }
-
-  if (loading) {
+  if (!data.ready) {
     return (
-      <DashboardShell>
-        <div className="max-w-4xl mx-auto space-y-6">
-          <SkeletonLine width="180px" height={28} />
-          <div className="flex gap-2">
-            <SkeletonLine width="80px" height={36} className="rounded-xl" />
-            <SkeletonLine width="80px" height={36} className="rounded-xl" />
-            <SkeletonLine width="80px" height={36} className="rounded-xl" />
-            <SkeletonLine width="80px" height={36} className="rounded-xl" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div className="rounded-2xl border p-6 animate-pulse" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <SkeletonLine width="160px" height={20} />
-            <div className="mt-4 h-64 flex items-end gap-3 px-4">
-              {[30,50,35,60,40,55,45,65,38,52,48,42].map((h, i) => (
-                <div key={i} className="flex-1 rounded-t" style={{ height: `${h}%`, backgroundColor: "var(--border)" }} />
-              ))}
-            </div>
-          </div>
-          <div className="rounded-2xl border p-6 animate-pulse" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <SkeletonLine width="180px" height={20} />
-            <div className="mt-4 flex flex-col sm:flex-row items-center gap-6">
-              <div className="w-44 h-44 rounded-full" style={{ backgroundColor: "var(--border)" }} />
-              <div className="flex-1 space-y-3">
-                {[1,2,3,4,5].map((i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-skeleton" />
-                    <SkeletonLine width="60%" height={14} />
-                    <SkeletonLine width="80px" height={14} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </DashboardShell>
+      <div className="space-y-6">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-72 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
     )
   }
 
   return (
-    <DashboardShell>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{t("nav.reports")}</h1>
-
-        {/* Info card */}
-        <div className="rounded-2xl border p-4 text-sm leading-relaxed" style={{ borderColor: "var(--border)", backgroundColor: "var(--primary-bg)", color: "var(--primary)" }}>
-          <p>{t("reportsPage.desc")}</p>
-        </div>
-
-        {/* Period Filter */}
-        <div className="flex gap-2">
-          {periods.map((p) => (
-            <button key={p} onClick={() => setPeriod(p)}
-              className="rounded-xl px-4 py-2 text-sm font-medium transition-all"
-              style={{ backgroundColor: period === p ? "var(--primary)" : "var(--bg-card)", color: period === p ? "#FFFFFF" : "var(--text-secondary)", border: period === p ? "none" : "1px solid var(--border)" }}
-            >{periodLabels[p]}</button>
-          ))}
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("dashboard.income")}</p>
-            <p className="text-2xl font-bold mt-1" style={{ color: INCOME }}>{fmt(totalIncome)}</p>
+    <div className="space-y-6">
+      <PageHeader
+        title={t("reports.title")}
+        description={t("reports.desc")}
+        actions={
+          <div className="seg" role="group" aria-label={t("reports.range")}>
+            {ranges.map((r) => (
+              <button key={r} type="button" aria-pressed={range === r} onClick={() => setRange(r)}>{t("reports.months", { count: r })}</button>
+            ))}
           </div>
-          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("dashboard.expense")}</p>
-            <p className="text-2xl font-bold mt-1" style={{ color: EXPENSE }}>{fmt(totalExpense)}</p>
-          </div>
-          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("dashboard.remainingMonth")}</p>
-            <p className="text-2xl font-bold mt-1" style={{ color: totalIncome - totalExpense >= 0 ? INCOME : EXPENSE }}>{fmt(totalIncome - totalExpense)}</p>
-          </div>
-        </div>
+        }
+      />
 
-        {/* 12-Month Trend */}
-        <div className="rounded-2xl border p-6" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-          <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>{t("dashboard.trend6Month")}</h3>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--text-secondary)" }} />
-                <YAxis tick={{ fontSize: 12, fill: "var(--text-secondary)" }} tickFormatter={(v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}jt` : v >= 1000 ? `${(v / 1000).toFixed(0)}rb` : `${v}`} />
-                <Tooltip formatter={(v: any) => fmt(Number(v))} />
-                <Bar dataKey="income" name={t("dashboard.income")} radius={[6, 6, 0, 0]} fill={INCOME} />
-                <Bar dataKey="expense" name={t("dashboard.expense")} radius={[6, 6, 0, 0]} fill={EXPENSE} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      <Section title={t("overview.cashflow")} aside={t("reports.months", { count: range })}>
+        <CashflowChart data={view.series} labels={{ income: t("overview.income"), expense: t("overview.expense") }} height={260} emptyLabel={t("overview.noCashflow")} />
+      </Section>
 
-        {/* Expense by Category */}
-        <div className="rounded-2xl border p-6" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-          <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>{t("dashboard.expenseByCategory")}</h3>
-          {expenseByCat.length === 0 ? (
-            <p className="mt-4 text-sm text-center" style={{ color: "var(--text-muted)" }}>{t("dashboard.noDataThisMonth")}</p>
-          ) : (
-            <div className="mt-4 flex flex-col sm:flex-row items-center gap-6">
-              <div className="w-44 h-44 shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={expenseByCat} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={50}>
-                      {expenseByCat.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex-1 space-y-2 w-full">
-                {expenseByCat.slice(0, 6).map((c, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                    <span className="flex-1 truncate" style={{ color: "var(--text-secondary)" }}>{c.name}</span>
-                    <span className="font-medium" style={{ color: "var(--text-primary)" }}>{fmt(c.value)}</span>
-                  </div>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <Section
+            title={t("reports.byCategory")}
+            aside={
+              <select value={offset} onChange={(e) => setOffset(Number(e.target.value))} className="field h-7 text-xs" aria-label={t("transactions.month")}>
+                {Array.from({ length: 12 }, (_, i) => -i).map((o) => (
+                  <option key={o} value={o}>{monthFmt.format(new Date(now.getFullYear(), now.getMonth() + o, 1))}</option>
                 ))}
-              </div>
-            </div>
-          )}
+              </select>
+            }
+            flush
+          >
+            {view.categories.length === 0 ? (
+              <EmptyState title={t("reports.noExpense")} />
+            ) : (
+              <ul>
+                {view.categories.map((c) => {
+                  const share = view.current.expense > 0 ? (c.amount / view.current.expense) * 100 : 0
+                  const delta = change(c.amount, view.prevCategories.get(c.category) ?? 0)
+                  return (
+                    <li key={c.category} className="border-b px-5 py-3 last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                      <div className="flex items-baseline justify-between gap-3 text-sm">
+                        <span className="truncate" style={{ color: "var(--text-primary)" }}>{c.category}</span>
+                        <Money value={c.amount} className="shrink-0" />
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-3">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-soft)" }}>
+                          <div className="h-full rounded-full" style={{ width: `${share}%`, backgroundColor: "var(--primary)" }} />
+                        </div>
+                        <span className="w-10 text-right text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>{share.toFixed(0)}%</span>
+                        <span className="w-14 text-right text-xs tabular-nums" style={{ color: delta === null ? "var(--text-muted)" : delta > 0 ? "var(--expense)" : "var(--income)" }}>
+                          {delta === null ? t("reports.new") : `${delta > 0 ? "+" : ""}${delta.toFixed(0)}%`}
+                        </span>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Section>
+        </div>
+
+        <div className="lg:col-span-2">
+          <Section title={t("reports.summary")} aside={monthFmt.format(view.current.from)}>
+            <dl className="space-y-3 text-sm">
+              <Row label={t("overview.income")}><Money value={view.current.income} tone="income" /></Row>
+              <Row label={t("overview.expense")}><Money value={view.current.expense} tone="expense" /></Row>
+              <Row label="Net" strong><Money value={view.current.net} tone="auto" /></Row>
+              <Row label={t("reports.savingRate")}>
+                <span className="tabular-nums" style={{ color: "var(--text-primary)" }}>{savingRate === null ? "—" : `${savingRate.toFixed(0)}%`}</span>
+              </Row>
+              <Row label={t("reports.vsPrev")}>
+                <Money value={view.current.expense - view.previous.expense} tone={view.current.expense > view.previous.expense ? "expense" : "income"} signed />
+              </Row>
+            </dl>
+            <p className="mt-4 text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t("reports.vsPrevNote")}</p>
+          </Section>
         </div>
       </div>
-    </DashboardShell>
+
+      <Section title={t("reports.monthly")} flush>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase tracking-[0.06em]" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+                <th className="px-5 py-2.5 font-medium">{t("transactions.month")}</th>
+                <th className="px-3 py-2.5 text-right font-medium">{t("overview.income")}</th>
+                <th className="px-3 py-2.5 text-right font-medium">{t("overview.expense")}</th>
+                <th className="px-5 py-2.5 text-right font-medium">Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.months.map((m) => (
+                <tr key={m.from.toISOString()} className="data-row border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                  <td className="px-5 py-2.5" style={{ color: "var(--text-primary)" }}>{shortFmt.format(m.from)}</td>
+                  <td className="px-3 py-2.5 text-right"><Money value={m.income} tone={m.income ? "income" : "neutral"} /></td>
+                  <td className="px-3 py-2.5 text-right"><Money value={m.expense} /></td>
+                  <td className="px-5 py-2.5 text-right"><Money value={m.net} tone="auto" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </div>
+  )
+}
+
+function Row({ label, children, strong = false }: { label: string; children: React.ReactNode; strong?: boolean }) {
+  return (
+    <div className={`flex items-baseline justify-between gap-4 ${strong ? "border-t pt-3 font-semibold" : ""}`} style={{ borderColor: "var(--border)" }}>
+      <dt style={{ color: "var(--text-secondary)" }}>{label}</dt>
+      <dd>{children}</dd>
+    </div>
   )
 }

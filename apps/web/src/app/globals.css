@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 :root {
   --primary: #1D4ED8;
@@ -6,8 +6,9 @@
   --primary-lighter: #38BDF8;
   --primary-bg: #DBEAFE;
   --expense-bg: #FFEBEE;
-  --income: #10B981;
-  --expense: #EF4444;
+  --income: #047857;
+  --warning: #B45309;
+  --expense: #B91C1C;
   --savings: #0EA5E9;
   --bg: #F8FAFC;
   --bg-card: #FFFFFF;
@@ -28,6 +29,7 @@
   --primary-bg: rgba(96, 165, 250, 0.16);
   --expense-bg: rgba(239, 68, 68, 0.14);
   --income: #34D399;
+  --warning: #FBBF24;
   --expense: #F87171;
   --savings: #38BDF8;
   --bg: #07111F;
@@ -72,54 +74,6 @@ body {
   font-family: var(--font-plus-jakarta-sans), Arial, Helvetica, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
-}
-
-[data-color-theme="softPink"] {
-  --primary: #1D4ED8;
-  --primary-light: #2563EB;
-  --primary-lighter: #38BDF8;
-  --primary-bg: #DBEAFE;
-  --bg: #F8FAFC;
-}
-
-[data-color-theme="roseGold"] {
-  --primary: #1D4ED8;
-  --primary-light: #2563EB;
-  --primary-lighter: #38BDF8;
-  --primary-bg: #DBEAFE;
-  --bg: #F8FAFC;
-}
-
-[data-color-theme="oceanBlue"] {
-  --primary: #1D4ED8;
-  --primary-light: #2563EB;
-  --primary-lighter: #38BDF8;
-  --primary-bg: #DBEAFE;
-  --bg: #F8FAFC;
-}
-
-[data-color-theme="lavender"] {
-  --primary: #1D4ED8;
-  --primary-light: #2563EB;
-  --primary-lighter: #38BDF8;
-  --primary-bg: #DBEAFE;
-  --bg: #F8FAFC;
-}
-
-[data-color-theme="charcoalGold"] {
-  --primary: #1D4ED8;
-  --primary-light: #2563EB;
-  --primary-lighter: #38BDF8;
-  --primary-bg: #DBEAFE;
-  --bg: #F8FAFC;
-}
-
-[data-color-theme="sage"] {
-  --primary: #1D4ED8;
-  --primary-light: #2563EB;
-  --primary-lighter: #38BDF8;
-  --primary-bg: #DBEAFE;
-  --bg: #F8FAFC;
 }
 
 [data-theme="dark"][data-color-theme="softPink"] {
@@ -384,3 +338,61 @@ body {
   letter-spacing: -0.055em;
 }
 
+
+/* Dashboard shell, menus, filters */
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.menu-item:hover,
+.nav-link:hover {
+  background-color: var(--surface-soft);
+}
+
+.data-row:hover {
+  background-color: color-mix(in srgb, var(--surface-soft) 60%, transparent);
+}
+
+.field {
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  padding: 0 10px;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--primary);
+}
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.seg > button {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+}
+
+.seg > button + button {
+  border-left: 1px solid var(--border);
+}
+
+.seg > button[aria-pressed="true"] {
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  font-weight: 600;
+}

@@ -1,113 +1,103 @@
 "use client"
 
-import { usePathname } from "next/navigation"
-import Link from "next/link"
+import { ArrowLeftRight, BarChart3, HandCoins, LayoutGrid, PiggyBank, type LucideIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { User } from "firebase/auth"
+
+import BrandMark from "@/components/public/BrandMark"
+import { useFamilyData } from "@/lib/family-data"
 import { APP_NAME, APP_VERSION_LABEL } from "@/lib/app-info"
+import { Link, usePathname } from "@/lib/i18n"
 
-interface NavSection {
-  labelKey: string
-  items: { href: string; labelKey: string; icon: string }[]
-}
+type NavItem = { href: string; key: string; icon: LucideIcon }
 
-const sections: NavSection[] = [
-  {
-    labelKey: "sidebar.overview",
-    items: [
-      { href: "/dashboard", labelKey: "nav.dashboard", icon: "📊" },
-    ],
-  },
-  {
-    labelKey: "sidebar.finance",
-    items: [
-      { href: "/dashboard/wallets", labelKey: "nav.wallets", icon: "👛" },
-      { href: "/dashboard/transactions", labelKey: "nav.transactions", icon: "💰" },
-      { href: "/dashboard/debts", labelKey: "nav.debts", icon: "📋" },
-    ],
-  },
-  {
-    labelKey: "sidebar.planning",
-    items: [
-      { href: "/dashboard/budget-savings", labelKey: "nav.budgetSavings", icon: "🎯" },
-      { href: "/dashboard/reports", labelKey: "nav.reports", icon: "📈" },
-    ],
-  },
-  {
-    labelKey: "sidebar.help",
-    items: [
-      { href: "/dashboard/guide", labelKey: "nav.guide", icon: "📖" },
-    ],
-  },
+export const navItems: NavItem[] = [
+  { href: "/dashboard", key: "overview", icon: LayoutGrid },
+  { href: "/dashboard/transactions", key: "transactions", icon: ArrowLeftRight },
+  { href: "/dashboard/budget-savings", key: "budget", icon: PiggyBank },
+  { href: "/dashboard/debts", key: "debts", icon: HandCoins },
+  { href: "/dashboard/reports", key: "reports", icon: BarChart3 },
 ]
 
-interface SidebarProps {
-  user: User | null
-  role: string | null
-  isOpen: boolean
-  onClose: () => void
+function useIsActive() {
+  const pathname = usePathname()
+  return (href: string) => (href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`))
 }
 
-export default function Sidebar({ user, role, isOpen, onClose }: SidebarProps) {
-  const t = useTranslations()
-  const pathname = usePathname()
+export default function Sidebar() {
+  const t = useTranslations("dash")
+  const isActive = useIsActive()
+  const { scope, familyName } = useFamilyData()
 
   return (
-    <>
-      {isOpen && (
-        <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm lg:hidden" onClick={onClose} />
-      )}
+    <aside className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col border-r lg:flex" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
+      <Link href="/dashboard" className="flex h-14 items-center gap-2 border-b px-5 text-sm font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
+        <BrandMark dark />
+        {APP_NAME}
+      </Link>
 
-      <aside
-        className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
-        style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 78%, transparent)", borderColor: "rgba(255,255,255,0.62)", height: "100dvh", boxShadow: "var(--shadow-soft)", backdropFilter: "blur(22px)" }}
-      >
-        {/* Logo */}
-        <div className="flex h-16 items-center border-b px-6" style={{ borderColor: "var(--border)" }}>
-          <Link href="/dashboard" className="text-xl font-bold tracking-tight" style={{ color: "var(--primary)" }}>
-            {APP_NAME}
-          </Link>
-        </div>
+      <div className="border-b px-5 py-3" style={{ borderColor: "var(--border)" }}>
+        <p className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: "var(--text-muted)" }}>
+          {scope === "family" ? t("scope.family") : t("scope.personal")}
+        </p>
+        <p className="mt-0.5 truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+          {scope === "family" ? familyName || "—" : t("scope.personalName")}
+        </p>
+      </div>
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-          {sections.map((section) => (
-            <div key={section.labelKey}>
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-                {t(section.labelKey)}
-              </p>
-              <div className="space-y-0.5">
-                {section.items.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={onClose}
-                      className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200"
-                      style={{
-                        backgroundColor: isActive ? "var(--primary-bg)" : "transparent",
-                        color: isActive ? "var(--primary)" : "var(--text-secondary)",
-                      }}
-                      onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.backgroundColor = "var(--surface-soft)" } }}
-                      onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.backgroundColor = "transparent" } }}
-                    >
-                      <span className="text-base">{item.icon}</span>
-                      {t(item.labelKey)}
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
+      <nav className="flex-1 space-y-0.5 px-3 py-3" aria-label={t("nav.label")}>
+        {navItems.map(({ href, key, icon: Icon }) => {
+          const active = isActive(href)
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className="nav-link flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm"
+              style={{
+                color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                backgroundColor: active ? "var(--surface-soft)" : undefined,
+                fontWeight: active ? 600 : 400,
+              }}
+            >
+              <Icon size={16} strokeWidth={active ? 2.2 : 1.8} style={{ color: active ? "var(--primary)" : undefined }} />
+              {t(`nav.${key}`)}
+            </Link>
+          )
+        })}
+      </nav>
 
-        {/* Footer */}
-        <div className="border-t px-4 py-3" style={{ borderColor: "var(--border)" }}>
-          <p className="text-[10px] text-center" style={{ color: "var(--text-muted)" }}>{APP_NAME} v{APP_VERSION_LABEL}</p>
-        </div>
-      </aside>
-    </>
+      <p className="border-t px-5 py-3 text-[11px]" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+        v{APP_VERSION_LABEL}
+      </p>
+    </aside>
   )
 }
 
+export function MobileNav() {
+  const t = useTranslations("dash")
+  const isActive = useIsActive()
+
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t lg:hidden"
+      style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)", paddingBottom: "env(safe-area-inset-bottom)" }}
+      aria-label={t("nav.label")}
+    >
+      {navItems.map(({ href, key, icon: Icon }) => {
+        const active = isActive(href)
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-current={active ? "page" : undefined}
+            className="flex flex-col items-center gap-1 py-2 text-[11px]"
+            style={{ color: active ? "var(--primary)" : "var(--text-muted)", fontWeight: active ? 600 : 400 }}
+          >
+            <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
+            {t(`navShort.${key}`)}
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}

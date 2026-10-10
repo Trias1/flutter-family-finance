@@ -100,7 +100,7 @@ export default function AdminPage() {
         const now = Date.now()
         const onlineThreshold = now - 2 * 60 * 1000
         const activeDayThreshold = now - 24 * 60 * 60 * 1000
-        const devicesByUser = new Map<string, any[]>()
+        const devicesByUser = new Map<string, Array<Record<string, unknown> & { id: string }>>()
 
         for (const deviceDoc of devicesSnap.docs) {
           const uid = deviceDoc.ref.parent.parent?.id
@@ -115,8 +115,9 @@ export default function AdminPage() {
         const platformMap = new Map<string, number>()
         const versionMap = new Map<string, number>()
 
-        const getMillis = (value: any) => {
-          if (!value) return null
+        const getMillis = (raw: unknown) => {
+          if (!raw || typeof raw !== "object") return null
+          const value = raw as { toMillis?: () => number; seconds?: number }
           if (typeof value.toMillis === "function") return value.toMillis()
           if (typeof value.seconds === "number") return value.seconds * 1000
           return null
@@ -129,7 +130,7 @@ export default function AdminPage() {
           const latestSeen = getMillis(latestDevice?.lastSeenAt)
           const online = devices.some((device) => (getMillis(device.lastSeenAt) ?? 0) >= onlineThreshold)
           const activeToday = devices.some((device) => (getMillis(device.lastSeenAt) ?? 0) >= activeDayThreshold)
-          const latestSource = latestDevice?.platform ?? "unknown"
+          const latestSource = typeof latestDevice?.platform === "string" ? latestDevice.platform : "unknown"
           const appVersionLabel = latestDevice ? `${latestDevice.appVersionName ?? "-"}+${latestDevice.appVersionCode ?? "-"}` : "-"
           const outdated = latestSource === "android" && Number(latestDevice?.appVersionCode ?? 0) < latestVersionCode
 
@@ -191,8 +192,8 @@ export default function AdminPage() {
           },
           users: users.sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0)),
         })
-      } catch (err: any) {
-        setError(err.message || "Gagal memuat data Firestore admin")
+      } catch (err: unknown) {
+        setError(err instanceof Error && err.message ? err.message : "Gagal memuat data Firestore admin")
       } finally {
         setLoading(false)
       }
@@ -236,8 +237,8 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(payload.error || "Backfill failed")
       window.alert(t("admin.syncedUsernames", { count: payload.written }))
       window.location.reload()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan")
     } finally {
       setBackfillBusy(false)
     }
@@ -258,8 +259,8 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(payload.error || "Android config sync failed")
       window.alert(t("admin.androidConfigSynced", { versionName: payload.latestVersionName, versionCode: payload.latestVersionCode }))
       window.location.reload()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan")
     } finally {
       setSyncConfigBusy(false)
     }
@@ -403,7 +404,7 @@ export default function AdminPage() {
                   </td>
                   <td className="px-3 py-4">
                     <div style={{ color: "var(--text-primary)" }}>{user.appVersionLabel}</div>
-                     {user.outdated && <div className="text-xs font-medium" style={{ color: "var(--warning-text)" }}>{t("admin.updateRequired")}</div>}
+                     {user.outdated && <div className="text-xs font-medium" style={{ color: "var(--warning)" }}>{t("admin.updateRequired")}</div>}
                   </td>
                   <td className="px-3 py-4" style={{ color: "var(--text-secondary)" }}>{formatLastSeen(user.lastSeenAt)}</td>
                 </tr>

@@ -1,126 +1,111 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { collection, query, where, getDocs, getDoc, doc, Timestamp } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
-import { auth, db } from "@/lib/firebase"
-import { useTranslations } from "next-intl"
-import DashboardShell from "@/components/DashboardShell"
-import { SkeletonCard, SkeletonLine, SkeletonAvatar } from "@/components/Skeleton"
+import { useMemo, useState } from "react"
+import { useLocale, useTranslations } from "next-intl"
 
-interface Debt { id: string; personName: string; type: "debt" | "receivable"; amount: number; remainingAmount: number; description: string; dueDate: Date | null; status: string }
+import { EmptyState, Money, PageHeader, Pill, ProgressBar, Section, Skeleton, Stat } from "@/components/ui"
+import { useFamilyData, type Debt } from "@/lib/family-data"
+
+type Filter = "active" | "paid" | "all"
 
 export default function DebtsPage() {
-  const t = useTranslations()
-  const [debts, setDebts] = useState<Debt[]>([])
-  const [filter, setFilter] = useState<"all" | "debt" | "receivable">("all")
-  const [loading, setLoading] = useState(true)
+  const t = useTranslations("dash")
+  const locale = useLocale()
+  const data = useFamilyData()
+  const [filter, setFilter] = useState<Filter>("active")
+  const [now] = useState(() => new Date())
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      try {
-        if (!u) return
-        const snap = await getDoc(doc(db, "users", u.uid))
-        const fid = snap.data()?.familyId
-        if (!fid) return
-        const debtSnap = await getDocs(query(collection(db, "debts"), where("familyId", "==", fid)))
-        setDebts(debtSnap.docs.map((d) => {
-          const data = d.data()
-          return { id: d.id, personName: data.personName || "", type: data.type || "debt", amount: data.amount || 0, remainingAmount: data.remainingAmount ?? data.amount ?? 0, description: data.description || "", dueDate: (data.dueDate as Timestamp)?.toDate?.() || null, status: data.status || "active" } as Debt
-        }))
-      } finally {
-        setLoading(false)
-      }
-    })
-    return unsub
-  }, [])
+  const { owe, owed, groups } = useMemo(() => {
+    const active = data.debts.filter((d) => d.status === "active")
+    const visible = data.debts
+      .filter((d) => (filter === "all" ? true : filter === "paid" ? d.status === "paid" : d.status === "active"))
+      .sort((a, b) => (a.dueDate?.getTime() ?? Infinity) - (b.dueDate?.getTime() ?? Infinity))
+    return {
+      owe: active.filter((d) => d.type === "hutang").reduce((s, d) => s + d.remainingAmount, 0),
+      owed: active.filter((d) => d.type === "piutang").reduce((s, d) => s + d.remainingAmount, 0),
+      groups: [
+        { key: "hutang" as const, items: visible.filter((d) => d.type === "hutang") },
+        { key: "piutang" as const, items: visible.filter((d) => d.type === "piutang") },
+      ],
+    }
+  }, [data.debts, filter])
 
-  const fmt = (n: number) => "Rp" + Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-  const filtered = debts.filter((d) => filter === "all" || d.type === filter)
-  const totalDebt = debts.filter((d) => d.type === "debt").reduce((s, d) => s + d.remainingAmount, 0)
-  const totalReceivable = debts.filter((d) => d.type === "receivable").reduce((s, d) => s + d.remainingAmount, 0)
-  const statusColors: Record<string, string> = { active: "#FFA726", paid: "#4CAF50", overdue: "#EF5350" }
-  const statusLabels: Record<string, string> = { active: "Aktif", paid: "Lunas", overdue: "Terlambat" }
+  const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" })
 
-  if (loading) {
+  const dueLabel = (d: Debt) => {
+    if (!d.dueDate) return <span>{t("debts.noDue")}</span>
+    if (d.status !== "active") return <span>{dateFmt.format(d.dueDate)}</span>
+    const days = Math.ceil((d.dueDate.getTime() - now.getTime()) / 86_400_000)
+    if (days < 0) return <span style={{ color: "var(--expense)" }}>{t("debts.overdue", { days: -days })}</span>
+    if (days <= 7) return <span style={{ color: "var(--warning)" }}>{t("debts.dueIn", { days })}</span>
+    return <span>{dateFmt.format(d.dueDate)}</span>
+  }
+
+  if (!data.ready) {
     return (
-      <DashboardShell>
-        <div className="max-w-3xl mx-auto space-y-6">
-          <SkeletonLine width="180px" height={28} />
-          <div className="grid grid-cols-2 gap-4">
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div className="flex gap-2">
-            <SkeletonLine width="80px" height={36} className="rounded-xl" />
-            <SkeletonLine width="80px" height={36} className="rounded-xl" />
-            <SkeletonLine width="80px" height={36} className="rounded-xl" />
-          </div>
-          <div className="space-y-3">
-            {[1,2,3].map((i) => (
-              <div key={i} className="rounded-2xl border p-5 animate-pulse" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-                <div className="flex items-center gap-4">
-                  <SkeletonAvatar size={48} />
-                  <div className="flex-1 space-y-2">
-                    <SkeletonLine width="40%" height={16} />
-                    <SkeletonLine width="60%" height={12} />
-                  </div>
-                    <SkeletonLine width="80px" height={18} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </DashboardShell>
+      <div className="space-y-6">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
     )
   }
 
   return (
-    <DashboardShell>
-      <div className="max-w-3xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{t("nav.debts")}</h1>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Total Hutang</p>
-            <p className="text-2xl font-bold mt-1" style={{ color: "#EF5350" }}>{fmt(totalDebt)}</p>
+    <div className="space-y-6">
+      <PageHeader
+        title={t("debts.title")}
+        description={t("debts.desc")}
+        actions={
+          <div className="seg" role="group" aria-label={t("debts.status")}>
+            {(["active", "paid", "all"] as Filter[]).map((f) => (
+              <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>{t(`debts.filter.${f}`)}</button>
+            ))}
           </div>
-          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Total Piutang</p>
-            <p className="text-2xl font-bold mt-1" style={{ color: "#4CAF50" }}>{fmt(totalReceivable)}</p>
-          </div>
-        </div>
+        }
+      />
 
-        <div className="flex gap-2">
-          {(["all", "debt", "receivable"] as const).map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className="rounded-xl px-4 py-2 text-sm font-medium transition-all"
-              style={{ backgroundColor: filter === f ? "var(--primary)" : "var(--bg-card)", color: filter === f ? "#FFFFFF" : "var(--text-secondary)", border: filter === f ? "none" : "1px solid var(--border)" }}
-            >{f === "all" ? "Semua" : f === "debt" ? "Hutang" : "Piutang"}</button>
-          ))}
-        </div>
-
-        <div className="space-y-3">
-          {filtered.length === 0 ? (
-            <p className="text-center text-sm py-12" style={{ color: "var(--text-muted)" }}>Belum ada data</p>
-          ) : filtered.map((d) => (
-            <div key={d.id} className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: d.type === "debt" ? "var(--expense-bg)" : "var(--primary-bg)" }}>{d.type === "debt" ? "📤" : "📥"}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold" style={{ color: "var(--text-primary)" }}>{d.personName}</p>
-                  <p className="text-sm truncate" style={{ color: "var(--text-muted)" }}>{d.description || (d.type === "debt" ? "Hutang" : "Piutang")}</p>
-                  {d.dueDate && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Jatuh tempo: {d.dueDate.toLocaleDateString("id-ID")}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="font-bold" style={{ color: "var(--text-primary)" }}>{fmt(d.remainingAmount)}</p>
-                  <span className="inline-block mt-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: statusColors[d.status] || "var(--text-muted)" }}>{statusLabels[d.status] || d.status}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border" style={{ borderColor: "var(--border)", backgroundColor: "var(--border)" }}>
+        <Stat label={t("debts.owe")} value={owe} tone={owe > 0 ? "expense" : "neutral"} note={t("debts.oweNote")} />
+        <Stat label={t("debts.owed")} value={owed} tone={owed > 0 ? "income" : "neutral"} note={t("debts.owedNote")} />
       </div>
-    </DashboardShell>
+
+      {groups.map(({ key, items }) => (
+        <Section key={key} title={t(`debts.${key}`)} aside={t("debts.count", { count: items.length })} flush>
+          {items.length === 0 ? (
+            <EmptyState title={t("debts.empty")} />
+          ) : (
+            <ul>
+              {items.map((d) => {
+                const paid = d.amount - d.remainingAmount
+                return (
+                  <li key={d.id} className="border-b px-5 py-4 last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                          <span className="truncate">{d.personName || "—"}</span>
+                          {d.status === "paid" && <Pill tone="income">{t("debts.paid")}</Pill>}
+                          {d.status === "cancelled" && <Pill>{t("debts.cancelled")}</Pill>}
+                        </p>
+                        {d.description && <p className="mt-0.5 truncate text-xs" style={{ color: "var(--text-muted)" }}>{d.description}</p>}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <Money value={d.remainingAmount} className="text-sm font-medium" />
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("debts.of")} <Money value={d.amount} className="opacity-80" /></p>
+                      </div>
+                    </div>
+                    <div className="mt-3"><ProgressBar value={paid} max={d.amount} kind="goal" /></div>
+                    <p className="mt-1.5 flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+                      {dueLabel(d)}
+                      <span>{t("debts.paidAmount", { pct: d.amount > 0 ? Math.round((paid / d.amount) * 100) : 0 })}</span>
+                    </p>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Section>
+      ))}
+    </div>
   )
 }

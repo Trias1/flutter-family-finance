@@ -122,7 +122,7 @@
   "publicNav": {
     "features": "Fitur",
     "pricing": "Harga",
-    "docs": "Dokumen",
+    "docs": "Panduan",
     "community": "Komunitas",
     "logIn": "Masuk",
     "signUp": "Daftar",
@@ -341,6 +341,142 @@
         "title": "Data milik keluarga",
         "desc": "Akses dibatasi per keluarga lewat Firebase Auth dan aturan database."
       }
+    }
+  },
+  "dash": {
+    "nav": {
+      "label": "Navigasi dashboard",
+      "overview": "Ringkasan",
+      "transactions": "Transaksi",
+      "budget": "Budget & Tabungan",
+      "debts": "Hutang & Piutang",
+      "reports": "Laporan",
+      "guide": "Panduan",
+      "admin": "Panel admin",
+      "signOut": "Keluar"
+    },
+    "navShort": {
+      "overview": "Ringkasan",
+      "transactions": "Transaksi",
+      "budget": "Budget",
+      "debts": "Hutang",
+      "reports": "Laporan"
+    },
+    "scope": {
+      "family": "Keluarga",
+      "personal": "Mode pribadi",
+      "personalName": "Catatan pribadi"
+    },
+    "sync": {
+      "offline": "Offline · menampilkan data terakhir",
+      "connecting": "Menyinkronkan…",
+      "syncedNow": "Tersinkron · baru saja",
+      "syncedAgo": "Tersinkron · {minutes} mnt lalu",
+      "partial": "sebagian data gagal dimuat"
+    },
+    "common": {
+      "seeAll": "Lihat semua",
+      "income": "Pemasukan",
+      "expense": "Pengeluaran",
+      "all": "Semua"
+    },
+    "overview": {
+      "title": "Ringkasan",
+      "personalNotice": "Kamu belum bergabung ke keluarga, jadi yang tampil di sini adalah catatan pribadimu dari aplikasi Android. Setelah bergabung, data keluarga akan muncul otomatis.",
+      "net": "Selisih bulan ini",
+      "netNote": "Pemasukan dikurangi pengeluaran",
+      "income": "Pemasukan",
+      "expense": "Pengeluaran",
+      "vsLastMonth": "dari bulan lalu",
+      "budgetLeft": "Sisa budget",
+      "ofBudget": "dari {amount}",
+      "noBudgetSet": "Belum ada budget bulan ini",
+      "noBudgetHint": "Atur budget per kategori di aplikasi Android, nanti progresnya muncul di sini.",
+      "cashflow": "Arus kas",
+      "last6Months": "6 bulan terakhir",
+      "budgetWatch": "Pantauan budget",
+      "overBy": "Lewat {amount}",
+      "leftOf": "Sisa {left} dari {total}",
+      "recent": "Transaksi terakhir",
+      "bills": "Tagihan mendatang",
+      "next14Days": "14 hari ke depan",
+      "noBills": "Tidak ada tagihan dalam 14 hari ke depan",
+      "overdue": "Terlambat sejak",
+      "due": "Jatuh tempo",
+      "noCompare": "Belum ada data bulan lalu",
+      "noCashflow": "Belum ada transaksi dalam 6 bulan terakhir"
+    },
+    "transactions": {
+      "title": "Transaksi",
+      "desc": "Semua pemasukan dan pengeluaran yang dicatat dari aplikasi.",
+      "search": "Cari kategori, catatan, atau nama",
+      "month": "Bulan",
+      "allMonths": "Semua bulan",
+      "category": "Kategori",
+      "allCategories": "Semua kategori",
+      "type": "Jenis",
+      "count": "{count} transaksi",
+      "empty": "Belum ada transaksi",
+      "emptyHint": "Transaksi yang kamu catat di aplikasi Android akan muncul di sini dalam hitungan detik.",
+      "noMatch": "Tidak ada transaksi yang cocok dengan filter ini",
+      "date": "Tanggal",
+      "note": "Catatan",
+      "by": "Oleh",
+      "amount": "Jumlah",
+      "showMore": "Tampilkan {count} lagi"
+    },
+    "budget": {
+      "title": "Budget & Tabungan",
+      "desc": "Batas pengeluaran per kategori dan progres target tabungan.",
+      "budgets": "Budget",
+      "limit": "Batas",
+      "used": "Terpakai",
+      "left": "Sisa",
+      "leftShort": "Sisa {amount}",
+      "savings": "Target tabungan",
+      "noSavings": "Belum ada target tabungan",
+      "noSavingsHint": "Buat target tabungan atau investasi emas di aplikasi Android.",
+      "grams": "{grams} gram",
+      "target": "Target {date}"
+    },
+    "debts": {
+      "title": "Hutang & Piutang",
+      "desc": "Sisa yang harus dibayar dan yang masih akan diterima.",
+      "status": "Status",
+      "filter": {
+        "active": "Aktif",
+        "paid": "Lunas",
+        "all": "Semua"
+      },
+      "owe": "Kamu berhutang",
+      "oweNote": "Total sisa hutang aktif",
+      "owed": "Piutang",
+      "owedNote": "Total yang belum diterima",
+      "hutang": "Hutang",
+      "piutang": "Piutang",
+      "empty": "Tidak ada data",
+      "paid": "Lunas",
+      "cancelled": "Dibatalkan",
+      "of": "dari",
+      "noDue": "Tanpa jatuh tempo",
+      "overdue": "Terlambat {days} hari",
+      "dueIn": "Jatuh tempo {days} hari lagi",
+      "paidAmount": "{pct}% terbayar",
+      "count": "{count} catatan"
+    },
+    "reports": {
+      "title": "Laporan",
+      "desc": "Tren bulanan dan ke mana uang keluarga dibelanjakan.",
+      "range": "Rentang",
+      "months": "{count} bulan",
+      "byCategory": "Pengeluaran per kategori",
+      "noExpense": "Tidak ada pengeluaran di bulan ini",
+      "new": "baru",
+      "summary": "Ringkasan bulan",
+      "savingRate": "Rasio menabung",
+      "vsPrev": "Pengeluaran vs bulan sebelumnya",
+      "vsPrevNote": "Rasio menabung adalah selisih dibagi pemasukan. Persentase di samping kategori dibandingkan dengan bulan sebelumnya.",
+      "monthly": "Rincian per bulan"
     }
   }
 }

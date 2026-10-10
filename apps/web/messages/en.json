@@ -342,5 +342,141 @@
         "desc": "Access is scoped to your family through Firebase Auth and database rules."
       }
     }
+  },
+  "dash": {
+    "nav": {
+      "label": "Dashboard navigation",
+      "overview": "Overview",
+      "transactions": "Transactions",
+      "budget": "Budgets & savings",
+      "debts": "Debts",
+      "reports": "Reports",
+      "guide": "Guide",
+      "admin": "Admin panel",
+      "signOut": "Sign out"
+    },
+    "navShort": {
+      "overview": "Overview",
+      "transactions": "History",
+      "budget": "Budget",
+      "debts": "Debts",
+      "reports": "Reports"
+    },
+    "scope": {
+      "family": "Family",
+      "personal": "Personal mode",
+      "personalName": "Personal records"
+    },
+    "sync": {
+      "offline": "Offline · showing last known data",
+      "connecting": "Syncing…",
+      "syncedNow": "Synced · just now",
+      "syncedAgo": "Synced · {minutes} min ago",
+      "partial": "some data failed to load"
+    },
+    "common": {
+      "seeAll": "See all",
+      "income": "Income",
+      "expense": "Spending",
+      "all": "All"
+    },
+    "overview": {
+      "title": "Overview",
+      "personalNotice": "You haven't joined a family yet, so this shows your personal records from the Android app. Once you join, family data appears here automatically.",
+      "net": "Net this month",
+      "netNote": "Income minus spending",
+      "income": "Income",
+      "expense": "Spending",
+      "vsLastMonth": "vs last month",
+      "budgetLeft": "Budget left",
+      "ofBudget": "of {amount}",
+      "noBudgetSet": "No budget for this month",
+      "noBudgetHint": "Set per-category budgets in the Android app and their progress shows up here.",
+      "cashflow": "Cash flow",
+      "last6Months": "Last 6 months",
+      "budgetWatch": "Budget watch",
+      "overBy": "Over by {amount}",
+      "leftOf": "{left} left of {total}",
+      "recent": "Recent transactions",
+      "bills": "Upcoming bills",
+      "next14Days": "Next 14 days",
+      "noBills": "No bills due in the next 14 days",
+      "overdue": "Overdue since",
+      "due": "Due",
+      "noCompare": "No data for last month yet",
+      "noCashflow": "No transactions in the last 6 months"
+    },
+    "transactions": {
+      "title": "Transactions",
+      "desc": "Every income and expense recorded in the app.",
+      "search": "Search category, note, or name",
+      "month": "Month",
+      "allMonths": "All months",
+      "category": "Category",
+      "allCategories": "All categories",
+      "type": "Type",
+      "count": "{count} transactions",
+      "empty": "No transactions yet",
+      "emptyHint": "Transactions you record in the Android app appear here within seconds.",
+      "noMatch": "No transactions match these filters",
+      "date": "Date",
+      "note": "Note",
+      "by": "By",
+      "amount": "Amount",
+      "showMore": "Show {count} more"
+    },
+    "budget": {
+      "title": "Budgets & savings",
+      "desc": "Spending limits per category and progress on savings goals.",
+      "budgets": "Budgets",
+      "limit": "Limit",
+      "used": "Spent",
+      "left": "Left",
+      "leftShort": "{amount} left",
+      "savings": "Savings goals",
+      "noSavings": "No savings goals yet",
+      "noSavingsHint": "Create a savings or gold goal in the Android app.",
+      "grams": "{grams} g",
+      "target": "Target {date}"
+    },
+    "debts": {
+      "title": "Debts",
+      "desc": "What you still owe and what others still owe you.",
+      "status": "Status",
+      "filter": {
+        "active": "Active",
+        "paid": "Paid",
+        "all": "All"
+      },
+      "owe": "You owe",
+      "oweNote": "Remaining on active debts",
+      "owed": "Owed to you",
+      "owedNote": "Not yet received",
+      "hutang": "Debts",
+      "piutang": "Receivables",
+      "empty": "Nothing here",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "of": "of",
+      "noDue": "No due date",
+      "overdue": "{days} days overdue",
+      "dueIn": "Due in {days} days",
+      "paidAmount": "{pct}% paid",
+      "count": "{count} records"
+    },
+    "reports": {
+      "title": "Reports",
+      "desc": "Monthly trends and where the family's money goes.",
+      "range": "Range",
+      "months": "{count} months",
+      "byCategory": "Spending by category",
+      "noExpense": "No spending this month",
+      "new": "new",
+      "summary": "Month summary",
+      "savingRate": "Savings rate",
+      "vsPrev": "Spending vs previous month",
+      "vsPrevNote": "Savings rate is net divided by income. The percentage next to each category compares with the previous month.",
+      "monthly": "Month by month"
+    }
   }
 }

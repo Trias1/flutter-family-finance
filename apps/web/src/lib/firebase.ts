@@ -1,6 +1,13 @@
 import { initializeApp, getApps } from "firebase/app"
 import { getAuth } from "firebase/auth"
-import { getFirestore } from "firebase/firestore"
+import {
+  getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: "AIzaSyA9Nxu_CrS3Rlg_V0miRImVUPeFtMbEHck",
@@ -12,8 +19,25 @@ const firebaseConfig = {
   measurementId: "G-5ZWCFRTTV7",
 }
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+const isFirstInit = getApps().length === 0
+const app = isFirstInit ? initializeApp(firebaseConfig) : getApps()[0]
 const auth = getAuth(app)
-const db = getFirestore(app)
+
+// In the browser, keep a persistent cache shared across tabs so the dashboard
+// shows the last known data instantly and keeps working offline.
+function createDb(): Firestore {
+  if (!isFirstInit) return getFirestore(app)
+  const localCache =
+    typeof window === "undefined"
+      ? memoryLocalCache()
+      : persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  try {
+    return initializeFirestore(app, { localCache })
+  } catch {
+    return getFirestore(app)
+  }
+}
+
+const db = createDb()
 
 export { app, auth, db }

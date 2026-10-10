@@ -1,47 +1,46 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { onAuthStateChanged, signOut, User } from "firebase/auth"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { onAuthStateChanged, signOut, type User } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
-import { auth, db } from "@/lib/firebase"
-import { useRouter } from "@/lib/i18n"
+import { BookOpen, ChevronDown, LogOut, Shield } from "lucide-react"
 import { useTranslations } from "next-intl"
+
 import LocaleToggle from "@/components/LocaleToggle"
-import Sidebar from "@/components/Sidebar"
+import Sidebar, { MobileNav } from "@/components/Sidebar"
+import SyncStatus from "@/components/SyncStatus"
 import ThemeToggle from "@/components/ThemeToggle"
+import { Skeleton } from "@/components/ui"
+import { FamilyDataProvider } from "@/lib/family-data"
+import { auth, db } from "@/lib/firebase"
+import { Link, useRouter } from "@/lib/i18n"
 import { startWebPresence } from "@/lib/web-presence"
 
-export default function DashboardShell({ children }: { children: React.ReactNode }) {
-  const t = useTranslations()
+export default function DashboardShell({ children }: { children: ReactNode }) {
+  const t = useTranslations("dash")
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const [role, setRole] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [isSuperadmin, setIsSuperadmin] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let stopPresence: (() => void) | undefined
-
     const unsub = onAuthStateChanged(auth, async (u) => {
+      stopPresence?.()
       if (!u) {
-        stopPresence?.()
-        router.push("/login")
+        setUser(null)
+        router.replace("/login")
         return
       }
       setUser(u)
-      const snap = await getDoc(doc(db, "users", u.uid))
-      const systemRole = snap.data()?.systemRole ?? null
-      const nextRole = snap.data()?.role ?? "user"
-      setRole(nextRole)
-      if (systemRole === "superadmin") {
-        router.push("/admin")
-        return
-      }
-      stopPresence?.()
       stopPresence = startWebPresence(u.uid, u.email)
-      setLoading(false)
+      try {
+        const snap = await getDoc(doc(db, "users", u.uid))
+        setIsSuperadmin(snap.data()?.systemRole === "superadmin")
+      } catch {
+        setIsSuperadmin(false)
+      }
     })
     return () => {
       stopPresence?.()
@@ -50,111 +49,107 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   }, [router])
 
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
-      }
+    if (!menuOpen) return
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
     }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [])
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false)
+    document.addEventListener("mousedown", close)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", close)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [menuOpen])
 
   const handleSignOut = async () => {
-    setDropdownOpen(false)
+    setMenuOpen(false)
     await signOut(auth)
-    router.push("/login")
+    router.replace("/login")
   }
 
-  if (loading) {
-      return (
-      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: "var(--bg)" }}>
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: "var(--border)", borderTopColor: "var(--primary)" }} />
+  if (!user) {
+    return (
+      <div className="flex min-h-dvh" style={{ backgroundColor: "var(--bg)" }} aria-busy="true">
+        <div className="hidden w-56 shrink-0 border-r lg:block" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }} />
+        <div className="flex-1">
+          <div className="h-14 border-b" style={{ borderColor: "var(--border)" }} />
+          <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
+            <Skeleton className="h-7 w-40" />
+            <Skeleton className="h-[106px] w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
       </div>
     )
   }
 
+  const initial = (user.displayName || user.email || "U").charAt(0).toUpperCase()
+
   return (
-    <div className="flex h-screen overflow-hidden" style={{ color: "var(--text-primary)" }}>
-      <Sidebar user={user} role={role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <FamilyDataProvider uid={user.uid}>
+      <div className="flex min-h-dvh" style={{ backgroundColor: "var(--bg)", color: "var(--text-primary)" }}>
+        <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar */}
-        <header className="sticky top-0 z-30 border-b backdrop-blur-md" style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 72%, transparent)", borderColor: "rgba(255,255,255,0.62)", backdropFilter: "blur(22px)" }}>
-          <div className="flex h-16 items-center justify-between px-4 lg:px-6">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors lg:hidden"
-              style={{ color: "var(--text-secondary)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--surface-soft)" }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent" }}
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-30 border-b" style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)" }}>
+            <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">
+              <SyncStatus />
 
-            <div className="hidden lg:block" />
-
-            {/* User dropdown */}
-            <div className="relative flex items-center gap-3" ref={dropdownRef}>
-              <LocaleToggle />
-              <ThemeToggle />
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium transition-all duration-200"
-                style={{ color: "var(--text-secondary)" }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--surface-soft)" }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent" }}
-              >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: "var(--primary)" }}>
-                  {user?.email?.charAt(0).toUpperCase() || "U"}
+              <div className="flex items-center gap-2" ref={menuRef}>
+                <div className="hidden items-center gap-2 sm:flex">
+                  <LocaleToggle />
+                  <ThemeToggle />
                 </div>
-                <span className="hidden sm:block max-w-[160px] truncate">{user?.email}</span>
-                <svg className={`h-4 w-4 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {dropdownOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-48 rounded-xl border shadow-lg backdrop-blur-md animate-scale-in origin-top-right"
-                  style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 96%, transparent)", borderColor: "var(--border)", boxShadow: "var(--shadow-soft)" }}
-                >
-                  <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
-                    <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{user?.email}</p>
-                    {role === "admin" && <span className="text-xs font-medium" style={{ color: "var(--primary)" }}>{t("nav.admin")}</span>}
-                  </div>
-                  {role === "admin" && (
-                    <button
-                      onClick={() => { setDropdownOpen(false); router.push("/admin") }}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors"
-                      style={{ color: "var(--text-secondary)" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--surface-soft)" }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent" }}
-                    >
-                      ⚙️ {t("nav.admin")}
-                    </button>
-                  )}
+                <div className="relative">
                   <button
-                    onClick={handleSignOut}
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors rounded-b-xl"
-                    style={{ color: "var(--expense)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--surface-soft)" }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent" }}
+                    type="button"
+                    onClick={() => setMenuOpen((v) => !v)}
+                    aria-expanded={menuOpen}
+                    aria-haspopup="menu"
+                    className="flex h-8 items-center gap-2 rounded-md pl-1 pr-2 text-sm"
+                    style={{ color: "var(--text-secondary)" }}
                   >
-                    🚪 {t("common.signOut")}
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: "var(--primary)" }}>{initial}</span>
+                    <span className="hidden max-w-[180px] truncate md:block">{user.email}</span>
+                    <ChevronDown size={14} />
                   </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
 
-        <main className="flex-1 overflow-y-auto px-4 lg:px-6 py-6">
-          {children}
-        </main>
+                  {menuOpen && (
+                    <div role="menu" className="absolute right-0 mt-1 w-60 overflow-hidden rounded-lg border text-sm" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border)" }}>
+                      <div className="border-b px-3 py-2.5" style={{ borderColor: "var(--border)" }}>
+                        <p className="truncate font-medium" style={{ color: "var(--text-primary)" }}>{user.displayName || user.email}</p>
+                        {user.displayName && <p className="truncate text-xs" style={{ color: "var(--text-muted)" }}>{user.email}</p>}
+                      </div>
+                      <div className="flex items-center gap-2 border-b px-3 py-2.5 sm:hidden" style={{ borderColor: "var(--border)" }}>
+                        <LocaleToggle />
+                        <ThemeToggle />
+                      </div>
+                      <Link href="/dashboard/guide" role="menuitem" onClick={() => setMenuOpen(false)} className="menu-item">
+                        <BookOpen size={15} /> {t("nav.guide")}
+                      </Link>
+                      {isSuperadmin && (
+                        <Link href="/admin" role="menuitem" onClick={() => setMenuOpen(false)} className="menu-item">
+                          <Shield size={15} /> {t("nav.admin")}
+                        </Link>
+                      )}
+                      <button type="button" role="menuitem" onClick={handleSignOut} className="menu-item w-full" style={{ color: "var(--expense)" }}>
+                        <LogOut size={15} /> {t("nav.signOut")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 pb-24 lg:pb-10">
+            <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">{children}</div>
+          </main>
+        </div>
+
+        <MobileNav />
       </div>
-    </div>
+    </FamilyDataProvider>
   )
 }
-
