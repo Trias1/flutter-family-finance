@@ -15,6 +15,7 @@ import 'package:family_finance_manager/data/models/currency_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/delete_account_section.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/own_accounts_tile.dart';
+import 'package:family_finance_manager/features/settings/presentation/widgets/sheet_recap_tile.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -42,6 +43,8 @@ class SettingsPage extends ConsumerWidget {
             _BiometricToggle(),
             const SizedBox(height: 16),
             const OwnAccountsTile(),
+            const SizedBox(height: 8),
+            const SheetRecapTile(),
             const SizedBox(height: 8),
             _ActionButton(
               icon: Icons.category_rounded,
