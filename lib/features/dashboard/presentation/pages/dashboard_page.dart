@@ -129,13 +129,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  CategoryBreakdownCard(
-                    expenses: data.allExpenses,
-                    isId: isId,
-                  ),
-                  if (data.debts.any(
-                    (d) => d.status == DebtStatus.active,
-                  )) ...[
+                  CategoryBreakdownCard(expenses: data.allExpenses, isId: isId),
+                  if (data.debts.any((d) => d.status == DebtStatus.active)) ...[
                     const SizedBox(height: 16),
                     DebtsSummaryCard(
                       debts: data.debts,
@@ -193,7 +188,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
     final monthIncome = monthIncomes.fold<double>(0, (s, e) => s + e.amount);
     // Exclude Tabungan/Savings from expense calculation for budget tracking
-    final monthExpense = monthExpenses.where((e) => e.category != 'Tabungan' && e.category != 'Savings').fold<double>(0, (s, e) => s + e.amount);
+    final monthExpense = monthExpenses
+        .where((e) => e.category != 'Tabungan' && e.category != 'Savings')
+        .fold<double>(0, (s, e) => s + e.amount);
 
     final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
     final daysLeft = daysInMonth - now.day + 1;
@@ -209,8 +206,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final budgetUsage = !hasBudget
         ? 0.0
         : data.totalBudgetRemaining > 0
-            ? (monthExpense / (monthExpense + data.totalBudgetRemaining)).clamp(0.0, 1.0)
-            : 1.0;
+        ? (monthExpense / (monthExpense + data.totalBudgetRemaining)).clamp(
+            0.0,
+            1.0,
+          )
+        : 1.0;
 
     return Column(
       children: [
@@ -262,17 +262,27 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.pie_chart_rounded, size: 14, color: AppTheme.warningColor),
+                  Icon(
+                    Icons.pie_chart_rounded,
+                    size: 14,
+                    color: AppTheme.warningColor,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     isId ? 'Sisa Anggaran Harian' : 'Daily Budget Left',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const Spacer(),
                   if (hasBudget)
                     Text(
                       '${CurrencyFormatter.formatWithoutSymbol(data.totalBudgetRemaining)} ${isId ? 'tersisa' : 'left'}',
-                      style: TextStyle(fontSize: 11, color: AppTheme.warningColor),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.warningColor,
+                      ),
                     ),
                 ],
               ),
@@ -280,7 +290,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 const SizedBox(height: 6),
                 Text(
                   isId
-                      ? 'Belum ada budget bulan ini. Atur di tab Budget.'
+                      ? 'Belum ada anggaran bulan ini. Atur di tab Anggaran.'
                       : 'No budget for this month yet. Set one in the Budget tab.',
                   style: TextStyle(
                     fontSize: 11,
@@ -288,47 +298,49 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                 ),
               ] else ...[
-              const SizedBox(height: 8),
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: budgetUsage),
-                duration: const Duration(milliseconds: 800),
-                curve: Curves.easeOutCubic,
-                builder: (_, value, __) => ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: value,
-                    backgroundColor: AppTheme.warningColor.withValues(alpha: 0.12),
-                    valueColor: AlwaysStoppedAnimation(
-                      value > 0.9
-                          ? AppTheme.expenseColor
-                          : value > 0.7
-                              ? AppTheme.warningColor
-                              : AppTheme.incomeColor,
+                const SizedBox(height: 8),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: budgetUsage),
+                  duration: const Duration(milliseconds: 800),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, value, __) => ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: value,
+                      backgroundColor: AppTheme.warningColor.withValues(
+                        alpha: 0.12,
+                      ),
+                      valueColor: AlwaysStoppedAnimation(
+                        value > 0.9
+                            ? AppTheme.expenseColor
+                            : value > 0.7
+                            ? AppTheme.warningColor
+                            : AppTheme.incomeColor,
+                      ),
+                      minHeight: 10,
                     ),
-                    minHeight: 10,
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(
-                    '${CurrencyFormatter.formatWithoutSymbol(dailyBudget)} /hari',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Text(
+                      '${CurrencyFormatter.formatWithoutSymbol(dailyBudget)} ${isId ? '/hari' : '/day'}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${(budgetUsage * 100).toStringAsFixed(0)}% ${isId ? 'terpakai' : 'used'}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const Spacer(),
+                    Text(
+                      '${(budgetUsage * 100).toStringAsFixed(0)}% ${isId ? 'terpakai' : 'used'}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               ],
               // rollover display removed, shown in budget history page
             ],
@@ -355,61 +367,90 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             onTap: () => context.push('/bills'),
             child: Row(
               children: [
-                const Icon(Icons.receipt_long_rounded, size: 16, color: AppTheme.warningColor),
+                const Icon(
+                  Icons.receipt_long_rounded,
+                  size: 16,
+                  color: AppTheme.warningColor,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   isId ? 'Tagihan Mendatang' : 'Upcoming Bills',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
                 Text(
                   isId ? 'Lihat Semua' : 'See All',
-                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                Icon(Icons.chevron_right, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Icon(
+                  Icons.chevron_right,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ],
             ),
           ),
           const SizedBox(height: 10),
-          ...bills.map((b) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: b.dueDate.isBefore(DateTime.now())
-                        ? AppTheme.errorColor.withValues(alpha: 0.1)
-                        : AppTheme.warningColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+          ...bills.map(
+            (b) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: b.dueDate.isBefore(DateTime.now())
+                          ? AppTheme.errorColor.withValues(alpha: 0.1)
+                          : AppTheme.warningColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      b.dueDate.isBefore(DateTime.now())
+                          ? Icons.warning_amber_rounded
+                          : Icons.receipt_long,
+                      size: 14,
+                      color: b.dueDate.isBefore(DateTime.now())
+                          ? AppTheme.errorColor
+                          : AppTheme.warningColor,
+                    ),
                   ),
-                  child: Icon(
-                    b.dueDate.isBefore(DateTime.now()) ? Icons.warning_amber_rounded : Icons.receipt_long,
-                    size: 14,
-                    color: b.dueDate.isBefore(DateTime.now()) ? AppTheme.errorColor : AppTheme.warningColor,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      b.name,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(b.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                ),
-                Text(
-                  CurrencyFormatter.format(b.amount),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _daysUntilDue(b.dueDate, isId),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: b.dueDate.isBefore(DateTime.now())
-                        ? AppTheme.errorColor
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  Text(
+                    CurrencyFormatter.format(b.amount),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Text(
+                    _daysUntilDue(b.dueDate, isId),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: b.dueDate.isBefore(DateTime.now())
+                          ? AppTheme.errorColor
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          )),
+          ),
         ],
       ),
     );
@@ -417,7 +458,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   String _daysUntilDue(DateTime dueDate, bool isId) {
     final diff = dueDate.difference(DateTime.now()).inDays;
-    if (diff < 0) return isId ? 'Terlambat ${-diff} hari' : '${-diff} days overdue';
+    if (diff < 0)
+      return isId ? 'Terlambat ${-diff} hari' : '${-diff} days overdue';
     if (diff == 0) return isId ? 'Hari ini' : 'Today';
     if (diff == 1) return isId ? 'Besok' : 'Tomorrow';
     return isId ? '$diff hari lagi' : '$diff days left';
@@ -446,10 +488,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
             child: Text(
               isId ? 'Aktivitas Bulanan' : 'Monthly Activity',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
           TableCalendar(
@@ -490,20 +529,25 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               weekendTextStyle: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              rangeHighlightColor: AppTheme.expenseColor.withValues(alpha: 0.15),
+              rangeHighlightColor: AppTheme.expenseColor.withValues(
+                alpha: 0.15,
+              ),
             ),
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, date, events) {
                 final daySummary = data.dailySummary[date];
                 final dayBills = data.billsByDate[date];
-                final hasBill = dayBills != null && dayBills.any((b) => b.status != BillStatus.paid);
+                final hasBill =
+                    dayBills != null &&
+                    dayBills.any((b) => b.status != BillStatus.paid);
                 final isOutside = date.month != _focusedDay.month;
                 if (isOutside) return null;
                 final children = <Widget>[];
                 if (hasBill) {
                   children.add(
                     Container(
-                      width: 4, height: 4,
+                      width: 4,
+                      height: 4,
                       margin: const EdgeInsets.only(bottom: 1),
                       decoration: const BoxDecoration(
                         color: AppTheme.warningColor,
@@ -514,18 +558,34 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 }
                 if (daySummary != null) {
                   if (daySummary.totalIncome > 0) {
-                    children.add(Text(
-                      '+${_shortAmount(daySummary.totalIncome, isId)}',
-                      style: const TextStyle(fontSize: 7, color: AppTheme.incomeColor, height: 1.1, fontWeight: FontWeight.w600),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                    ));
+                    children.add(
+                      Text(
+                        '+${_shortAmount(daySummary.totalIncome, isId)}',
+                        style: const TextStyle(
+                          fontSize: 7,
+                          color: AppTheme.incomeColor,
+                          height: 1.1,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
                   }
                   if (daySummary.totalExpense > 0) {
-                    children.add(Text(
-                      '-${_shortAmount(daySummary.totalExpense, isId)}',
-                      style: const TextStyle(fontSize: 7, color: AppTheme.expenseColor, height: 1.1, fontWeight: FontWeight.w600),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                    ));
+                    children.add(
+                      Text(
+                        '-${_shortAmount(daySummary.totalExpense, isId)}',
+                        style: const TextStyle(
+                          fontSize: 7,
+                          color: AppTheme.expenseColor,
+                          height: 1.1,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
                   }
                 }
                 if (children.isEmpty) return null;
@@ -576,7 +636,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.incomeColor.withValues(alpha: 0.1),
+                              color: AppTheme.incomeColor.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -611,7 +673,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.expenseColor.withValues(alpha: 0.1),
+                              color: AppTheme.expenseColor.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -641,13 +705,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       child: Row(
                         children: [
                           Text(
-                            isId ? 'Net' : 'Net',
+                            isId ? 'Selisih' : 'Net',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                           const Spacer(),
@@ -664,8 +728,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         ],
                       ),
                     ),
-                  if (summary.incomes.isNotEmpty ||
-                      summary.expenses.isNotEmpty)
+                  if (summary.incomes.isNotEmpty || summary.expenses.isNotEmpty)
                     const SizedBox(height: 6),
                   ...summary.expenses.map(
                     (e) => _MiniTransactionRow(
@@ -705,10 +768,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         .where((e) => e.date.month == now.month && e.date.year == now.year)
         .toList();
     final monthIncome = monthIncomes.fold<double>(0.0, (s, i) => s + i.amount);
-    final monthExpense =
-        monthExpenses.fold<double>(0.0, (s, e) => s + e.amount);
+    final monthExpense = monthExpenses.fold<double>(
+      0.0,
+      (s, e) => s + e.amount,
+    );
     final monthNet = monthIncome - monthExpense;
-    final ratio = monthIncome > 0 ? (monthExpense / monthIncome).clamp(0.0, 1.0) : 0.0;
+    final ratio = monthIncome > 0
+        ? (monthExpense / monthIncome).clamp(0.0, 1.0)
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -747,8 +814,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ratio > 0.9
                     ? AppTheme.expenseColor
                     : ratio > 0.7
-                        ? AppTheme.warningColor
-                        : AppTheme.incomeColor,
+                    ? AppTheme.warningColor
+                    : AppTheme.incomeColor,
               ),
               minHeight: 8,
             ),
@@ -911,7 +978,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   void _showDayTransactions(DashboardData data, DateTime day, bool isId) {
     final summary = data.dailySummary[day];
     final dayBills = data.billsByDate[day];
-    final hasAny = (summary != null && (summary.incomes.isNotEmpty || summary.expenses.isNotEmpty)) ||
+    final hasAny =
+        (summary != null &&
+            (summary.incomes.isNotEmpty || summary.expenses.isNotEmpty)) ||
         (dayBills != null && dayBills.isNotEmpty);
     if (!hasAny) return;
 
@@ -927,178 +996,192 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         maxChildSize: 0.85,
         expand: false,
         builder: (_, scrollController) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        child: ListView(
-          controller: scrollController,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(ctx)
-                      .colorScheme
-                      .onSurfaceVariant
-                      .withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      ctx,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              DateFormatter.format(day),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 16),
+              Text(
+                DateFormatter.format(day),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            if (dayBills != null && dayBills.isNotEmpty) ...[
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.warningColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      isId ? 'Tagihan' : 'Bills',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.warningColor),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              ...dayBills.map((b) => _MiniTransactionRow(
-                icon: b.status == BillStatus.paid ? Icons.check_circle : Icons.receipt_long,
-                category: b.name,
-                note: b.status == BillStatus.paid ? 'Dibayar' : null,
-                amount: b.amount,
-                color: b.status == BillStatus.paid ? AppTheme.incomeColor : AppTheme.warningColor,
-              )),
-              const SizedBox(height: 8),
-            ],
-            if (summary != null) ...[
-            if (summary.totalExpense > 0) ...[
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.expenseColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      isId ? 'Pengeluaran' : 'Expense',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.expenseColor,
+              const SizedBox(height: 12),
+              if (dayBills != null && dayBills.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        isId ? 'Tagihan' : 'Bills',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.warningColor,
+                        ),
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ...dayBills.map(
+                  (b) => _MiniTransactionRow(
+                    icon: b.status == BillStatus.paid
+                        ? Icons.check_circle
+                        : Icons.receipt_long,
+                    category: b.name,
+                    note: b.status == BillStatus.paid
+                        ? (isId ? 'Dibayar' : 'Paid')
+                        : null,
+                    amount: b.amount,
+                    color: b.status == BillStatus.paid
+                        ? AppTheme.incomeColor
+                        : AppTheme.warningColor,
                   ),
-                  const Spacer(),
-                  Text(
-                    '-${CurrencyFormatter.format(summary.totalExpense)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (summary != null) ...[
+                if (summary.totalExpense > 0) ...[
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.expenseColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          isId ? 'Pengeluaran' : 'Expense',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.expenseColor,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '-${CurrencyFormatter.format(summary.totalExpense)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.expenseColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ...summary.expenses.map(
+                    (e) => _MiniTransactionRow(
+                      icon: Icons.trending_down,
+                      category: e.category,
+                      note: e.note,
+                      amount: e.amount,
                       color: AppTheme.expenseColor,
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 4),
-              ...summary.expenses.map(
-                (e) => _MiniTransactionRow(
-                  icon: Icons.trending_down,
-                  category: e.category,
-                  note: e.note,
-                  amount: e.amount,
-                  color: AppTheme.expenseColor,
-                ),
-              ),
-            ],
-            if (summary.totalIncome > 0) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.incomeColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      isId ? 'Pemasukan' : 'Income',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.incomeColor,
+                if (summary.totalIncome > 0) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.incomeColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          isId ? 'Pemasukan' : 'Income',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.incomeColor,
+                          ),
+                        ),
                       ),
-                    ),
+                      const Spacer(),
+                      Text(
+                        '+${CurrencyFormatter.format(summary.totalIncome)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.incomeColor,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  Text(
-                    '+${CurrencyFormatter.format(summary.totalIncome)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                  const SizedBox(height: 4),
+                  ...summary.incomes.map(
+                    (i) => _MiniTransactionRow(
+                      icon: Icons.trending_up,
+                      category: i.category,
+                      note: i.note,
+                      amount: i.amount,
                       color: AppTheme.incomeColor,
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 4),
-              ...summary.incomes.map(
-                (i) => _MiniTransactionRow(
-                  icon: Icons.trending_up,
-                  category: i.category,
-                  note: i.note,
-                  amount: i.amount,
-                  color: AppTheme.incomeColor,
-                ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            const Divider(),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  isId ? 'Saldo Hari Ini' : 'Daily Net',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(ctx).colorScheme.onSurface,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  CurrencyFormatter.format(summary.net),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: summary.net >= 0
-                        ? AppTheme.incomeColor
-                        : AppTheme.expenseColor,
-                  ),
+                const SizedBox(height: 8),
+                const Divider(),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      isId ? 'Saldo Hari Ini' : 'Daily Net',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(ctx).colorScheme.onSurface,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      CurrencyFormatter.format(summary.net),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: summary.net >= 0
+                            ? AppTheme.incomeColor
+                            : AppTheme.expenseColor,
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildRecentTransactions(DashboardData data, bool isId) {
@@ -1183,7 +1266,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               const SizedBox(width: 6),
               Text(
                 isId ? 'Ringkasan Tabungan' : 'Goals Summary',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Spacer(),
               Text(
@@ -1197,62 +1283,77 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             ],
           ),
           const SizedBox(height: 8),
-          ...data.savings.take(3).map(
-            (s) => InkWell(
-              onTap: () => _showSavingHistory(data, s, isId),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s.name,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                            overflow: TextOverflow.ellipsis,
+          ...data.savings
+              .take(3)
+              .map(
+                (s) => InkWell(
+                  onTap: () => _showSavingHistory(data, s, isId),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                s.name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${CurrencyFormatter.formatWithoutSymbol(s.currentAmount)} / ${CurrencyFormatter.formatWithoutSymbol(s.targetAmount)}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${CurrencyFormatter.formatWithoutSymbol(s.currentAmount)} / ${CurrencyFormatter.formatWithoutSymbol(s.targetAmount)}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 60,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value: s.targetAmount > 0
+                                  ? (s.currentAmount / s.targetAmount).clamp(
+                                      0.0,
+                                      1.0,
+                                    )
+                                  : 0.0,
+                              minHeight: 6,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              valueColor: AlwaysStoppedAnimation(
+                                AppTheme.savingsColor,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 60,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: s.targetAmount > 0
-                              ? (s.currentAmount / s.targetAmount).clamp(0.0, 1.0)
-                              : 0.0,
-                          minHeight: 6,
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          valueColor: AlwaysStoppedAnimation(AppTheme.savingsColor),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
         ],
       ),
     );
@@ -1261,12 +1362,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   void _showSavingHistory(DashboardData data, SavingModel saving, bool isId) {
     // Filter transactions related to this saving (category "Tabungan" or "Savings")
     // For expenses: show all Tabungan/Savings category (not filtered by saving name)
-    final relatedIncomes = data.allIncomes.where(
-      (i) => (i.category == 'Tabungan' || i.category == 'Savings'),
-    ).toList();
-    final relatedExpenses = data.allExpenses.where(
-      (e) => (e.category == 'Tabungan' || e.category == 'Savings'),
-    ).toList();
+    final relatedIncomes = data.allIncomes
+        .where((i) => (i.category == 'Tabungan' || i.category == 'Savings'))
+        .toList();
+    final relatedExpenses = data.allExpenses
+        .where((e) => (e.category == 'Tabungan' || e.category == 'Savings'))
+        .toList();
 
     // Combine and sort by date
     final allTransactions = <Map<String, dynamic>>[];
@@ -1286,7 +1387,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         'note': expense.note,
       });
     }
-    allTransactions.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+    allTransactions.sort(
+      (a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime),
+    );
 
     showModalBottomSheet(
       context: context,
@@ -1304,10 +1407,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Theme.of(ctx)
-                      .colorScheme
-                      .onSurfaceVariant
-                      .withValues(alpha: 0.3),
+                  color: Theme.of(
+                    ctx,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1315,7 +1417,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(Icons.flag_rounded, size: 18, color: AppTheme.savingsColor),
+                Icon(
+                  Icons.flag_rounded,
+                  size: 18,
+                  color: AppTheme.savingsColor,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1352,10 +1458,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             const SizedBox(height: 12),
             Text(
               isId ? 'Histori Transaksi' : 'Transaction History',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             if (allTransactions.isEmpty)
@@ -1389,14 +1492,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: (isIncome ? AppTheme.incomeColor : AppTheme.expenseColor)
-                                  .withValues(alpha: 0.1),
+                              color:
+                                  (isIncome
+                                          ? AppTheme.incomeColor
+                                          : AppTheme.expenseColor)
+                                      .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Icon(
                               isIncome ? Icons.add : Icons.remove,
                               size: 14,
-                              color: isIncome ? AppTheme.incomeColor : AppTheme.expenseColor,
+                              color: isIncome
+                                  ? AppTheme.incomeColor
+                                  : AppTheme.expenseColor,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -1417,7 +1525,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                   DateFormatter.format(txn['date'] as DateTime),
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                                    color: Theme.of(
+                                      ctx,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -1428,7 +1538,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: isIncome ? AppTheme.incomeColor : AppTheme.expenseColor,
+                              color: isIncome
+                                  ? AppTheme.incomeColor
+                                  : AppTheme.expenseColor,
                             ),
                           ),
                         ],
@@ -1465,11 +1577,18 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         children: [
           Row(
             children: [
-              Icon(Icons.pie_chart_rounded, size: 16, color: AppTheme.warningColor),
+              Icon(
+                Icons.pie_chart_rounded,
+                size: 16,
+                color: AppTheme.warningColor,
+              ),
               const SizedBox(width: 6),
               Text(
                 isId ? 'Anggaran per Kategori' : 'Budget per Category',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -1508,28 +1627,28 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: b.percentage.clamp(0.0, 1.0),
-                        minHeight: 6,
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation(
-                          b.isExceeded
-                              ? AppTheme.expenseColor
-                              : b.isAlmostExceeded
-                                  ? AppTheme.warningColor
-                                  : AppTheme.incomeColor,
-                        ),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: b.percentage.clamp(0.0, 1.0),
+                      minHeight: 6,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      valueColor: AlwaysStoppedAnimation(
+                        b.isExceeded
+                            ? AppTheme.expenseColor
+                            : b.isAlmostExceeded
+                            ? AppTheme.warningColor
+                            : AppTheme.incomeColor,
                       ),
                     ),
-                    // rolloverAmount hidden from current budget, shown in history
-                  ],
-                ),
+                  ),
+                  // rolloverAmount hidden from current budget, shown in history
+                ],
               ),
             ),
+          ),
         ],
       ),
     );
@@ -1746,7 +1865,11 @@ class _ModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     final color = isFamilyMode ? AppTheme.savingsColor : AppTheme.primaryColor;
+    final name = userName?.isNotEmpty == true
+        ? userName!
+        : (isId ? 'Pengguna' : 'User');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -1776,7 +1899,7 @@ class _ModeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Selamat datang ${userName?.isNotEmpty == true ? userName : 'User'}',
+                  isId ? 'Selamat datang $name' : 'Welcome, $name',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -1785,7 +1908,9 @@ class _ModeCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isFamilyMode ? 'Mode Keluarga' : 'Mode Personal',
+                  isFamilyMode
+                      ? (isId ? 'Mode Keluarga' : 'Family Mode')
+                      : (isId ? 'Mode Personal' : 'Personal Mode'),
                   style: TextStyle(
                     color: color,
                     fontSize: 13,
@@ -1795,8 +1920,12 @@ class _ModeCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   isFamilyMode
-                      ? 'Sudah join ${familyName ?? 'keluarga kamu'}.'
-                      : 'Belum join keluarga, data tersimpan pribadi.',
+                      ? (isId
+                            ? 'Sudah join ${familyName ?? 'keluarga kamu'}.'
+                            : 'You joined ${familyName ?? 'your family'}.')
+                      : (isId
+                            ? 'Belum join keluarga, data tersimpan pribadi.'
+                            : 'Not in a family yet, your data stays private.'),
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -1808,7 +1937,7 @@ class _ModeCard extends StatelessWidget {
           if (!isFamilyMode)
             TextButton(
               onPressed: () => context.push('/family'),
-              child: const Text('Gabung'),
+              child: Text(isId ? 'Gabung' : 'Join'),
             ),
         ],
       ),
@@ -1924,41 +2053,6 @@ class _MiniStat extends StatelessWidget {
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.9),
             fontSize: 11,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PredMiniStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  const _PredMiniStat({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 9,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: color,
           ),
         ),
       ],
@@ -2084,8 +2178,9 @@ class _DayProgressCard extends StatelessWidget {
                   builder: (_, value, __) => CircularProgressIndicator(
                     value: value,
                     strokeWidth: 4,
-                    backgroundColor:
-                        AppTheme.primaryColor.withValues(alpha: 0.12),
+                    backgroundColor: AppTheme.primaryColor.withValues(
+                      alpha: 0.12,
+                    ),
                     valueColor: AlwaysStoppedAnimation(
                       value > 0.8
                           ? AppTheme.warningColor
@@ -2107,8 +2202,7 @@ class _DayProgressCard extends StatelessWidget {
                       '/$daysInMonth',
                       style: TextStyle(
                         fontSize: 9,
-                        color:
-                            Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],

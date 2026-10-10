@@ -19,9 +19,13 @@ class BudgetHistoryPage extends ConsumerWidget {
     // The app shell already shows the title and back arrow.
     return Scaffold(
       body: historyAsync.when(
-        loading: () => const LoadingWidget(message: 'Memuat riwayat...'),
+        loading: () => LoadingWidget(
+          message: isId ? 'Memuat riwayat...' : 'Loading history...',
+        ),
         error: (e, _) => AppErrorWidget(
-          message: 'Gagal memuat riwayat: $e',
+          message: isId
+              ? 'Riwayat anggaran belum bisa dimuat. Coba lagi.'
+              : "Couldn't load budget history. Try again.",
           onRetry: () => ref.invalidate(budgetHistoryProvider(familyId)),
         ),
         data: (budgets) {
@@ -30,9 +34,18 @@ class BudgetHistoryPage extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.history, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
+                  Icon(
+                    Icons.history,
+                    size: 64,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  ),
                   const SizedBox(height: 16),
-                  Text(isId ? 'Belum ada riwayat anggaran' : 'No budget history', style: Theme.of(context).textTheme.bodyLarge),
+                  Text(
+                    isId ? 'Belum ada riwayat anggaran' : 'No budget history',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
                 ],
               ),
             );
@@ -51,7 +64,8 @@ class BudgetHistoryPage extends ConsumerWidget {
             });
           }
 
-          final sortedMonths = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+          final sortedMonths = grouped.keys.toList()
+            ..sort((a, b) => b.compareTo(a));
 
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
@@ -60,12 +74,19 @@ class BudgetHistoryPage extends ConsumerWidget {
               final month = sortedMonths[index];
               final items = grouped[month]!;
               final displayMonth = _formatMonth(month, isId);
-              final totalRollover = items.fold<double>(0, (s, i) => s + (i['rolloverAmount'] as double));
-              final isCurrentMonth = month == '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
+              final totalRollover = items.fold<double>(
+                0,
+                (s, i) => s + (i['rolloverAmount'] as double),
+              );
+              final isCurrentMonth =
+                  month ==
+                  '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -78,18 +99,30 @@ class BudgetHistoryPage extends ConsumerWidget {
                             isCurrentMonth
                                 ? '$displayMonth ${isId ? '(Bulan ini)' : '(Current)'}'
                                 : displayMonth,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           if (totalRollover > 0)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppTheme.incomeColor.withValues(alpha: 0.1),
+                                color: AppTheme.incomeColor.withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                '${isId ? "Rollover" : "Rollover"}: ${CurrencyFormatter.format(totalRollover)}',
-                                style: TextStyle(fontSize: 11, color: AppTheme.incomeColor, fontWeight: FontWeight.bold),
+                                '${isId ? "Sisa terbawa" : "Rollover"}: ${CurrencyFormatter.format(totalRollover)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.incomeColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                         ],
@@ -101,7 +134,9 @@ class BudgetHistoryPage extends ConsumerWidget {
                         final used = item['usedAmount'] as double;
                         final remaining = item['remaining'] as double;
                         final rollover = item['rolloverAmount'] as double;
-                        final percentage = budget > 0 ? (used / budget).clamp(0.0, 1.0) : 0.0;
+                        final percentage = budget > 0
+                            ? (used / budget).clamp(0.0, 1.0)
+                            : 0.0;
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
@@ -109,37 +144,63 @@ class BudgetHistoryPage extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Expanded(child: Text(cat, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                  Expanded(
+                                    child: Text(
+                                      cat,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                                   Text(
                                     '${CurrencyFormatter.format(used)} / ${CurrencyFormatter.format(budget)}',
-                                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 4),
                               LinearProgressIndicator(
                                 value: percentage,
-                                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  used > budget ? AppTheme.errorColor : AppTheme.incomeColor,
+                                  used > budget
+                                      ? AppTheme.errorColor
+                                      : AppTheme.incomeColor,
                                 ),
                                 minHeight: 5,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               const SizedBox(height: 2),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     '${isId ? "Sisa" : "Left"}: ${CurrencyFormatter.format(remaining)}',
-                                    style: TextStyle(fontSize: 11, color: remaining < 0 ? AppTheme.errorColor : AppTheme.incomeColor),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: remaining < 0
+                                          ? AppTheme.errorColor
+                                          : AppTheme.incomeColor,
+                                    ),
                                   ),
                                   if (rollover > 0)
                                     Text(
                                       '→ ${CurrencyFormatter.format(rollover)} ${isId ? "ke bln berikut" : "to next month"}',
-                                      style: TextStyle(fontSize: 10, color: AppTheme.incomeColor),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppTheme.incomeColor,
+                                      ),
                                     ),
                                 ],
                               ),
@@ -164,10 +225,38 @@ class BudgetHistoryPage extends ConsumerWidget {
     final year = parts[0];
     final m = int.tryParse(parts[1]) ?? 1;
     if (isId) {
-      const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const months = [
+        '',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mei',
+        'Jun',
+        'Jul',
+        'Agu',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Des',
+      ];
       return '${months[m]} $year';
     }
-    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[m]} $year';
   }
 }

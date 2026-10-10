@@ -1,11 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/constants/app_constants.dart';
+import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
+
+/// Friendly, localized text for an error returned by `addCategory`.
+/// The provider returns either a duplicate-name message or raw exception
+/// text, so the duplicate case is detected here and everything else is
+/// shown as a generic save failure.
+String _addCategoryErrorText(
+  BuildContext context,
+  String name,
+  List<String> existingNames,
+) {
+  final s = AppStrings(Localizations.localeOf(context));
+  final isId = s.locale.languageCode == 'id';
+  final isDuplicate = existingNames.any(
+    (n) => n.toLowerCase() == name.toLowerCase(),
+  );
+  if (isDuplicate) {
+    return isId
+        ? 'Kategori "$name" sudah ada'
+        : 'Category "$name" already exists';
+  }
+  return s.saveFailed;
+}
 
 class CategoriesPage extends ConsumerStatefulWidget {
   const CategoriesPage({super.key});
@@ -16,6 +39,7 @@ class CategoriesPage extends ConsumerStatefulWidget {
 
 class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   void _showAddCategoryChoice(BuildContext context, WidgetRef ref) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -25,14 +49,17 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Tambah Kategori',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                isId ? 'Tambah Kategori' : 'Add Category',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 icon: const Icon(Icons.trending_up),
-                label: const Text('Kategori Pemasukan'),
+                label: Text(isId ? 'Kategori Pemasukan' : 'Income Category'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.incomeColor,
                 ),
@@ -44,7 +71,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.trending_down),
-                label: const Text('Kategori Pengeluaran'),
+                label: Text(isId ? 'Kategori Pengeluaran' : 'Expense Category'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.expenseColor,
                 ),
@@ -69,22 +96,28 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
         .where((c) => c.type == type)
         .map((c) => c.name)
         .toList();
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Tambah ${type == 'income' ? 'Pemasukan' : 'Pengeluaran'}'),
+        title: Text(
+          type == 'income'
+              ? (isId ? 'Tambah Pemasukan' : 'Add Income Category')
+              : (isId ? 'Tambah Pengeluaran' : 'Add Expense Category'),
+        ),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Nama Kategori',
-            hintText: 'Contoh: Bonus, Belanja',
+          decoration: InputDecoration(
+            labelText: isId ? 'Nama Kategori' : 'Category Name',
+            hintText: isId ? 'Contoh: Bonus, Belanja' : 'e.g. Bonus, Groceries',
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: Text(s.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -95,15 +128,19 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                   .addCategory(familyId, type, name, existingNames);
               if (ctx.mounted) {
                 if (error != null) {
-                  ScaffoldMessenger.of(
-                    ctx,
-                  ).showSnackBar(SnackBar(content: Text(error)));
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _addCategoryErrorText(ctx, name, existingNames),
+                      ),
+                    ),
+                  );
                 } else {
                   Navigator.pop(ctx);
                 }
               }
             },
-            child: const Text('Simpan'),
+            child: Text(s.save),
           ),
         ],
       ),
@@ -114,11 +151,17 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   Widget build(BuildContext context) {
     final familyId = ref.watch(financeScopeIdProvider);
     final categoriesAsync = ref.watch(categoryStreamProvider(familyId));
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
 
     return categoriesAsync.when(
-      loading: () => const LoadingWidget(message: 'Memuat kategori...'),
+      loading: () => LoadingWidget(
+        message: isId ? 'Memuat kategori...' : 'Loading categories...',
+      ),
       error: (e, _) => AppErrorWidget(
-        message: 'Gagal memuat kategori: $e',
+        message: isId
+            ? 'Kategori belum bisa dimuat. Coba lagi ya.'
+            : "Couldn't load your categories. Try again.",
         onRetry: () => ref.invalidate(categoryStreamProvider(familyId)),
       ),
       data: (categories) {
@@ -140,14 +183,14 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
             ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
               children: [
-                _SectionTitle(title: 'Pemasukan'),
+                _SectionTitle(title: s.income),
                 const SizedBox(height: 8),
                 ...incomeCustom.map((c) => _CategoryTile(category: c)),
                 ...incomeDefault.map(
                   (n) => _DefaultCategoryTile(name: n, type: 'income'),
                 ),
                 const SizedBox(height: 24),
-                _SectionTitle(title: 'Pengeluaran'),
+                _SectionTitle(title: s.expense),
                 const SizedBox(height: 8),
                 ...expenseCustom.map((c) => _CategoryTile(category: c)),
                 ...expenseDefault.map(
@@ -240,7 +283,9 @@ class _DefaultCategoryTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Default',
+                  Localizations.localeOf(context).languageCode == 'id'
+                      ? 'Bawaan'
+                      : 'Default',
                   style: TextStyle(
                     fontSize: 11,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -271,6 +316,8 @@ class _CategoryTile extends ConsumerWidget {
     final color = category.type == 'income'
         ? AppTheme.incomeColor
         : AppTheme.expenseColor;
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -314,7 +361,7 @@ class _CategoryTile extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  'Kustom',
+                  isId ? 'Kustom' : 'Custom',
                   style: TextStyle(
                     fontSize: 11,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -329,19 +376,23 @@ class _CategoryTile extends ConsumerWidget {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Hapus Kategori'),
-                  content: Text('Hapus "${category.name}"?'),
+                  title: Text(isId ? 'Hapus Kategori' : 'Delete Category'),
+                  content: Text(
+                    isId
+                        ? 'Hapus "${category.name}"?'
+                        : 'Delete "${category.name}"?',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Batal'),
+                      child: Text(s.cancel),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
                       style: TextButton.styleFrom(
                         foregroundColor: AppTheme.errorColor,
                       ),
-                      child: const Text('Hapus'),
+                      child: Text(s.delete),
                     ),
                   ],
                 ),
@@ -394,6 +445,8 @@ class _AddCategorySheetState extends ConsumerState<AddCategorySheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -406,7 +459,11 @@ class _AddCategorySheetState extends ConsumerState<AddCategorySheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Tambah Kategori ${widget.type == 'income' ? 'Pemasukan' : 'Pengeluaran'}',
+            widget.type == 'income'
+                ? (isId ? 'Tambah Kategori Pemasukan' : 'Add Income Category')
+                : (isId
+                      ? 'Tambah Kategori Pengeluaran'
+                      : 'Add Expense Category'),
             style: Theme.of(
               context,
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -414,9 +471,9 @@ class _AddCategorySheetState extends ConsumerState<AddCategorySheet> {
           const SizedBox(height: 24),
           TextFormField(
             controller: _controller,
-            decoration: const InputDecoration(
-              labelText: 'Nama Kategori',
-              prefixIcon: Icon(Icons.category),
+            decoration: InputDecoration(
+              labelText: isId ? 'Nama Kategori' : 'Category Name',
+              prefixIcon: const Icon(Icons.category),
             ),
             autofocus: true,
           ),
@@ -441,9 +498,17 @@ class _AddCategorySheetState extends ConsumerState<AddCategorySheet> {
                     if (mounted) {
                       setState(() => _loading = false);
                       if (error != null) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(error)));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              _addCategoryErrorText(
+                                context,
+                                name,
+                                widget.existingNames,
+                              ),
+                            ),
+                          ),
+                        );
                       } else {
                         Navigator.pop(context);
                       }
@@ -464,7 +529,7 @@ class _AddCategorySheetState extends ConsumerState<AddCategorySheet> {
                       color: Colors.white,
                     ),
                   )
-                : const Text('Tambah'),
+                : Text(s.add),
           ),
           const SizedBox(height: 24),
         ],

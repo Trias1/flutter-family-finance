@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/constants/app_constants.dart';
+import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
@@ -18,15 +19,33 @@ import 'package:family_finance_manager/features/savings/presentation/providers/s
 class SavingsPage extends ConsumerWidget {
   const SavingsPage({super.key});
 
+  /// Display label for a stored purchase source. Stored values stay as-is;
+  /// brand names are not translated.
+  static String _sourceLabel(String value, bool isId) {
+    if (isId) return value;
+    switch (value) {
+      case 'Toko Emas':
+        return 'Gold Shop';
+      case 'Lainnya':
+        return 'Other';
+      default:
+        return value;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final familyId = ref.watch(financeScopeIdProvider);
     final savingsAsync = ref.watch(savingStreamProvider(familyId));
+    final locale = Localizations.localeOf(context);
+    final isId = locale.languageCode == 'id';
+    final s = AppStrings(locale);
 
     return savingsAsync.when(
-      loading: () => const LoadingWidget(message: 'Memuat goals...'),
+      loading: () =>
+          LoadingWidget(message: isId ? 'Memuat goals...' : 'Loading goals...'),
       error: (e, _) => AppErrorWidget(
-        message: 'Gagal memuat goals: $e',
+        message: s.loadFailed,
         onRetry: () => ref.invalidate(savingStreamProvider(familyId)),
       ),
       data: (savings) => Stack(
@@ -41,7 +60,9 @@ class SavingsPage extends ConsumerWidget {
                       SizedBox(
                         height: MediaQuery.of(context).size.height * 0.3,
                       ),
-                      const EmptyWidget(message: 'Belum ada goals'),
+                      EmptyWidget(
+                        message: isId ? 'Belum ada goals' : 'No goals yet',
+                      ),
                     ],
                   )
                 : ListView.builder(
@@ -124,22 +145,28 @@ class SavingsPage extends ConsumerWidget {
                                           .read(savingNotifierProvider.notifier)
                                           .deleteSaving(saving.id);
                                   },
-                                  itemBuilder: (ctx) => const [
+                                  itemBuilder: (ctx) => [
                                     PopupMenuItem(
                                       value: 'add',
-                                      child: Text('Tambah Goals'),
+                                      child: Text(
+                                        isId ? 'Tambah Goals' : 'Add Money',
+                                      ),
                                     ),
                                     PopupMenuItem(
                                       value: 'withdraw',
-                                      child: Text('Tarik Goals'),
+                                      child: Text(
+                                        isId ? 'Tarik Goals' : 'Withdraw',
+                                      ),
                                     ),
                                     PopupMenuItem(
                                       value: 'edit',
-                                      child: Text('Edit Target'),
+                                      child: Text(
+                                        isId ? 'Edit Target' : 'Edit Goal',
+                                      ),
                                     ),
                                     PopupMenuItem(
                                       value: 'delete',
-                                      child: Text('Hapus'),
+                                      child: Text(s.delete),
                                     ),
                                   ],
                                 ),
@@ -166,7 +193,8 @@ class SavingsPage extends ConsumerWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  saving.isGoldInvestment && saving.goldGrams != null
+                                  saving.isGoldInvestment &&
+                                          saving.goldGrams != null
                                       ? '${saving.goldGrams!.toStringAsFixed(2)} gram'
                                       : '${CurrencyFormatter.format(saving.currentAmount)} / ${CurrencyFormatter.format(saving.targetAmount)}',
                                   style: TextStyle(
@@ -177,14 +205,16 @@ class SavingsPage extends ConsumerWidget {
                                   ),
                                 ),
                                 Text(
-                                  saving.isGoldInvestment 
+                                  saving.isGoldInvestment
                                       ? '${saving.goldProfitLoss >= 0 ? '+' : ''}${CurrencyFormatter.format(saving.goldProfitLoss)}'
                                       : '${progress.toStringAsFixed(0)}%',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
                                     color: saving.isGoldInvestment
-                                        ? (saving.goldProfitLoss >= 0 ? AppTheme.incomeColor : AppTheme.expenseColor)
+                                        ? (saving.goldProfitLoss >= 0
+                                              ? AppTheme.incomeColor
+                                              : AppTheme.expenseColor)
                                         : null,
                                   ),
                                 ),
@@ -193,13 +223,16 @@ class SavingsPage extends ConsumerWidget {
                             const SizedBox(height: 4),
                             if (saving.isGoldInvestment) ...[
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    '${saving.goldType ?? 'Emas'} • ${saving.purchaseSource ?? '-'}',
+                                    '${saving.goldType ?? (isId ? 'Emas' : 'Gold')} • ${saving.purchaseSource != null ? _sourceLabel(saving.purchaseSource!, isId) : '-'}',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   Text(
@@ -207,27 +240,34 @@ class SavingsPage extends ConsumerWidget {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: saving.goldProfitLoss >= 0 ? AppTheme.incomeColor : AppTheme.expenseColor,
+                                      color: saving.goldProfitLoss >= 0
+                                          ? AppTheme.incomeColor
+                                          : AppTheme.expenseColor,
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 2),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Beli: ${CurrencyFormatter.format(saving.purchasePricePerGram ?? 0)}/g',
+                                    '${isId ? 'Beli' : 'Bought'}: ${CurrencyFormatter.format(saving.purchasePricePerGram ?? 0)}/g',
                                     style: TextStyle(
                                       fontSize: 10,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   Text(
-                                    'Sekarang: ${CurrencyFormatter.format(saving.currentPricePerGram ?? 0)}/g',
+                                    '${isId ? 'Sekarang' : 'Now'}: ${CurrencyFormatter.format(saving.currentPricePerGram ?? 0)}/g',
                                     style: TextStyle(
                                       fontSize: 10,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -276,21 +316,31 @@ class SavingsPage extends ConsumerWidget {
     String? selectedBank = saving?.bankName;
     DateTime targetDate =
         saving?.targetDate ?? DateTime.now().add(const Duration(days: 365));
-    SavingCategory selectedCategory = saving?.category ?? SavingCategory.general;
-    
+    SavingCategory selectedCategory =
+        saving?.category ?? SavingCategory.general;
+
     // Gold investment fields
-    final goldTypeController = TextEditingController(text: saving?.goldType ?? '');
+    final goldTypeController = TextEditingController(
+      text: saving?.goldType ?? '',
+    );
     final goldGramsController = TextEditingController(
       text: saving?.goldGrams != null ? saving!.goldGrams.toString() : '',
     );
     final purchasePriceController = TextEditingController(
-      text: saving?.purchasePricePerGram != null ? saving!.purchasePricePerGram.toString() : '',
+      text: saving?.purchasePricePerGram != null
+          ? saving!.purchasePricePerGram.toString()
+          : '',
     );
     final currentPriceController = TextEditingController(
-      text: saving?.currentPricePerGram != null ? saving!.currentPricePerGram.toString() : '',
+      text: saving?.currentPricePerGram != null
+          ? saving!.currentPricePerGram.toString()
+          : '',
     );
     String? selectedSource = saving?.purchaseSource;
-    
+    final locale = Localizations.localeOf(context);
+    final isId = locale.languageCode == 'id';
+    final s = AppStrings(locale);
+
     bool isSaving = false;
 
     showModalBottomSheet(
@@ -312,7 +362,9 @@ class SavingsPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    saving == null ? 'Target Baru' : 'Edit Target',
+                    saving == null
+                        ? (isId ? 'Target Baru' : 'New Goal')
+                        : (isId ? 'Edit Target' : 'Edit Goal'),
                     style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -320,95 +372,159 @@ class SavingsPage extends ConsumerWidget {
                   const SizedBox(height: 24),
                   TextFormField(
                     controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama Target',
-                      prefixIcon: Icon(Icons.flag),
+                    decoration: InputDecoration(
+                      labelText: isId ? 'Nama Target' : 'Goal Name',
+                      prefixIcon: const Icon(Icons.flag),
                     ),
                     validator: (v) => v == null || v.isEmpty
-                        ? 'Nama tidak boleh kosong'
+                        ? (isId
+                              ? 'Nama tidak boleh kosong'
+                              : 'Name is required')
                         : null,
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<SavingCategory>(
                     value: selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Kategori',
-                      prefixIcon: Icon(Icons.category),
+                    decoration: InputDecoration(
+                      labelText: isId ? 'Kategori' : 'Category',
+                      prefixIcon: const Icon(Icons.category),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: SavingCategory.general, child: Text('Umum')),
-                      DropdownMenuItem(value: SavingCategory.emergency, child: Text('Dana Darurat')),
-                      DropdownMenuItem(value: SavingCategory.vacation, child: Text('Liburan')),
-                      DropdownMenuItem(value: SavingCategory.house, child: Text('Rumah/Properti')),
-                      DropdownMenuItem(value: SavingCategory.education, child: Text('Pendidikan')),
-                      DropdownMenuItem(value: SavingCategory.gold, child: Text('Investasi Emas')),
+                    items: [
+                      DropdownMenuItem(
+                        value: SavingCategory.general,
+                        child: Text(isId ? 'Umum' : 'General'),
+                      ),
+                      DropdownMenuItem(
+                        value: SavingCategory.emergency,
+                        child: Text(isId ? 'Dana Darurat' : 'Emergency Fund'),
+                      ),
+                      DropdownMenuItem(
+                        value: SavingCategory.vacation,
+                        child: Text(isId ? 'Liburan' : 'Vacation'),
+                      ),
+                      DropdownMenuItem(
+                        value: SavingCategory.house,
+                        child: Text(isId ? 'Rumah/Properti' : 'House/Property'),
+                      ),
+                      DropdownMenuItem(
+                        value: SavingCategory.education,
+                        child: Text(isId ? 'Pendidikan' : 'Education'),
+                      ),
+                      DropdownMenuItem(
+                        value: SavingCategory.gold,
+                        child: Text(
+                          isId ? 'Investasi Emas' : 'Gold Investment',
+                        ),
+                      ),
                     ],
-                    onChanged: (v) => setSheetState(() => selectedCategory = v ?? SavingCategory.general),
+                    onChanged: (v) => setSheetState(
+                      () => selectedCategory = v ?? SavingCategory.general,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (selectedCategory == SavingCategory.gold) ...[
                     DropdownButtonFormField<String>(
                       value: selectedSource,
-                      decoration: const InputDecoration(
-                        labelText: 'Sumber Pembelian',
-                        prefixIcon: Icon(Icons.store),
+                      decoration: InputDecoration(
+                        labelText: isId ? 'Sumber Pembelian' : 'Bought From',
+                        prefixIcon: const Icon(Icons.store),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'Tokopedia', child: Text('Tokopedia')),
-                        DropdownMenuItem(value: 'Bukalapak', child: Text('Bukalapak')),
-                        DropdownMenuItem(value: 'Shopee', child: Text('Shopee')),
-                        DropdownMenuItem(value: 'Pegadaian', child: Text('Pegadaian')),
-                        DropdownMenuItem(value: 'Toko Emas', child: Text('Toko Emas')),
-                        DropdownMenuItem(value: 'Antam', child: Text('Antam')),
-                        DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
-                      ],
+                      items:
+                          const [
+                                'Tokopedia',
+                                'Bukalapak',
+                                'Shopee',
+                                'Pegadaian',
+                                'Toko Emas',
+                                'Antam',
+                                'Lainnya',
+                              ]
+                              .map(
+                                (v) => DropdownMenuItem(
+                                  value: v,
+                                  child: Text(_sourceLabel(v, isId)),
+                                ),
+                              )
+                              .toList(),
                       onChanged: (v) => setSheetState(() => selectedSource = v),
-                      validator: (v) => v == null ? 'Pilih sumber pembelian' : null,
+                      validator: (v) => v == null
+                          ? (isId
+                                ? 'Pilih sumber pembelian'
+                                : 'Choose where you bought it')
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: goldTypeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Jenis Emas',
-                        prefixIcon: Icon(Icons.diamond),
-                        hintText: 'Contoh: LM 0.5gr, Antam 1gr, UBS 5gr',
+                      decoration: InputDecoration(
+                        labelText: isId ? 'Jenis Emas' : 'Gold Type',
+                        prefixIcon: const Icon(Icons.diamond),
+                        hintText: isId
+                            ? 'Contoh: LM 0.5gr, Antam 1gr, UBS 5gr'
+                            : 'e.g. LM 0.5gr, Antam 1gr, UBS 5gr',
                       ),
-                      validator: (v) => v == null || v.isEmpty ? 'Jenis emas tidak boleh kosong' : null,
+                      validator: (v) => v == null || v.isEmpty
+                          ? (isId
+                                ? 'Jenis emas tidak boleh kosong'
+                                : 'Gold type is required')
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: goldGramsController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Jumlah Gram',
-                        prefixIcon: Icon(Icons.scale),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: isId ? 'Jumlah Gram' : 'Grams',
+                        prefixIcon: const Icon(Icons.scale),
                         suffixText: 'gram',
                       ),
-                      validator: (v) => v == null || v.isEmpty ? 'Jumlah gram tidak boleh kosong' : null,
+                      validator: (v) => v == null || v.isEmpty
+                          ? (isId
+                                ? 'Jumlah gram tidak boleh kosong'
+                                : 'Grams are required')
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: purchasePriceController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Harga Beli per Gram',
-                        prefixIcon: Icon(Icons.attach_money),
+                      decoration: InputDecoration(
+                        labelText: isId
+                            ? 'Harga Beli per Gram'
+                            : 'Purchase Price per Gram',
+                        prefixIcon: const Icon(Icons.attach_money),
                         prefixText: 'Rp ',
-                        hintText: 'Harga saat beli',
+                        hintText: isId
+                            ? 'Harga saat beli'
+                            : 'Price when you bought it',
                       ),
-                      validator: (v) => v == null || v.isEmpty ? 'Harga beli tidak boleh kosong' : null,
+                      validator: (v) => v == null || v.isEmpty
+                          ? (isId
+                                ? 'Harga beli tidak boleh kosong'
+                                : 'Purchase price is required')
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: currentPriceController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Harga Sekarang per Gram',
-                        prefixIcon: Icon(Icons.trending_up),
+                      decoration: InputDecoration(
+                        labelText: isId
+                            ? 'Harga Sekarang per Gram'
+                            : 'Current Price per Gram',
+                        prefixIcon: const Icon(Icons.trending_up),
                         prefixText: 'Rp ',
-                        hintText: 'Update manual harga terkini',
+                        hintText: isId
+                            ? 'Update manual harga terkini'
+                            : 'Update the latest price manually',
                       ),
-                      validator: (v) => v == null || v.isEmpty ? 'Harga sekarang tidak boleh kosong' : null,
+                      validator: (v) => v == null || v.isEmpty
+                          ? (isId
+                                ? 'Harga sekarang tidak boleh kosong'
+                                : 'Current price is required')
+                          : null,
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -416,14 +532,27 @@ class SavingsPage extends ConsumerWidget {
                     controller: targetController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: selectedCategory == SavingCategory.gold ? 'Target Profit (Opsional)' : 'Nominal Target',
+                      labelText: selectedCategory == SavingCategory.gold
+                          ? (isId
+                                ? 'Target Profit (Opsional)'
+                                : 'Profit Target (Optional)')
+                          : (isId ? 'Nominal Target' : 'Target Amount'),
                       prefixIcon: const Icon(Icons.money),
                       prefixText: 'Rp ',
-                      hintText: selectedCategory == SavingCategory.gold ? 'Kosongkan jika tidak ada target' : null,
+                      hintText: selectedCategory == SavingCategory.gold
+                          ? (isId
+                                ? 'Kosongkan jika tidak ada target'
+                                : 'Leave empty if there is no target')
+                          : null,
                     ),
                     validator: (v) {
-                      if (selectedCategory == SavingCategory.gold) return null; // Optional for gold
-                      return v == null || v.isEmpty ? 'Nominal tidak boleh kosong' : null;
+                      if (selectedCategory == SavingCategory.gold)
+                        return null; // Optional for gold
+                      return v == null || v.isEmpty
+                          ? (isId
+                                ? 'Nominal tidak boleh kosong'
+                                : 'Amount is required')
+                          : null;
                     },
                   ),
                   const SizedBox(height: 16),
@@ -431,15 +560,19 @@ class SavingsPage extends ConsumerWidget {
                     DropdownButtonFormField<String>(
                       isExpanded: true,
                       value: selectedBank,
-                      decoration: const InputDecoration(
-                        labelText: 'Pilih Bank',
-                        prefixIcon: Icon(Icons.account_balance),
+                      decoration: InputDecoration(
+                        labelText: isId ? 'Pilih Bank' : 'Choose Bank',
+                        prefixIcon: const Icon(Icons.account_balance),
                       ),
                       items: AppConstants.allBanks
-                          .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                          .map(
+                            (b) => DropdownMenuItem(value: b, child: Text(b)),
+                          )
                           .toList(),
                       onChanged: (v) => setSheetState(() => selectedBank = v),
-                      validator: (v) => v == null ? 'Pilih bank' : null,
+                      validator: (v) => v == null
+                          ? (isId ? 'Pilih bank' : 'Choose a bank')
+                          : null,
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -462,54 +595,71 @@ class SavingsPage extends ConsumerWidget {
                     onPressed: isSaving
                         ? null
                         : () async {
-                      FocusScope.of(ctx).unfocus();
-                      if (!formKey.currentState!.validate()) return;
-                      setSheetState(() => isSaving = true);
-                      final fId = ref.read(financeScopeIdProvider);
-                      
-                      // Calculate target for gold investment
-                      double finalTarget = 0;
-                      if (selectedCategory == SavingCategory.gold && goldGramsController.text.isNotEmpty && purchasePriceController.text.isNotEmpty) {
-                        finalTarget = double.parse(goldGramsController.text) * double.parse(purchasePriceController.text);
-                      } else if (targetController.text.isNotEmpty) {
-                        finalTarget = double.parse(targetController.text);
-                      }
-                      
-                      final model = SavingModel(
-                        id: saving?.id ?? '',
-                        familyId: fId,
-                        name: nameController.text,
-                        targetAmount: finalTarget,
-                        currentAmount: saving?.currentAmount ?? 0,
-                        bankName: selectedCategory == SavingCategory.gold ? null : selectedBank,
-                        targetDate: targetDate,
-                        category: selectedCategory,
-                        goldType: selectedCategory == SavingCategory.gold ? goldTypeController.text : null,
-                        goldGrams: selectedCategory == SavingCategory.gold && goldGramsController.text.isNotEmpty 
-                            ? double.parse(goldGramsController.text) 
-                            : null,
-                        purchasePricePerGram: selectedCategory == SavingCategory.gold && purchasePriceController.text.isNotEmpty
-                            ? double.parse(purchasePriceController.text)
-                            : null,
-                        currentPricePerGram: selectedCategory == SavingCategory.gold && currentPriceController.text.isNotEmpty
-                            ? double.parse(currentPriceController.text)
-                            : null,
-                        purchaseSource: selectedCategory == SavingCategory.gold ? selectedSource : null,
-                      );
-                      if (saving == null)
-                        await ref
-                            .read(savingNotifierProvider.notifier)
-                            .createSaving(model);
-                      else
-                        await ref
-                            .read(savingNotifierProvider.notifier)
-                            .updateSaving(model);
-                      ref.invalidate(savingStreamProvider(fId));
-                      ref.invalidate(dashboardProvider);
-                      ref.invalidate(reportProvider(fId));
-                      if (!ctx.mounted) return;
-                      Navigator.pop(ctx);
-                    },
+                            FocusScope.of(ctx).unfocus();
+                            if (!formKey.currentState!.validate()) return;
+                            setSheetState(() => isSaving = true);
+                            final fId = ref.read(financeScopeIdProvider);
+
+                            // Calculate target for gold investment
+                            double finalTarget = 0;
+                            if (selectedCategory == SavingCategory.gold &&
+                                goldGramsController.text.isNotEmpty &&
+                                purchasePriceController.text.isNotEmpty) {
+                              finalTarget =
+                                  double.parse(goldGramsController.text) *
+                                  double.parse(purchasePriceController.text);
+                            } else if (targetController.text.isNotEmpty) {
+                              finalTarget = double.parse(targetController.text);
+                            }
+
+                            final model = SavingModel(
+                              id: saving?.id ?? '',
+                              familyId: fId,
+                              name: nameController.text,
+                              targetAmount: finalTarget,
+                              currentAmount: saving?.currentAmount ?? 0,
+                              bankName: selectedCategory == SavingCategory.gold
+                                  ? null
+                                  : selectedBank,
+                              targetDate: targetDate,
+                              category: selectedCategory,
+                              goldType: selectedCategory == SavingCategory.gold
+                                  ? goldTypeController.text
+                                  : null,
+                              goldGrams:
+                                  selectedCategory == SavingCategory.gold &&
+                                      goldGramsController.text.isNotEmpty
+                                  ? double.parse(goldGramsController.text)
+                                  : null,
+                              purchasePricePerGram:
+                                  selectedCategory == SavingCategory.gold &&
+                                      purchasePriceController.text.isNotEmpty
+                                  ? double.parse(purchasePriceController.text)
+                                  : null,
+                              currentPricePerGram:
+                                  selectedCategory == SavingCategory.gold &&
+                                      currentPriceController.text.isNotEmpty
+                                  ? double.parse(currentPriceController.text)
+                                  : null,
+                              purchaseSource:
+                                  selectedCategory == SavingCategory.gold
+                                  ? selectedSource
+                                  : null,
+                            );
+                            if (saving == null)
+                              await ref
+                                  .read(savingNotifierProvider.notifier)
+                                  .createSaving(model);
+                            else
+                              await ref
+                                  .read(savingNotifierProvider.notifier)
+                                  .updateSaving(model);
+                            ref.invalidate(savingStreamProvider(fId));
+                            ref.invalidate(dashboardProvider);
+                            ref.invalidate(reportProvider(fId));
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.savingsColor,
                       foregroundColor: Colors.white,
@@ -520,7 +670,11 @@ class SavingsPage extends ConsumerWidget {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(saving == null ? 'Buat Target' : 'Simpan'),
+                        : Text(
+                            saving == null
+                                ? (isId ? 'Buat Target' : 'Create Goal')
+                                : s.save,
+                          ),
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -538,50 +692,53 @@ class SavingsPage extends ConsumerWidget {
     SavingModel saving,
   ) {
     final controller = TextEditingController();
+    final locale = Localizations.localeOf(context);
+    final isId = locale.languageCode == 'id';
+    final s = AppStrings(locale);
     bool isSaving = false;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Tambah Goals'),
+          title: Text(isId ? 'Tambah Goals' : 'Add Money'),
           content: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Nominal',
+            decoration: InputDecoration(
+              labelText: isId ? 'Nominal' : 'Amount',
               prefixText: 'Rp ',
             ),
           ),
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
-              child: const Text('Batal'),
+              child: Text(s.cancel),
             ),
             ElevatedButton(
               onPressed: isSaving
                   ? null
                   : () async {
-                FocusScope.of(ctx).unfocus();
-                final amount = double.tryParse(controller.text);
-                if (amount == null || amount <= 0) return;
-                setDialogState(() => isSaving = true);
-                await ref
-                    .read(savingNotifierProvider.notifier)
-                    .addToSaving(saving.id, amount);
-                final fId = ref.read(financeScopeIdProvider);
-                ref.invalidate(savingStreamProvider(fId));
-                ref.invalidate(dashboardProvider);
-                ref.invalidate(reportProvider(fId));
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-              },
+                      FocusScope.of(ctx).unfocus();
+                      final amount = double.tryParse(controller.text);
+                      if (amount == null || amount <= 0) return;
+                      setDialogState(() => isSaving = true);
+                      await ref
+                          .read(savingNotifierProvider.notifier)
+                          .addToSaving(saving.id, amount);
+                      final fId = ref.read(financeScopeIdProvider);
+                      ref.invalidate(savingStreamProvider(fId));
+                      ref.invalidate(dashboardProvider);
+                      ref.invalidate(reportProvider(fId));
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                    },
               child: isSaving
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Simpan'),
+                  : Text(s.save),
             ),
           ],
         ),
@@ -595,77 +752,91 @@ class SavingsPage extends ConsumerWidget {
     SavingModel saving,
   ) {
     final controller = TextEditingController();
+    final locale = Localizations.localeOf(context);
+    final isId = locale.languageCode == 'id';
+    final s = AppStrings(locale);
     bool isSaving = false;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-        title: const Text('Tarik Goals'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Nominal',
-            prefixText: 'Rp ',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: isSaving ? null : () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: isSaving
-                ? null
-                : () async {
-              FocusScope.of(ctx).unfocus();
-              final amount = double.tryParse(controller.text);
-              if (amount == null || amount <= 0) return;
-              setDialogState(() => isSaving = true);
-              try {
-                await ref
-                    .read(savingNotifierProvider.notifier)
-                    .withdrawFromSaving(saving.id, amount);
-                final fId = ref.read(financeScopeIdProvider);
-                final uid = ref.read(firebaseAuthDataSourceProvider).currentUser?.uid ?? '';
-                final expense = ExpenseModel(
-                  id: '',
-                  familyId: fId,
-                  userId: uid,
-                  amount: amount,
-                  category: 'Tabungan',
-                  note: 'Penarikan - ${saving.name}',
-                  date: DateTime.now(),
-                );
-                await ref
-                    .read(expenseNotifierProvider.notifier)
-                    .addExpense(expense);
-                ref.invalidate(savingStreamProvider(fId));
-                ref.invalidate(dashboardProvider);
-                ref.invalidate(reportProvider(fId));
-                if (ctx.mounted) Navigator.pop(ctx);
-              } catch (e) {
-                setDialogState(() => isSaving = false);
-                if (ctx.mounted) {
-                  ScaffoldMessenger.of(
-                    ctx,
-                  ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.warningColor,
+          title: Text(isId ? 'Tarik Goals' : 'Withdraw from Goal'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: isId ? 'Nominal' : 'Amount',
+              prefixText: 'Rp ',
             ),
-            child: isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Tarik'),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              child: Text(s.cancel),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      FocusScope.of(ctx).unfocus();
+                      final amount = double.tryParse(controller.text);
+                      if (amount == null || amount <= 0) return;
+                      setDialogState(() => isSaving = true);
+                      try {
+                        await ref
+                            .read(savingNotifierProvider.notifier)
+                            .withdrawFromSaving(saving.id, amount);
+                        final fId = ref.read(financeScopeIdProvider);
+                        final uid =
+                            ref
+                                .read(firebaseAuthDataSourceProvider)
+                                .currentUser
+                                ?.uid ??
+                            '';
+                        final expense = ExpenseModel(
+                          id: '',
+                          familyId: fId,
+                          userId: uid,
+                          amount: amount,
+                          category: 'Tabungan',
+                          note: 'Penarikan - ${saving.name}',
+                          date: DateTime.now(),
+                        );
+                        await ref
+                            .read(expenseNotifierProvider.notifier)
+                            .addExpense(expense);
+                        ref.invalidate(savingStreamProvider(fId));
+                        ref.invalidate(dashboardProvider);
+                        ref.invalidate(reportProvider(fId));
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      } catch (e) {
+                        setDialogState(() => isSaving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isId
+                                    ? 'Gagal menarik dana. Coba lagi.'
+                                    : "Couldn't withdraw. Try again.",
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.warningColor,
+              ),
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(isId ? 'Tarik' : 'Withdraw'),
+            ),
+          ],
+        ),
       ),
     );
   }

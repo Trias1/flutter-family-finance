@@ -51,6 +51,37 @@ class AppStrings {
       ? 'Aplikasi hanya menyimpan info dasar perangkat untuk cek kompatibilitas dan update. Tidak mengambil kontak, lokasi, foto, file, nomor HP, atau IMEI.'
       : 'The app only stores basic device info for compatibility and update checks. It does not collect contacts, location, photos, files, phone number, or IMEI.';
 
+  // Common actions and messages shared by feature pages.
+  String get cancel => _id ? 'Batal' : 'Cancel';
+  String get save => _id ? 'Simpan' : 'Save';
+  String get delete => _id ? 'Hapus' : 'Delete';
+  String get edit => 'Edit';
+  String get add => _id ? 'Tambah' : 'Add';
+  String get close => _id ? 'Tutup' : 'Close';
+  String get yes => _id ? 'Ya' : 'Yes';
+  String get retry => _id ? 'Coba lagi' : 'Try again';
+  String get loading => _id ? 'Memuat...' : 'Loading...';
+  String get loadFailed => _id
+      ? 'Data belum bisa dimuat. Cek koneksi lalu coba lagi.'
+      : "Couldn't load the data. Check your connection and try again.";
+  String get saveFailed => _id
+      ? 'Gagal menyimpan data. Coba lagi.'
+      : "Couldn't save. Please try again.";
+  String get deleteFailed => _id
+      ? 'Gagal menghapus. Coba lagi.'
+      : "Couldn't delete. Please try again.";
+  String get actionFailed => _id
+      ? 'Ada yang salah. Coba lagi ya.'
+      : 'Something went wrong. Please try again.';
+  String get requiredField => _id ? 'Wajib diisi' : 'Required';
+  String get invalidAmount =>
+      _id ? 'Masukkan nominal yang valid' : 'Enter a valid amount';
+  String get daily => _id ? 'Harian' : 'Daily';
+  String get weekly => _id ? 'Mingguan' : 'Weekly';
+  String get monthly => _id ? 'Bulanan' : 'Monthly';
+  String get yearly => _id ? 'Tahunan' : 'Yearly';
+  String get other => _id ? 'Lainnya' : 'Other';
+
   String titleForRoute(String loc) {
     if (loc.startsWith('/income')) return income;
     if (loc.startsWith('/expense')) return expense;

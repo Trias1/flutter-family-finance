@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
@@ -37,6 +38,7 @@ class _DebtsPageState extends ConsumerState<DebtsPage>
   Widget build(BuildContext context) {
     final familyId = ref.watch(financeScopeIdProvider);
     final debtsAsync = ref.watch(debtStreamProvider(familyId));
+    final isId = Localizations.localeOf(context).languageCode == 'id';
 
     if (familyId.isEmpty) return const SizedBox();
 
@@ -46,9 +48,15 @@ class _DebtsPageState extends ConsumerState<DebtsPage>
           children: [
             TabBar(
               controller: _tabController,
-              tabs: const [
-                Tab(icon: Icon(Icons.arrow_upward), text: 'Hutang'),
-                Tab(icon: Icon(Icons.arrow_downward), text: 'Piutang'),
+              tabs: [
+                Tab(
+                  icon: const Icon(Icons.arrow_upward),
+                  text: isId ? 'Hutang' : 'Debts',
+                ),
+                Tab(
+                  icon: const Icon(Icons.arrow_downward),
+                  text: isId ? 'Piutang' : 'Receivables',
+                ),
               ],
               labelColor: AppTheme.expenseColor,
               unselectedLabelColor: Theme.of(
@@ -58,12 +66,15 @@ class _DebtsPageState extends ConsumerState<DebtsPage>
             ),
             Expanded(
               child: debtsAsync.when(
-                loading: () => const LoadingWidget(message: 'Memuat hutang...'),
-                error: (e, _) =>
-                    AppErrorWidget(
-                      message: 'Gagal memuat: $e',
-                      onRetry: () => ref.invalidate(debtStreamProvider(familyId)),
-                    ),
+                loading: () => LoadingWidget(
+                  message: isId ? 'Memuat hutang...' : 'Loading debts...',
+                ),
+                error: (e, _) => AppErrorWidget(
+                  message: isId
+                      ? 'Data hutang belum bisa dimuat. Coba lagi ya.'
+                      : "Couldn't load your debts. Try again.",
+                  onRetry: () => ref.invalidate(debtStreamProvider(familyId)),
+                ),
                 data: (allDebts) {
                   final filtered = _tabController.index == 0
                       ? allDebts
@@ -81,8 +92,15 @@ class _DebtsPageState extends ConsumerState<DebtsPage>
                               SizedBox(
                                 height:
                                     MediaQuery.of(context).size.height * 0.25,
-                                child:
-                                    const EmptyWidget(message: 'Tidak ada data'),
+                                child: EmptyWidget(
+                                  message: _tabController.index == 0
+                                      ? (isId
+                                            ? 'Belum ada hutang'
+                                            : 'No debts yet')
+                                      : (isId
+                                            ? 'Belum ada piutang'
+                                            : 'No receivables yet'),
+                                ),
                               ),
                             ],
                           )
@@ -164,6 +182,8 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -189,23 +209,23 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Tambah Hutang/Piutang',
+                isId ? 'Tambah Hutang/Piutang' : 'Add Debt/Receivable',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               SegmentedButton<DebtType>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: DebtType.hutang,
-                    label: Text('Hutang'),
-                    icon: Icon(Icons.arrow_upward),
+                    label: Text(isId ? 'Hutang' : 'I owe'),
+                    icon: const Icon(Icons.arrow_upward),
                   ),
                   ButtonSegment(
                     value: DebtType.piutang,
-                    label: Text('Piutang'),
-                    icon: Icon(Icons.arrow_downward),
+                    label: Text(isId ? 'Piutang' : 'Owed to me'),
+                    icon: const Icon(Icons.arrow_downward),
                   ),
                 ],
                 selected: {_type},
@@ -214,35 +234,38 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _personController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Orang',
-                  prefixIcon: Icon(Icons.person),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Nama Orang' : 'Person',
+                  prefixIcon: const Icon(Icons.person),
                 ),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Nama harus diisi' : null,
+                validator: (v) => v == null || v.isEmpty
+                    ? (isId ? 'Nama wajib diisi' : 'Name is required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Jumlah',
-                  prefixIcon: Icon(Icons.money),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Jumlah' : 'Amount',
+                  prefixIcon: const Icon(Icons.money),
                 ),
                 validator: (v) {
                   final n = double.tryParse(
                     v?.replaceAll('.', '').replaceAll(',', '.') ?? '',
                   );
-                  if (n == null || n <= 0) return 'Jumlah harus valid';
+                  if (n == null || n <= 0) return s.invalidAmount;
                   return null;
                 },
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descController,
-                decoration: const InputDecoration(
-                  labelText: 'Deskripsi (opsional)',
-                  prefixIcon: Icon(Icons.note),
+                decoration: InputDecoration(
+                  labelText: isId
+                      ? 'Deskripsi (opsional)'
+                      : 'Description (optional)',
+                  prefixIcon: const Icon(Icons.note),
                 ),
               ),
               const SizedBox(height: 12),
@@ -260,7 +283,9 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
                 },
                 child: InputDecorator(
                   decoration: InputDecoration(
-                    labelText: 'Jatuh Tempo (opsional)',
+                    labelText: isId
+                        ? 'Jatuh Tempo (opsional)'
+                        : 'Due Date (optional)',
                     prefixIcon: const Icon(Icons.calendar_today),
                     suffixIcon: _dueDate != null
                         ? IconButton(
@@ -272,7 +297,7 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
                   child: Text(
                     _dueDate != null
                         ? DateFormatter.format(_dueDate!)
-                        : 'Pilih tanggal',
+                        : (isId ? 'Pilih tanggal' : 'Pick a date'),
                   ),
                 ),
               ),
@@ -295,7 +320,7 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Simpan'),
+                      : Text(s.save),
                 ),
               ),
             ],
@@ -335,7 +360,12 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
       if (err != null) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
+          SnackBar(
+            content: Text(
+              AppStrings(Localizations.localeOf(context)).saveFailed,
+            ),
+            backgroundColor: AppTheme.errorColor,
+          ),
         );
         return;
       }
@@ -355,6 +385,7 @@ class _DebtCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isHutang = debt.type == DebtType.hutang;
     final color = isHutang ? AppTheme.expenseColor : AppTheme.incomeColor;
+    final isId = Localizations.localeOf(context).languageCode == 'id';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -420,7 +451,7 @@ class _DebtCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'dari ${CurrencyFormatter.format(debt.amount)}',
+                        '${isId ? 'dari' : 'of'} ${CurrencyFormatter.format(debt.amount)}',
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -447,7 +478,7 @@ class _DebtCard extends StatelessWidget {
                   const Spacer(),
                   if (debt.dueDate != null)
                     Text(
-                      'Jatuh tempo ${DateFormatter.format(debt.dueDate!)}',
+                      '${isId ? 'Jatuh tempo' : 'Due'} ${DateFormatter.format(debt.dueDate!)}',
                       style: TextStyle(
                         fontSize: 11,
                         color: debt.isOverdue
@@ -471,28 +502,29 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     String label;
     Color color;
     IconData icon;
 
     switch (debt.status) {
       case DebtStatus.paid:
-        label = 'Lunas';
+        label = isId ? 'Lunas' : 'Paid';
         color = AppTheme.incomeColor;
         icon = Icons.check_circle;
         break;
       case DebtStatus.cancelled:
-        label = 'Dibatalkan';
+        label = isId ? 'Dibatalkan' : 'Cancelled';
         color = AppTheme.errorColor;
         icon = Icons.cancel;
         break;
       case DebtStatus.active:
         if (debt.isOverdue) {
-          label = 'Terlambat';
+          label = isId ? 'Terlambat' : 'Overdue';
           color = AppTheme.errorColor;
           icon = Icons.warning;
         } else {
-          label = 'Aktif';
+          label = isId ? 'Aktif' : 'Active';
           color = AppTheme.primaryColor;
           icon = Icons.schedule;
         }
@@ -539,6 +571,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
     final isHutang = widget.debt.type == DebtType.hutang;
     final color = isHutang ? AppTheme.expenseColor : AppTheme.incomeColor;
     final isActive = widget.debt.status == DebtStatus.active;
+    final isId = Localizations.localeOf(context).languageCode == 'id';
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -590,7 +623,9 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
                         ),
                       ),
                       Text(
-                        isHutang ? 'Hutang' : 'Piutang',
+                        isHutang
+                            ? (isId ? 'Hutang' : 'Debt')
+                            : (isId ? 'Piutang' : 'Receivable'),
                         style: TextStyle(
                           color: color,
                           fontWeight: FontWeight.w600,
@@ -624,7 +659,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _InfoBox(
-                    label: 'Sisa',
+                    label: isId ? 'Sisa' : 'Remaining',
                     value: CurrencyFormatter.format(
                       widget.debt.remainingAmount,
                     ),
@@ -636,7 +671,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
             if (widget.debt.dueDate != null) ...[
               const SizedBox(height: 12),
               _InfoBox(
-                label: 'Jatuh Tempo',
+                label: isId ? 'Jatuh Tempo' : 'Due Date',
                 value: DateFormatter.format(widget.debt.dueDate!),
                 color: widget.debt.isOverdue
                     ? AppTheme.errorColor
@@ -655,7 +690,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${widget.debt.progress.toStringAsFixed(0)}% lunas',
+              '${widget.debt.progress.toStringAsFixed(0)}% ${isId ? 'lunas' : 'paid'}',
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -668,7 +703,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
                 child: ElevatedButton.icon(
                   onPressed: () => _showPaymentDialog(context),
                   icon: const Icon(Icons.payments_rounded),
-                  label: const Text('Bayar Cicilan'),
+                  label: Text(isId ? 'Bayar Cicilan' : 'Make a Payment'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: color,
                     foregroundColor: Colors.white,
@@ -681,7 +716,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
               ),
             const SizedBox(height: 20),
             Text(
-              'Riwayat Pembayaran',
+              isId ? 'Riwayat Pembayaran' : 'Payment History',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
@@ -691,11 +726,15 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
             const SizedBox(height: 8),
             paymentsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Gagal memuat: $e'),
+              error: (e, _) => Text(
+                isId
+                    ? 'Riwayat pembayaran belum bisa dimuat.'
+                    : "Couldn't load payment history.",
+              ),
               data: (payments) {
                 if (payments.isEmpty) {
                   return Text(
-                    'Belum ada pembayaran',
+                    isId ? 'Belum ada pembayaran' : 'No payments yet',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -771,27 +810,29 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
   void _showPaymentDialog(BuildContext context) {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Bayar Cicilan'),
+        title: Text(isId ? 'Bayar Cicilan' : 'Make a Payment'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Jumlah',
-                prefixIcon: Icon(Icons.money),
+              decoration: InputDecoration(
+                labelText: isId ? 'Jumlah' : 'Amount',
+                prefixIcon: const Icon(Icons.money),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: noteController,
-              decoration: const InputDecoration(
-                labelText: 'Catatan (opsional)',
-                prefixIcon: Icon(Icons.note),
+              decoration: InputDecoration(
+                labelText: isId ? 'Catatan (opsional)' : 'Note (optional)',
+                prefixIcon: const Icon(Icons.note),
               ),
             ),
           ],
@@ -799,7 +840,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: Text(s.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -819,7 +860,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
                 if (err != null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(err),
+                      content: Text(s.saveFailed),
                       backgroundColor: AppTheme.errorColor,
                     ),
                   );
@@ -830,7 +871,7 @@ class _DebtDetailSheetState extends ConsumerState<_DebtDetailSheet> {
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Bayar'),
+            child: Text(isId ? 'Bayar' : 'Pay'),
           ),
         ],
       ),

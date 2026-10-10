@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/constants/app_constants.dart';
+import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
@@ -36,11 +37,17 @@ class ExpensePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final familyId = ref.watch(financeScopeIdProvider);
     final expensesAsync = ref.watch(expenseStreamProvider(familyId));
+    final isId = Localizations.localeOf(context).languageCode == 'id';
+    final s = AppStrings(Localizations.localeOf(context));
 
     return expensesAsync.when(
-      loading: () => const LoadingWidget(message: 'Memuat pengeluaran...'),
+      loading: () => LoadingWidget(
+        message: isId ? 'Memuat pengeluaran...' : 'Loading expenses...',
+      ),
       error: (e, _) => AppErrorWidget(
-        message: 'Gagal memuat pengeluaran: $e',
+        message: isId
+            ? 'Pengeluaran belum bisa dimuat. Coba lagi.'
+            : "Couldn't load your expenses. Try again.",
         onRetry: () => ref.invalidate(expenseStreamProvider(familyId)),
       ),
       data: (expenses) {
@@ -58,7 +65,7 @@ class ExpensePage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Belum ada pengeluaran',
+                      isId ? 'Belum ada pengeluaran' : 'No expenses yet',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -106,21 +113,25 @@ class ExpensePage extends ConsumerWidget {
                     confirmDismiss: (_) => showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('Hapus Pengeluaran'),
+                        title: Text(
+                          isId ? 'Hapus Pengeluaran' : 'Delete Expense',
+                        ),
                         content: Text(
-                          'Hapus pengeluaran "${expense.category}" sebesar ${CurrencyFormatter.format(expense.amount)}?',
+                          isId
+                              ? 'Hapus pengeluaran "${expense.category}" sebesar ${CurrencyFormatter.format(expense.amount)}?'
+                              : 'Delete expense "${expense.category}" of ${CurrencyFormatter.format(expense.amount)}?',
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Batal'),
+                            child: Text(s.cancel),
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
                             style: TextButton.styleFrom(
                               foregroundColor: AppTheme.errorColor,
                             ),
-                            child: const Text('Hapus'),
+                            child: Text(s.delete),
                           ),
                         ],
                       ),
@@ -258,6 +269,8 @@ class ExpensePage extends ConsumerWidget {
     bool isSaving = false;
 
     if (!context.mounted) return;
+    final isId = Localizations.localeOf(context).languageCode == 'id';
+    final strings = AppStrings(Localizations.localeOf(context));
 
     await showModalBottomSheet(
       context: context,
@@ -278,7 +291,9 @@ class ExpensePage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    expense == null ? 'Tambah Pengeluaran' : 'Edit Pengeluaran',
+                    expense == null
+                        ? (isId ? 'Tambah Pengeluaran' : 'Add Expense')
+                        : (isId ? 'Edit Pengeluaran' : 'Edit Expense'),
                     style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -287,13 +302,15 @@ class ExpensePage extends ConsumerWidget {
                   TextFormField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Nominal',
-                      prefixIcon: Icon(Icons.money),
+                    decoration: InputDecoration(
+                      labelText: isId ? 'Nominal' : 'Amount',
+                      prefixIcon: const Icon(Icons.money),
                       prefixText: 'Rp ',
                     ),
                     validator: (v) => v == null || v.isEmpty
-                        ? 'Nominal tidak boleh kosong'
+                        ? (isId
+                              ? 'Nominal tidak boleh kosong'
+                              : 'Amount is required')
                         : null,
                   ),
                   const SizedBox(height: 16),
@@ -301,9 +318,9 @@ class ExpensePage extends ConsumerWidget {
                     value: categories.contains(selectedCategory)
                         ? selectedCategory
                         : categories.first,
-                    decoration: const InputDecoration(
-                      labelText: 'Kategori',
-                      prefixIcon: Icon(Icons.category),
+                    decoration: InputDecoration(
+                      labelText: isId ? 'Kategori' : 'Category',
+                      prefixIcon: const Icon(Icons.category),
                     ),
                     items: [
                       ...categories.map(
@@ -312,7 +329,7 @@ class ExpensePage extends ConsumerWidget {
                       DropdownMenuItem(
                         value: '__add_category__',
                         child: Text(
-                          '+ Tambah Kategori',
+                          isId ? '+ Tambah Kategori' : '+ Add Category',
                           style: TextStyle(
                             color: AppTheme.primaryColor,
                             fontStyle: FontStyle.italic,
@@ -336,9 +353,11 @@ class ExpensePage extends ConsumerWidget {
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: selectedSavingId,
-                      decoration: const InputDecoration(
-                        labelText: 'Pilih Target Tabungan',
-                        prefixIcon: Icon(Icons.savings),
+                      decoration: InputDecoration(
+                        labelText: isId
+                            ? 'Pilih Target Tabungan'
+                            : 'Choose Savings Goal',
+                        prefixIcon: const Icon(Icons.savings),
                       ),
                       items: savings
                           .map(
@@ -351,23 +370,30 @@ class ExpensePage extends ConsumerWidget {
                       onChanged: (v) {
                         setSheetState(() {
                           selectedSavingId = v;
-                          final match = savings.where((s) => s.id == v).firstOrNull;
+                          final match = savings
+                              .where((s) => s.id == v)
+                              .firstOrNull;
                           if (match != null && noteController.text.isEmpty) {
                             noteController.text = match.name;
                           }
                         });
                       },
-                      validator: (v) =>
-                          v == null ? 'Pilih target tabungan' : null,
+                      validator: (v) => v == null
+                          ? (isId
+                                ? 'Pilih target tabungan'
+                                : 'Choose a savings goal')
+                          : null,
                     ),
                   ],
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: noteController,
                     maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Catatan (opsional)',
-                      prefixIcon: Icon(Icons.notes),
+                    decoration: InputDecoration(
+                      labelText: isId
+                          ? 'Catatan (opsional)'
+                          : 'Note (optional)',
+                      prefixIcon: const Icon(Icons.notes),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -391,99 +417,114 @@ class ExpensePage extends ConsumerWidget {
                     onPressed: isSaving
                         ? null
                         : () async {
-                      if (isSaving) return;
-                      FocusScope.of(ctx).unfocus();
-                      if (!formKey.currentState!.validate()) return;
-                      if (expense == null) {
-                        // Ask before saving what looks like a second copy.
-                        final scope = ref.read(financeScopeIdProvider);
-                        final recent =
-                            ref.read(expenseStreamProvider(scope)).valueOrNull ?? const [];
-                        final members =
-                            ref.read(familyMembersProvider).valueOrNull ??
-                            const [];
-                        final ok = await confirmIfDuplicate(
-                          context: ctx,
-                          recent: recent.map(
-                            (e) => (
-                              userId: e.userId,
-                              amount: e.amount,
-                              category: e.category,
-                              createdAt: e.createdAt,
-                            ),
-                          ),
-                          amount: double.tryParse(amountController.text) ?? 0,
-                          category: selectedCategory,
-                          myUid:
-                              ref
-                                  .read(firebaseAuthDataSourceProvider)
-                                  .currentUser
-                                  ?.uid ??
-                              '',
-                          memberNames: {for (final m in members) m.id: m.name},
-                          isId:
-                              Localizations.localeOf(ctx).languageCode == 'id',
-                        );
-                        if (!ok) return;
-                      }
-                      setSheetState(() => isSaving = true);
-                      try {
-                        final fId = ref.read(financeScopeIdProvider);
-                        final uid =
-                            ref.read(firebaseAuthDataSourceProvider).currentUser?.uid ?? '';
-                        final model = ExpenseModel(
-                          id: expense?.id ?? '',
-                          familyId: fId,
-                          userId: uid,
-                          amount: double.parse(amountController.text),
-                          category: selectedCategory,
-                          note: noteController.text.isEmpty
-                              ? null
-                              : noteController.text,
-                          date: selectedDate,
-                        );
-                        String? error;
-                        if (expense == null) {
-                          error = await ref
-                              .read(expenseNotifierProvider.notifier)
-                              .addExpense(model);
-                        } else {
-                          error = await ref
-                              .read(expenseNotifierProvider.notifier)
-                              .updateExpense(model);
-                        }
-                        if (error != null) throw Exception(error);
-                        ref.invalidate(expenseStreamProvider(fId));
-                        ref.invalidate(dashboardProvider);
-                        ref.invalidate(reportProvider(fId));
-                        await ref.read(transactionHistoryProvider.notifier).load(fId);
-                        if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                expense == null
-                                    ? 'Pengeluaran berhasil ditambahkan'
-                                    : 'Pengeluaran berhasil diperbarui',
-                              ),
-                              backgroundColor: AppTheme.incomeColor,
-                            ),
-                          );
-                          Navigator.pop(ctx);
-                        }
-                      } catch (e) {
-                        setSheetState(() => isSaving = false);
-                        if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                _friendlyError(e),
-                              ),
-                              backgroundColor: AppTheme.errorColor,
-                            ),
-                          );
-                        }
-                      }
-                    },
+                            if (isSaving) return;
+                            FocusScope.of(ctx).unfocus();
+                            if (!formKey.currentState!.validate()) return;
+                            if (expense == null) {
+                              // Ask before saving what looks like a second copy.
+                              final scope = ref.read(financeScopeIdProvider);
+                              final recent =
+                                  ref
+                                      .read(expenseStreamProvider(scope))
+                                      .valueOrNull ??
+                                  const [];
+                              final members =
+                                  ref.read(familyMembersProvider).valueOrNull ??
+                                  const [];
+                              final ok = await confirmIfDuplicate(
+                                context: ctx,
+                                recent: recent.map(
+                                  (e) => (
+                                    userId: e.userId,
+                                    amount: e.amount,
+                                    category: e.category,
+                                    createdAt: e.createdAt,
+                                  ),
+                                ),
+                                amount:
+                                    double.tryParse(amountController.text) ?? 0,
+                                category: selectedCategory,
+                                myUid:
+                                    ref
+                                        .read(firebaseAuthDataSourceProvider)
+                                        .currentUser
+                                        ?.uid ??
+                                    '',
+                                memberNames: {
+                                  for (final m in members) m.id: m.name,
+                                },
+                                isId:
+                                    Localizations.localeOf(ctx).languageCode ==
+                                    'id',
+                              );
+                              if (!ok) return;
+                            }
+                            setSheetState(() => isSaving = true);
+                            try {
+                              final fId = ref.read(financeScopeIdProvider);
+                              final uid =
+                                  ref
+                                      .read(firebaseAuthDataSourceProvider)
+                                      .currentUser
+                                      ?.uid ??
+                                  '';
+                              final model = ExpenseModel(
+                                id: expense?.id ?? '',
+                                familyId: fId,
+                                userId: uid,
+                                amount: double.parse(amountController.text),
+                                category: selectedCategory,
+                                note: noteController.text.isEmpty
+                                    ? null
+                                    : noteController.text,
+                                date: selectedDate,
+                              );
+                              String? error;
+                              if (expense == null) {
+                                error = await ref
+                                    .read(expenseNotifierProvider.notifier)
+                                    .addExpense(model);
+                              } else {
+                                error = await ref
+                                    .read(expenseNotifierProvider.notifier)
+                                    .updateExpense(model);
+                              }
+                              if (error != null) throw Exception(error);
+                              ref.invalidate(expenseStreamProvider(fId));
+                              ref.invalidate(dashboardProvider);
+                              ref.invalidate(reportProvider(fId));
+                              await ref
+                                  .read(transactionHistoryProvider.notifier)
+                                  .load(fId);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      expense == null
+                                          ? (isId
+                                                ? 'Pengeluaran berhasil ditambahkan'
+                                                : 'Expense added')
+                                          : (isId
+                                                ? 'Pengeluaran berhasil diperbarui'
+                                                : 'Expense updated'),
+                                    ),
+                                    backgroundColor: AppTheme.incomeColor,
+                                  ),
+                                );
+                                Navigator.pop(ctx);
+                              }
+                            } catch (e) {
+                              setSheetState(() => isSaving = false);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    content: Text(_friendlyError(e, isId)),
+                                    backgroundColor: AppTheme.errorColor,
+                                  ),
+                                );
+                              }
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.expenseColor,
                       foregroundColor: Colors.white,
@@ -494,7 +535,7 @@ class ExpensePage extends ConsumerWidget {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(expense == null ? 'Tambah' : 'Simpan'),
+                        : Text(expense == null ? strings.add : strings.save),
                   ),
                   if (expense != null) ...[
                     const SizedBox(height: 8),
@@ -502,44 +543,50 @@ class ExpensePage extends ConsumerWidget {
                       onPressed: isSaving
                           ? null
                           : () async {
-                        if (isSaving) return;
-                        FocusScope.of(ctx).unfocus();
-                        setSheetState(() => isSaving = true);
-                        try {
-                          final error = await ref
-                              .read(expenseNotifierProvider.notifier)
-                              .deleteExpense(expense.id);
-                          if (error != null) throw Exception(error);
-                          final fId = ref.read(financeScopeIdProvider);
-                          ref.invalidate(expenseStreamProvider(fId));
-                          ref.invalidate(dashboardProvider);
-                          ref.invalidate(reportProvider(fId));
-                          await ref.read(transactionHistoryProvider.notifier).load(fId);
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              const SnackBar(
-                                content: Text('Pengeluaran berhasil dihapus'),
-                                backgroundColor: AppTheme.incomeColor,
-                              ),
-                            );
-                            Navigator.pop(ctx);
-                          }
-                        } catch (e) {
-                          setSheetState(() => isSaving = false);
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text(_friendlyError(e)),
-                                backgroundColor: AppTheme.errorColor,
-                              ),
-                            );
-                          }
-                        }
-                      },
+                              if (isSaving) return;
+                              FocusScope.of(ctx).unfocus();
+                              setSheetState(() => isSaving = true);
+                              try {
+                                final error = await ref
+                                    .read(expenseNotifierProvider.notifier)
+                                    .deleteExpense(expense.id);
+                                if (error != null) throw Exception(error);
+                                final fId = ref.read(financeScopeIdProvider);
+                                ref.invalidate(expenseStreamProvider(fId));
+                                ref.invalidate(dashboardProvider);
+                                ref.invalidate(reportProvider(fId));
+                                await ref
+                                    .read(transactionHistoryProvider.notifier)
+                                    .load(fId);
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        isId
+                                            ? 'Pengeluaran berhasil dihapus'
+                                            : 'Expense deleted',
+                                      ),
+                                      backgroundColor: AppTheme.incomeColor,
+                                    ),
+                                  );
+                                  Navigator.pop(ctx);
+                                }
+                              } catch (e) {
+                                setSheetState(() => isSaving = false);
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text(_friendlyError(e, isId)),
+                                      backgroundColor: AppTheme.errorColor,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
                       style: TextButton.styleFrom(
                         foregroundColor: AppTheme.errorColor,
                       ),
-                      child: const Text('Hapus'),
+                      child: Text(strings.delete),
                     ),
                   ],
                   const SizedBox(height: 24),
@@ -552,12 +599,22 @@ class ExpensePage extends ConsumerWidget {
     );
   }
 
-  String _friendlyError(dynamic e) {
+  String _friendlyError(dynamic e, bool isId) {
     final msg = e.toString().toLowerCase();
-    if (msg.contains('network-request-failed')) return 'Tidak ada koneksi internet';
-    if (msg.contains('permission-denied')) return 'Tidak punya akses untuk menyimpan data';
-    if (msg.contains('not-found')) return 'Data tidak ditemukan';
-    return 'Gagal menyimpan data. Coba lagi.';
+    if (msg.contains('network-request-failed')) {
+      return isId ? 'Tidak ada koneksi internet' : 'No internet connection';
+    }
+    if (msg.contains('permission-denied')) {
+      return isId
+          ? 'Tidak punya akses untuk menyimpan data'
+          : "You don't have permission to save this";
+    }
+    if (msg.contains('not-found')) {
+      return isId ? 'Data tidak ditemukan' : 'Data not found';
+    }
+    return isId
+        ? 'Gagal menyimpan data. Coba lagi.'
+        : "Couldn't save. Please try again.";
   }
 
   void _showAddCategorySheet(BuildContext context, WidgetRef ref) {

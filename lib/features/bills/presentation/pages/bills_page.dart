@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
@@ -22,21 +23,29 @@ class _BillsPageState extends ConsumerState<BillsPage> {
   Widget build(BuildContext context) {
     final familyId = ref.watch(financeScopeIdProvider);
     final billsAsync = ref.watch(billStreamProvider(familyId));
+    final isId = Localizations.localeOf(context).languageCode == 'id';
 
     if (familyId.isEmpty) return const SizedBox();
 
     return Stack(
       children: [
         billsAsync.when(
-          loading: () => const LoadingWidget(message: 'Memuat tagihan...'),
-          error: (e, _) =>
-              AppErrorWidget(
-                message: 'Gagal memuat: $e',
-                onRetry: () => ref.invalidate(billStreamProvider(familyId)),
-              ),
+          loading: () => LoadingWidget(
+            message: isId ? 'Memuat tagihan...' : 'Loading bills...',
+          ),
+          error: (e, _) => AppErrorWidget(
+            message: isId
+                ? 'Data tagihan belum bisa dimuat. Coba lagi ya.'
+                : "Couldn't load your bills. Try again.",
+            onRetry: () => ref.invalidate(billStreamProvider(familyId)),
+          ),
           data: (bills) {
-            final unpaid = bills.where((b) => b.status != BillStatus.paid).toList();
-            final paid = bills.where((b) => b.status == BillStatus.paid).toList();
+            final unpaid = bills
+                .where((b) => b.status != BillStatus.paid)
+                .toList();
+            final paid = bills
+                .where((b) => b.status == BillStatus.paid)
+                .toList();
 
             return RefreshIndicator(
               onRefresh: () async {},
@@ -45,7 +54,11 @@ class _BillsPageState extends ConsumerState<BillsPage> {
                       children: [
                         SizedBox(
                           height: MediaQuery.of(context).size.height * 0.25,
-                          child: const EmptyWidget(message: 'Belum ada tagihan'),
+                          child: EmptyWidget(
+                            message: isId
+                                ? 'Belum ada tagihan'
+                                : 'No bills yet',
+                          ),
                         ),
                       ],
                     )
@@ -56,38 +69,46 @@ class _BillsPageState extends ConsumerState<BillsPage> {
                           Padding(
                             padding: const EdgeInsets.only(left: 4, bottom: 8),
                             child: Text(
-                              'Belum Dibayar (${unpaid.length})',
+                              '${isId ? 'Belum Dibayar' : 'Unpaid'} (${unpaid.length})',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
-                          ...unpaid.map((b) => _BillCard(
-                            bill: b,
-                            onTap: () => _showBillForm(context, bill: b),
-                            onTogglePaid: () => _togglePaid(b),
-                          )),
+                          ...unpaid.map(
+                            (b) => _BillCard(
+                              bill: b,
+                              onTap: () => _showBillForm(context, bill: b),
+                              onTogglePaid: () => _togglePaid(b),
+                            ),
+                          ),
                           if (paid.isNotEmpty) const SizedBox(height: 16),
                         ],
                         if (paid.isNotEmpty) ...[
                           Padding(
                             padding: const EdgeInsets.only(left: 4, bottom: 8),
                             child: Text(
-                              'Sudah Dibayar (${paid.length})',
+                              '${isId ? 'Sudah Dibayar' : 'Paid'} (${paid.length})',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
-                          ...paid.map((b) => _BillCard(
-                            bill: b,
-                            onTap: () => _showBillForm(context, bill: b),
-                            onTogglePaid: () => _togglePaid(b),
-                          )),
+                          ...paid.map(
+                            (b) => _BillCard(
+                              bill: b,
+                              onTap: () => _showBillForm(context, bill: b),
+                              onTogglePaid: () => _togglePaid(b),
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -109,16 +130,23 @@ class _BillsPageState extends ConsumerState<BillsPage> {
   }
 
   void _togglePaid(BillModel bill) async {
-    final newStatus = bill.status == BillStatus.paid ? BillStatus.unpaid : BillStatus.paid;
-    final err = await ref.read(billNotifierProvider.notifier).updateBill(
-      bill.copyWith(
-        status: newStatus,
-        paidDate: newStatus == BillStatus.paid ? DateTime.now() : null,
-      ),
-    );
+    final newStatus = bill.status == BillStatus.paid
+        ? BillStatus.unpaid
+        : BillStatus.paid;
+    final err = await ref
+        .read(billNotifierProvider.notifier)
+        .updateBill(
+          bill.copyWith(
+            status: newStatus,
+            paidDate: newStatus == BillStatus.paid ? DateTime.now() : null,
+          ),
+        );
     if (mounted && err != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
+        SnackBar(
+          content: Text(AppStrings(Localizations.localeOf(context)).saveFailed),
+          backgroundColor: AppTheme.errorColor,
+        ),
       );
     }
   }
@@ -150,7 +178,11 @@ class _BillCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isPaid = bill.status == BillStatus.paid;
     final isOverdue = !isPaid && bill.dueDate.isBefore(DateTime.now());
-    final color = isPaid ? AppTheme.incomeColor : (isOverdue ? AppTheme.errorColor : AppTheme.primaryColor);
+    final color = isPaid
+        ? AppTheme.incomeColor
+        : (isOverdue ? AppTheme.errorColor : AppTheme.primaryColor);
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -186,13 +218,16 @@ class _BillCard extends ConsumerWidget {
                   children: [
                     Text(
                       bill.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       isPaid
-                          ? 'Dibayar ${DateFormatter.format(bill.paidDate!)}'
-                          : 'Jatuh tempo ${DateFormatter.format(bill.dueDate)}',
+                          ? '${isId ? 'Dibayar' : 'Paid'} ${DateFormatter.format(bill.paidDate!)}'
+                          : '${isId ? 'Jatuh tempo' : 'Due'} ${DateFormatter.format(bill.dueDate)}',
                       style: TextStyle(
                         fontSize: 12,
                         color: isOverdue
@@ -218,10 +253,10 @@ class _BillCard extends ConsumerWidget {
                   if (!isPaid && bill.repeatType != BillRepeatType.none)
                     Text(
                       bill.repeatType == BillRepeatType.weekly
-                          ? 'Mingguan'
+                          ? s.weekly
                           : bill.repeatType == BillRepeatType.monthly
-                              ? 'Bulanan'
-                              : 'Tahunan',
+                          ? s.monthly
+                          : s.yearly,
                       style: TextStyle(
                         fontSize: 11,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -278,8 +313,12 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         child: Form(
@@ -289,38 +328,49 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
             children: [
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                widget.bill != null ? 'Edit Tagihan' : 'Tambah Tagihan',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                widget.bill != null
+                    ? (isId ? 'Edit Tagihan' : 'Edit Bill')
+                    : (isId ? 'Tambah Tagihan' : 'Add Bill'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Tagihan',
-                  prefixIcon: Icon(Icons.receipt_long),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Nama Tagihan' : 'Bill Name',
+                  prefixIcon: const Icon(Icons.receipt_long),
                 ),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Nama harus diisi' : null,
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? (isId ? 'Nama wajib diisi' : 'Name is required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Jumlah',
-                  prefixIcon: Icon(Icons.money),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Jumlah' : 'Amount',
+                  prefixIcon: const Icon(Icons.money),
                 ),
                 validator: (v) {
-                  final n = double.tryParse(v?.replaceAll('.', '').replaceAll(',', '.') ?? '');
-                  if (n == null || n <= 0) return 'Jumlah harus valid';
+                  final n = double.tryParse(
+                    v?.replaceAll('.', '').replaceAll(',', '.') ?? '',
+                  );
+                  if (n == null || n <= 0) return s.invalidAmount;
                   return null;
                 },
               ),
@@ -336,9 +386,9 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
                   if (d != null) setState(() => _dueDate = d);
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Jatuh Tempo',
-                    prefixIcon: Icon(Icons.calendar_today),
+                  decoration: InputDecoration(
+                    labelText: isId ? 'Jatuh Tempo' : 'Due Date',
+                    prefixIcon: const Icon(Icons.calendar_today),
                   ),
                   child: Text(DateFormatter.format(_dueDate)),
                 ),
@@ -346,15 +396,27 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
               const SizedBox(height: 12),
               DropdownButtonFormField<BillRepeatType>(
                 value: _repeatType,
-                decoration: const InputDecoration(
-                  labelText: 'Ulangi',
-                  prefixIcon: Icon(Icons.repeat),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Ulangi' : 'Repeat',
+                  prefixIcon: const Icon(Icons.repeat),
                 ),
-                items: const [
-                  DropdownMenuItem(value: BillRepeatType.none, child: Text('Tidak Berulang')),
-                  DropdownMenuItem(value: BillRepeatType.weekly, child: Text('Mingguan')),
-                  DropdownMenuItem(value: BillRepeatType.monthly, child: Text('Bulanan')),
-                  DropdownMenuItem(value: BillRepeatType.yearly, child: Text('Tahunan')),
+                items: [
+                  DropdownMenuItem(
+                    value: BillRepeatType.none,
+                    child: Text(isId ? 'Tidak Berulang' : 'Does not repeat'),
+                  ),
+                  DropdownMenuItem(
+                    value: BillRepeatType.weekly,
+                    child: Text(s.weekly),
+                  ),
+                  DropdownMenuItem(
+                    value: BillRepeatType.monthly,
+                    child: Text(s.monthly),
+                  ),
+                  DropdownMenuItem(
+                    value: BillRepeatType.yearly,
+                    child: Text(s.yearly),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _repeatType = v);
@@ -363,9 +425,9 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _noteController,
-                decoration: const InputDecoration(
-                  labelText: 'Catatan (opsional)',
-                  prefixIcon: Icon(Icons.note),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Catatan (opsional)' : 'Note (optional)',
+                  prefixIcon: const Icon(Icons.note),
                 ),
               ),
               const SizedBox(height: 20),
@@ -377,11 +439,17 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: _isSubmitting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Simpan'),
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(s.save),
                 ),
               ),
               if (widget.bill != null) ...[
@@ -390,8 +458,14 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
                   width: double.infinity,
                   child: TextButton.icon(
                     onPressed: _isSubmitting ? null : _delete,
-                    icon: const Icon(Icons.delete_outline, color: AppTheme.errorColor),
-                    label: const Text('Hapus', style: TextStyle(color: AppTheme.errorColor)),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AppTheme.errorColor,
+                    ),
+                    label: Text(
+                      s.delete,
+                      style: const TextStyle(color: AppTheme.errorColor),
+                    ),
                   ),
                 ),
               ],
@@ -408,35 +482,48 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
     final familyId = ref.read(financeScopeIdProvider);
-    final amount = double.parse(_amountController.text.replaceAll('.', '').replaceAll(',', '.'));
+    final amount = double.parse(
+      _amountController.text.replaceAll('.', '').replaceAll(',', '.'),
+    );
     final now = DateTime.now();
     final notifier = ref.read(billNotifierProvider.notifier);
 
     String? err;
     if (widget.bill != null) {
-      err = await notifier.updateBill(widget.bill!.copyWith(
-        name: _nameController.text.trim(),
-        amount: amount,
-        dueDate: _dueDate,
-        repeatType: _repeatType,
-        note: _noteController.text.isEmpty ? null : _noteController.text.trim(),
-      ));
+      err = await notifier.updateBill(
+        widget.bill!.copyWith(
+          name: _nameController.text.trim(),
+          amount: amount,
+          dueDate: _dueDate,
+          repeatType: _repeatType,
+          note: _noteController.text.isEmpty
+              ? null
+              : _noteController.text.trim(),
+        ),
+      );
     } else {
-      err = await notifier.createBill(BillModel(
-        familyId: familyId,
-        name: _nameController.text.trim(),
-        amount: amount,
-        dueDate: _dueDate,
-        repeatType: _repeatType,
-        createdAt: now,
-      ));
+      err = await notifier.createBill(
+        BillModel(
+          familyId: familyId,
+          name: _nameController.text.trim(),
+          amount: amount,
+          dueDate: _dueDate,
+          repeatType: _repeatType,
+          createdAt: now,
+        ),
+      );
     }
 
     if (mounted) {
       if (err != null) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
+          SnackBar(
+            content: Text(
+              AppStrings(Localizations.localeOf(context)).saveFailed,
+            ),
+            backgroundColor: AppTheme.errorColor,
+          ),
         );
         return;
       }
@@ -449,12 +536,19 @@ class _BillFormSheetState extends ConsumerState<BillFormSheet> {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     final familyId = ref.read(financeScopeIdProvider);
-    final err = await ref.read(billNotifierProvider.notifier).deleteBill(widget.bill!.id);
+    final err = await ref
+        .read(billNotifierProvider.notifier)
+        .deleteBill(widget.bill!.id);
     if (mounted) {
       if (err != null) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
+          SnackBar(
+            content: Text(
+              AppStrings(Localizations.localeOf(context)).deleteFailed,
+            ),
+            backgroundColor: AppTheme.errorColor,
+          ),
         );
         return;
       }

@@ -154,6 +154,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ..sort();
 
     if (familyId.isEmpty) return const SizedBox();
+    final isId = Localizations.localeOf(context).languageCode == 'id';
 
     return Column(
       children: [
@@ -188,9 +189,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ),
         Expanded(
           child: itemsAsync.when(
-            loading: () => const LoadingWidget(message: 'Memuat riwayat...'),
+            loading: () => LoadingWidget(
+              message: isId ? 'Memuat riwayat...' : 'Loading history...',
+            ),
             error: (e, _) => AppErrorWidget(
-              message: 'Gagal memuat riwayat: $e',
+              message: isId
+                  ? 'Riwayat belum bisa dimuat. Coba lagi.'
+                  : "Couldn't load your history. Try again.",
               onRetry: _load,
             ),
             data: (items) {
@@ -198,7 +203,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               final maybeDuplicate = _possibleDuplicates(items);
 
               if (filtered.isEmpty) {
-                return const EmptyWidget(message: 'Belum ada transaksi');
+                return EmptyWidget(
+                  message: isId ? 'Belum ada transaksi' : 'No transactions yet',
+                );
               }
 
               return RefreshIndicator(
@@ -268,10 +275,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                       if (maybeDuplicate.contains(item.id)) ...[
                                         const SizedBox(width: 6),
                                         Text(
-                                          Localizations.localeOf(
-                                                    context,
-                                                  ).languageCode ==
-                                                  'id'
+                                          isId
                                               ? 'Mungkin dobel'
                                               : 'Possible double',
                                           style: const TextStyle(
@@ -295,8 +299,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                         ),
                                         child: Text(
                                           isIncome
-                                              ? 'Pemasukan'
-                                              : 'Pengeluaran',
+                                              ? (isId ? 'Pemasukan' : 'Income')
+                                              : (isId
+                                                    ? 'Pengeluaran'
+                                                    : 'Expense'),
                                           style: TextStyle(
                                             fontSize: 9,
                                             fontWeight: FontWeight.bold,
@@ -375,7 +381,9 @@ class _SearchBar extends StatelessWidget {
         ),
         onChanged: onChanged,
         decoration: InputDecoration(
-          hintText: 'Cari kategori atau catatan...',
+          hintText: Localizations.localeOf(context).languageCode == 'id'
+              ? 'Cari kategori atau catatan...'
+              : 'Search category or note...',
           prefixIcon: const Icon(Icons.search, size: 20),
           suffixIcon: query.isNotEmpty
               ? IconButton(
@@ -407,11 +415,16 @@ class _TypeFilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     final chips = <_FilterChipData>[
-      _FilterChipData('Semua', null, Icons.all_inclusive),
-      _FilterChipData('Pemasukan', TransactionType.income, Icons.trending_up),
+      _FilterChipData(isId ? 'Semua' : 'All', null, Icons.all_inclusive),
       _FilterChipData(
-        'Pengeluaran',
+        isId ? 'Pemasukan' : 'Income',
+        TransactionType.income,
+        Icons.trending_up,
+      ),
+      _FilterChipData(
+        isId ? 'Pengeluaran' : 'Expense',
         TransactionType.expense,
         Icons.trending_down,
       ),
@@ -530,6 +543,7 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(
@@ -537,7 +551,7 @@ class _FilterBar extends StatelessWidget {
           Expanded(
             child: _DateChip(
               label: startDate == null
-                  ? 'Dari'
+                  ? (isId ? 'Dari' : 'From')
                   : DateFormatter.format(startDate!),
               onTap: () async {
                 final d = await showDatePicker(
@@ -559,7 +573,9 @@ class _FilterBar extends StatelessWidget {
           ),
           Expanded(
             child: _DateChip(
-              label: endDate == null ? 'Ke' : DateFormatter.format(endDate!),
+              label: endDate == null
+                  ? (isId ? 'Sampai' : 'To')
+                  : DateFormatter.format(endDate!),
               onTap: () async {
                 final d = await showDatePicker(
                   context: context,
@@ -577,7 +593,7 @@ class _FilterBar extends StatelessWidget {
           IconButton(
             onPressed: onRefresh,
             icon: const Icon(Icons.refresh_rounded, size: 20),
-            tooltip: 'Refresh',
+            tooltip: isId ? 'Muat ulang' : 'Refresh',
             visualDensity: VisualDensity.compact,
           ),
         ],
@@ -594,6 +610,7 @@ class _SortDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     return PopupMenuButton<_SortOrder>(
       onSelected: onChanged,
       icon: Icon(
@@ -604,12 +621,12 @@ class _SortDropdown extends StatelessWidget {
             : Icons.sort_by_alpha_rounded,
         size: 20,
       ),
-      tooltip: 'Urutkan',
+      tooltip: isId ? 'Urutkan' : 'Sort',
       itemBuilder: (_) => [
         PopupMenuItem(
           value: _SortOrder.newest,
           child: _SortItem(
-            label: 'Terbaru',
+            label: isId ? 'Terbaru' : 'Newest',
             icon: Icons.arrow_downward,
             active: sortOrder == _SortOrder.newest,
           ),
@@ -617,7 +634,7 @@ class _SortDropdown extends StatelessWidget {
         PopupMenuItem(
           value: _SortOrder.oldest,
           child: _SortItem(
-            label: 'Tertua',
+            label: isId ? 'Terlama' : 'Oldest',
             icon: Icons.arrow_upward,
             active: sortOrder == _SortOrder.oldest,
           ),
@@ -626,7 +643,7 @@ class _SortDropdown extends StatelessWidget {
         PopupMenuItem(
           value: _SortOrder.highestAmount,
           child: _SortItem(
-            label: 'Termahal',
+            label: isId ? 'Termahal' : 'Highest amount',
             icon: Icons.arrow_upward,
             active: sortOrder == _SortOrder.highestAmount,
           ),
@@ -634,7 +651,7 @@ class _SortDropdown extends StatelessWidget {
         PopupMenuItem(
           value: _SortOrder.lowestAmount,
           child: _SortItem(
-            label: 'Termurah',
+            label: isId ? 'Termurah' : 'Lowest amount',
             icon: Icons.arrow_downward,
             active: sortOrder == _SortOrder.lowestAmount,
           ),
