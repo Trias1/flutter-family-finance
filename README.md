@@ -4,7 +4,7 @@ A family money app: every member records income and spending on Android, and the
 
 - Production web: https://family-finance.tzm.web.id (also https://finance-family-prod.vercel.app)
 - Firebase project: `tabunganapps`
-- Current Android version: 1.1.11+15
+- Current Android version: 1.1.12+16
 
 ## What it does
 
