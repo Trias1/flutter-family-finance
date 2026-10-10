@@ -108,7 +108,7 @@ cd apps/web && npx tsc --noEmit -p . && npm run lint && npm run build && npm aud
 
 - **Web:** the Vercel project `financefamily` has Root Directory `apps/web`. From the repo root: `vercel deploy --prod` (`.vercelignore` uploads only `apps/web`). Pushes to GitHub also build previews.
 - **Firestore rules:** `firebase deploy --only firestore:rules --project tabunganapps`. Run the rules tests first.
-- **Android:** bump `version` in `pubspec.yaml`, build with `flutter build apk --release`, publish the APK, then use "Sync Android config" in the admin panel so older apps are told to update.
+- **Android:** bump `version` in `pubspec.yaml`, then run `node scripts/release-android.mjs --notes "what changed"` from the repo root. It builds and signature-checks the APK, publishes it with the web app and, only once it is live, updates `app_config/android` so installed apps offer the update. Add `--dry-run` to stop before publishing.
 
 When a rules change affects how the app writes data, release the new APK and the rules together.
 
