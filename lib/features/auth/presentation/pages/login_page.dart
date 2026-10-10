@@ -9,6 +9,11 @@ import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Picks the Indonesian or English text for the app's current language.
+String _tr(BuildContext context, String id, String en) =>
+    Localizations.localeOf(context).languageCode == 'id' ? id : en;
+
+
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -120,7 +125,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     setState(() => _biometricBusy = true);
     try {
       final authenticated = await LocalAuthentication().authenticate(
-        localizedReason: 'Scan sidik jari untuk masuk',
+        localizedReason: _tr(context, 'Scan sidik jari untuk masuk', 'Scan your fingerprint to sign in'),
       );
       if (!authenticated || !mounted) return;
 
@@ -148,14 +153,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
       if (!mounted) return;
       if (firebaseUser == null) {
         _showSnack(
-          'Sesi sudah berakhir. Masuk sekali lagi dengan email dan kata sandi atau Google.',
+          _tr(context, 'Sesi sudah berakhir. Masuk sekali lagi dengan email dan password atau Google.', 'Your session has ended. Sign in again with email and password or Google.'),
           AppTheme.warningColor,
         );
         return;
       }
       await ref.read(authNotifierProvider.notifier).restoreSession(firebaseUser.uid);
     } catch (_) {
-      if (mounted) _showSnack('Masuk dengan sidik jari gagal. Coba lagi.', AppTheme.errorColor);
+      if (mounted) _showSnack(_tr(context, 'Masuk dengan sidik jari gagal. Coba lagi.', 'Fingerprint sign-in failed. Try again.'), AppTheme.errorColor);
     } finally {
       if (mounted) setState(() => _biometricBusy = false);
     }
@@ -205,11 +210,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
               width: size.width,
               height: size.height * 0.35,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                // Solid colour: gradients made the app look generic.
+                color: AppTheme.primaryColor,
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
@@ -240,7 +242,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 width: 18,
                                 height: 18,
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFFFFA726),
+                                  color: AppTheme.warningColor,
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.attach_money, color: Colors.white, size: 12),
@@ -261,7 +263,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Kelola keuangan keluarga dengan bijak',
+                        _tr(context, 'Kelola keuangan keluarga dengan bijak', "Your family's money, in one place"),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.85),
                           fontSize: 14,
@@ -285,13 +287,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                        border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+                        ),
                       ),
                       child: Form(
                         key: _formKey,
@@ -299,14 +299,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Masuk',
+                              _tr(context, 'Masuk', 'Sign in'),
                               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Silakan masuk ke akun Anda',
+                              _tr(context, 'Masuk ke akunmu', 'Sign in to your account'),
                               style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                             ),
                             const SizedBox(height: 24),
@@ -315,7 +315,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                               keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
                                 labelText: 'Email',
-                                hintText: 'Masukkan email',
+                                hintText: _tr(context, 'Masukkan email', 'Enter your email'),
                                 prefixIcon: const Icon(Icons.email_outlined, size: 20),
                                 filled: true,
                                 fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -348,8 +348,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                               controller: _passwordController,
                               obscureText: _obscurePassword,
                               decoration: InputDecoration(
-                                labelText: 'Password',
-                                hintText: 'Masukkan password',
+                                labelText: _tr(context, 'Password', 'Password'),
+                                hintText: _tr(context, 'Masukkan password', 'Enter your password'),
                                 prefixIcon: const Icon(Icons.lock_outlined, size: 20),
                                 suffixIcon: IconButton(
                                   icon: Icon(
@@ -394,7 +394,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                   foregroundColor: AppTheme.primaryColor,
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                 ),
-                                child: const Text('Lupa Password?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                child: Text(_tr(context, 'Lupa password?', 'Forgot password?'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -417,7 +417,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                         width: 22,
                                         child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                                       )
-                                    : const Text('Masuk', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                    : Text(_tr(context, 'Masuk', 'Sign in'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -442,7 +442,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                   height: 20,
                                   errorBuilder: (_, _, _) => const Icon(Icons.g_mobiledata, size: 24, color: Colors.grey),
                                 ),
-                                label: const Text('Lanjutkan dengan Google', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                label: Text(_tr(context, 'Lanjutkan dengan Google', 'Continue with Google'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Theme.of(context).colorScheme.onSurface,
                                   side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
@@ -471,7 +471,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                   child: OutlinedButton.icon(
                                     onPressed: isLoading ? null : _loginWithBiometric,
                                     icon: const Icon(Icons.fingerprint, color: AppTheme.savingsColor),
-                                    label: const Text('Masuk dengan Fingerprint', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                    label: Text(_tr(context, 'Masuk dengan sidik jari', 'Sign in with fingerprint'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppTheme.savingsColor,
                                       side: BorderSide(color: AppTheme.savingsColor.withValues(alpha: 0.3)),
@@ -497,11 +497,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Belum punya akun? ", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
+                    Text(_tr(context, 'Belum punya akun? ', "Don't have an account? "), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
                     GestureDetector(
                       onTap: () => context.push('/register'),
                       child: Text(
-                        'Daftar',
+                        _tr(context, 'Daftar', 'Sign up'),
                         style: TextStyle(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.w600,

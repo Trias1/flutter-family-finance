@@ -5,6 +5,11 @@ import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 
+/// Picks the Indonesian or English text for the app's current language.
+String _tr(BuildContext context, String id, String en) =>
+    Localizations.localeOf(context).languageCode == 'id' ? id : en;
+
+
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
@@ -92,11 +97,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
               width: double.infinity,
               height: 180,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                // Solid colour: gradients made the app look generic.
+                color: AppTheme.primaryColor,
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
@@ -135,8 +137,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                               ),
                             ),
                             const SizedBox(height: 10),
-                            const Text(
-                              'Buat Akun',
+                            Text(
+                              _tr(context, 'Buat akun', 'Create account'),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -165,13 +167,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                        border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+                        ),
                       ),
                       child: Form(
                         key: _formKey,
@@ -179,29 +179,29 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Daftar Akun Baru',
+                              _tr(context, 'Daftar akun baru', 'New account'),
                               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Isi data diri untuk memulai',
+                              _tr(context, 'Isi data diri untuk memulai', 'Tell us a little about you to start'),
                               style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                             ),
                             const SizedBox(height: 24),
                             _buildField(
                               controller: _nameController,
-                              label: 'Nama Lengkap',
-                              hint: 'Masukkan nama lengkap',
+                              label: _tr(context, 'Nama lengkap', 'Full name'),
+                              hint: _tr(context, 'Masukkan nama lengkap', 'Enter your full name'),
                               icon: Icons.person_outlined,
-                              validator: (v) => Validators.required(v, 'Nama'),
+                              validator: (v) => Validators.required(v, _tr(context, 'Nama', 'Name')),
                             ),
                             const SizedBox(height: 14),
                             _buildField(
                               controller: _emailController,
                               label: 'Email',
-                              hint: 'Masukkan email',
+                              hint: _tr(context, 'Masukkan email', 'Enter your email'),
                               icon: Icons.email_outlined,
                               keyboardType: TextInputType.emailAddress,
                               validator: Validators.email,
@@ -210,7 +210,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                             _buildField(
                               controller: _passwordController,
                               label: 'Password',
-                              hint: 'Minimal 6 karakter',
+                              hint: _tr(context, 'Min. 8 karakter, ada huruf dan angka', 'At least 8 characters, letters and numbers'),
                               icon: Icons.lock_outlined,
                               obscure: _obscurePassword,
                               onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -219,13 +219,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                             const SizedBox(height: 14),
                             _buildField(
                               controller: _confirmPasswordController,
-                              label: 'Konfirmasi Password',
-                              hint: 'Ulangi password',
+                              label: _tr(context, 'Ulangi password', 'Repeat password'),
+                              hint: _tr(context, 'Ketik password sekali lagi', 'Type the password again'),
                               icon: Icons.lock_outlined,
                               obscure: _obscureConfirm,
                               onToggleObscure: () => setState(() => _obscureConfirm = !_obscureConfirm),
                               validator: (v) {
-                                if (v != _passwordController.text) return 'Password tidak cocok';
+                                if (v != _passwordController.text) return _tr(context, 'Password tidak sama', 'Passwords do not match');
                                 return null;
                               },
                             ),
@@ -249,7 +249,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                                         width: 22,
                                         child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                                       )
-                                    : const Text('Daftar', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                    : Text(_tr(context, 'Daftar', 'Sign up'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                               ),
                             ),
                           ],
@@ -268,11 +268,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Sudah punya akun? ", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
+                    Text(_tr(context, 'Sudah punya akun? ', 'Already have an account? '), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
                     GestureDetector(
                       onTap: () => context.pop(),
                       child: Text(
-                        'Masuk',
+                        _tr(context, 'Masuk', 'Sign in'),
                         style: TextStyle(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.w600,
