@@ -16,10 +16,6 @@ service cloud.firestore {
       return /databases/$(database)/documents/families/$(fid);
     }
 
-    function invitePath(code) {
-      return /databases/$(database)/documents/family_invites/$(code);
-    }
-
     function isAdmin() {
       return isAuth()
         && exists(userPath(request.auth.uid))
