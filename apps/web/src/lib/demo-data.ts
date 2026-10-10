@@ -2,6 +2,7 @@
 // touching Firestore. Loaded only when NODE_ENV is "development" and the URL
 // has ?demo=1; production builds drop it.
 
+import type { AdminDevice, AdminOverview, AdminUser, OverviewQuery } from "@/lib/admin-types"
 import type { Bill, Budget, Debt, Member, Saving, Tx } from "@/lib/family-data"
 import { monthKey } from "@/lib/money"
 
@@ -69,28 +70,34 @@ export function buildDemoData() {
   return { incomes, expenses, budgets, savings, debts, bills, members }
 }
 
-export function buildDemoAdminOverview() {
+export function buildDemoAdminOverview(query: OverviewQuery, pageSize: number): AdminOverview {
   const rand = seeded(7)
   const now = Date.now()
   const names = ["Trias", "Dewi", "Budi", "Sari", "Andi", "Rina", "Joko", "Maya", "Fajar", "Lina", "Hadi", "Tari"]
-  const versions = ["1.1.10+14", "1.1.10+14", "1.1.9+13", "1.1.8+12"]
-  const users = names.map((name, i) => {
-    const web = i % 4 === 0
+  const versions: [string, number][] = [["1.1.10", 14], ["1.1.10", 14], ["1.1.9", 13], ["1.1.8", 12]]
+  const phones = [["Samsung", "SM-A546E"], ["Xiaomi", "23021RAA2Y"], ["OPPO", "CPH2591"]]
+  const users: AdminUser[] = names.map((name, i) => {
     const lastSeenAt = now - Math.floor(rand() * (i < 3 ? 90_000 : 5 * 86_400_000))
-    const version = web ? "1.1.10+14" : versions[Math.floor(rand() * versions.length)]
+    const [versionName, versionCode] = versions[Math.floor(rand() * versions.length)]
+    const devices: AdminDevice[] = [
+      { id: `a${i}`, platform: "android", brand: phones[i % 3][0], model: phones[i % 3][1], osVersion: String(12 + (i % 3)), appVersionName: versionName, appVersionCode: versionCode, lastSeenAt },
+    ]
+    if (i % 4 === 0) devices.push({ id: `w${i}`, platform: "web", brand: "Chrome", model: "Win32", osVersion: "Web", appVersionName: "1.1.10", appVersionCode: 14, lastSeenAt: lastSeenAt - 3_600_000 })
     return {
       id: `u${i}`,
       name,
-      devicesCount: 1 + Math.floor(rand() * 2),
-      latestSource: web ? "web" : "android",
-      latestDeviceName: web ? "Chrome Win32" : ["Samsung SM-A546E", "Xiaomi 23021RAA2Y", "OPPO CPH2591"][i % 3],
-      appVersionLabel: version,
+      role: i === 0 ? "superadmin" : i === 1 ? "admin" : "member",
+      disabled: i === 7,
+      devices,
+      hasWeb: i % 4 === 0,
+      latestSource: "android",
+      appVersionLabel: `${versionName}+${versionCode}`,
       online: now - lastSeenAt < 120_000,
-      outdated: !web && version !== "1.1.10+14",
-      activeToday: now - lastSeenAt < 86_400_000,
+      outdated: versionCode < 14,
       lastSeenAt,
     }
   })
+  users.sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0))
   const growth = Array.from({ length: 14 }, (_, i) => ({
     day: new Date(now - (13 - i) * 86_400_000).toISOString().slice(5, 10),
     users: Math.floor(rand() * 3),
@@ -98,16 +105,34 @@ export function buildDemoAdminOverview() {
   }))
   const versionCounts = new Map<string, number>()
   for (const u of users) versionCounts.set(u.appVersionLabel, (versionCounts.get(u.appVersionLabel) ?? 0) + 1)
+  // Mirrors the server's search and filters so the layout can be reviewed with them.
+  const q = query.q.toLowerCase()
+  const matching = users.filter((u) => {
+    if (q && !u.name.toLowerCase().includes(q)) return false
+    if (query.filter === "online") return u.online
+    if (query.filter === "web") return u.hasWeb
+    if (query.filter === "outdated") return u.outdated
+    if (query.filter === "disabled") return u.disabled
+    return true
+  })
   return {
-    totalUsers: users.length,
-    onlineUsers: users.filter((u) => u.online).length,
-    activeToday: users.filter((u) => u.activeToday).length,
-    outdatedUsers: users.filter((u) => u.outdated).length,
-    activeDevices: users.reduce((s, u) => s + u.devicesCount, 0),
-    latestVersionName: "1.1.10",
-    latestVersionCode: 14,
+    stats: {
+      totalUsers: users.length,
+      totalFamilies: 5,
+      onlineUsers: users.filter((u) => u.online).length,
+      activeToday: users.filter((u) => now - (u.lastSeenAt ?? 0) < 86_400_000).length,
+      outdatedUsers: users.filter((u) => u.outdated).length,
+      activeDevices: users.reduce((s, u) => s + u.devices.length, 0),
+      latestVersionName: "1.1.10",
+      latestVersionCode: 14,
+      webVersionName: "1.1.10",
+      webVersionCode: 14,
+    },
     growth,
     versions: Array.from(versionCounts, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
-    users: users.sort((a, b) => b.lastSeenAt - a.lastSeenAt),
+    users: matching.slice((query.page - 1) * pageSize, query.page * pageSize),
+    page: query.page,
+    pageSize,
+    total: matching.length,
   }
 }

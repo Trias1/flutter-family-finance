@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { type User } from "firebase/auth"
-import { ChevronDown, LayoutGrid, LogOut, PackageCheck, Users, type LucideIcon } from "lucide-react"
+import { ChevronDown, LayoutGrid, LogOut, PackageCheck, ScrollText, Users, type LucideIcon } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 
 import LocaleToggle from "@/components/LocaleToggle"
@@ -18,6 +18,7 @@ const items: Item[] = [
   { href: "/admin", key: "overview", icon: LayoutGrid },
   { href: "/admin#users", key: "users", icon: Users },
   { href: "/admin#versions", key: "versionControl", icon: PackageCheck },
+  { href: "/admin#audit", key: "auditLog", icon: ScrollText },
 ]
 
 export default function AdminShell({ user, children }: { user: User | null; children: ReactNode }) {
