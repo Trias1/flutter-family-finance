@@ -39,11 +39,18 @@ service cloud.firestore {
         && get(familyPath(fid)).data.createdBy == request.auth.uid;
     }
 
-    // A family can only be entered with a valid invite code for it.
+    function bannedPath(fid, uid) {
+      return /databases/$(database)/documents/families/$(fid)/banned/$(uid);
+    }
+
+    // A family can only be entered with its current invite code, and not by
+    // someone the owner removed. Rotating the family's code revokes old ones.
     function inviteMatches(fid, code) {
       return code is string
-        && exists(invitePath(code))
-        && get(invitePath(code)).data.familyId == fid;
+        && fid is string
+        && exists(familyPath(fid))
+        && get(familyPath(fid)).data.inviteCode == code
+        && !exists(bannedPath(fid, request.auth.uid));
     }
 
     function unchanged(fields) {
@@ -73,7 +80,10 @@ service cloud.firestore {
 
     function canUpdateOwnedFinance() {
       return canUpdateFinance()
-        && request.resource.data.userId == resource.data.userId;
+        && request.resource.data.userId == resource.data.userId
+        && (resource.data.userId == request.auth.uid
+          || resource.data.familyId == request.auth.uid
+          || isFamilyOwner(resource.data.familyId));
     }
 
     // Records with an author can be deleted by that author or the family owner.
@@ -86,6 +96,22 @@ service cloud.firestore {
 
     function validAmount(field) {
       return request.resource.data[field] is number && request.resource.data[field] >= 0;
+    }
+
+    // Optional text fields stay small so a single record cannot bloat every
+    // family member's dashboard.
+    function shortText(field, max) {
+      return !(field in request.resource.data)
+        || request.resource.data[field] == null
+        || (request.resource.data[field] is string && request.resource.data[field].size() <= max);
+    }
+
+    function boundedRecord() {
+      return shortText('note', 500)
+        && shortText('category', 80)
+        && shortText('description', 500)
+        && shortText('name', 120)
+        && shortText('personName', 120);
     }
 
     function canReadDebtFinance(debtId) {
@@ -150,7 +176,14 @@ service cloud.firestore {
 
       match /devices/{deviceId} {
         allow read: if isAuth() && (request.auth.uid == uid || isAdmin());
-        allow create, update, delete: if isAuth() && request.auth.uid == uid;
+        allow create, update: if isAuth()
+          && request.auth.uid == uid
+          && deviceId.size() <= 80
+          && request.resource.data.keys().hasOnly(['deviceId', 'platform', 'brand', 'model', 'androidVersion', 'appVersionName', 'appVersionCode', 'fcmToken', 'lastSeenAt', 'privacyNote'])
+          && shortText('brand', 60) && shortText('model', 80) && shortText('platform', 20)
+          && shortText('androidVersion', 40) && shortText('appVersionName', 40)
+          && shortText('fcmToken', 4096) && shortText('privacyNote', 300);
+        allow delete: if isAuth() && request.auth.uid == uid;
       }
     }
 
@@ -161,7 +194,8 @@ service cloud.firestore {
       allow create, update: if isAuth()
         && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['name', 'createdAt'])
-        && request.resource.data.name is string;
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 120;
       allow delete: if false;
     }
 
@@ -189,10 +223,17 @@ service cloud.firestore {
       // Only the owner edits; ownership can move to a current member.
       allow update: if isAuth()
         && resource.data.createdBy == request.auth.uid
-        && unchanged(['createdAt', 'inviteCode'])
+        && unchanged(['createdAt'])
+        && request.resource.data.inviteCode is string
+        && request.resource.data.inviteCode.size() >= 6
         && (request.resource.data.createdBy == resource.data.createdBy
           || get(userPath(request.resource.data.createdBy)).data.get('familyId', null) == familyId);
       allow delete: if false;
+
+      // Members removed by the owner; they cannot rejoin while listed here.
+      match /banned/{bannedUid} {
+        allow read, write: if isAuth() && isFamilyOwner(familyId);
+      }
     }
 
     // Invite code -> family. Readable one code at a time; never listable.
@@ -208,7 +249,7 @@ service cloud.firestore {
         && isFamilyOwner(resource.data.familyId)
         && request.resource.data.familyId == resource.data.familyId
         && request.resource.data.keys().hasOnly(['familyId', 'familyName', 'createdBy']);
-      allow delete: if false;
+      allow delete: if isAuth() && isFamilyOwner(resource.data.familyId);
     }
 
     // ============ FINANCE DATA ============
@@ -218,8 +259,8 @@ service cloud.firestore {
       allow get, list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance()
         && request.resource.data.userId == request.auth.uid
-        && validAmount('amount');
-      allow update: if isAuth() && canUpdateOwnedFinance() && validAmount('amount');
+        && validAmount('amount') && boundedRecord();
+      allow update: if isAuth() && canUpdateOwnedFinance() && validAmount('amount') && boundedRecord();
       allow delete: if isAuth() && canDeleteOwnedFinance();
     }
 
@@ -227,22 +268,22 @@ service cloud.firestore {
       allow get, list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance()
         && request.resource.data.userId == request.auth.uid
-        && validAmount('amount');
-      allow update: if isAuth() && canUpdateOwnedFinance() && validAmount('amount');
+        && validAmount('amount') && boundedRecord();
+      allow update: if isAuth() && canUpdateOwnedFinance() && validAmount('amount') && boundedRecord();
       allow delete: if isAuth() && canDeleteOwnedFinance();
     }
 
     match /budgets/{docId} {
       allow get, list: if isAuth() && canReadFinance();
-      allow create: if isAuth() && canWriteFinance() && validAmount('budgetAmount');
-      allow update: if isAuth() && canUpdateFinance() && validAmount('budgetAmount');
+      allow create: if isAuth() && canWriteFinance() && validAmount('budgetAmount') && boundedRecord();
+      allow update: if isAuth() && canUpdateFinance() && validAmount('budgetAmount') && boundedRecord();
       allow delete: if isAuth() && canReadFinance();
     }
 
     match /savings/{docId} {
       allow get, list: if isAuth() && canReadFinance();
-      allow create: if isAuth() && canWriteFinance() && validAmount('targetAmount');
-      allow update: if isAuth() && canUpdateFinance() && validAmount('targetAmount');
+      allow create: if isAuth() && canWriteFinance() && validAmount('targetAmount') && boundedRecord();
+      allow update: if isAuth() && canUpdateFinance() && validAmount('targetAmount') && boundedRecord();
       allow delete: if isAuth() && canReadFinance();
     }
 
@@ -250,8 +291,8 @@ service cloud.firestore {
       allow get, list: if isAuth() && canReadFinance();
       allow create: if isAuth() && canWriteFinance()
         && request.resource.data.userId == request.auth.uid
-        && validAmount('amount');
-      allow update: if isAuth() && canUpdateOwnedFinance() && validAmount('amount');
+        && validAmount('amount') && boundedRecord();
+      allow update: if isAuth() && canUpdateOwnedFinance() && validAmount('amount') && boundedRecord();
       allow delete: if isAuth() && canDeleteOwnedFinance();
     }
 
@@ -265,28 +306,30 @@ service cloud.firestore {
       allow update: if isAuth()
         && request.resource.data.debtId == resource.data.debtId
         && unchanged(['debtId', 'createdAt', 'createdBy', 'familyId', 'userId', 'systemRole'])
-        && canReadDebtFinance(resource.data.debtId);
+        && canReadDebtFinance(resource.data.debtId)
+        && validAmount('amount')
+        && shortText('note', 500);
       allow delete: if isAuth() && canReadDebtFinance(resource.data.debtId);
     }
 
     match /recurring_transactions/{docId} {
       allow get, list: if isAuth() && canReadFinance();
-      allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && canUpdateOwnedFinance();
+      allow create: if isAuth() && canWriteFinance() && request.resource.data.userId == request.auth.uid && boundedRecord();
+      allow update: if isAuth() && canUpdateOwnedFinance() && boundedRecord();
       allow delete: if isAuth() && canDeleteOwnedFinance();
     }
 
     match /bills/{docId} {
       allow get, list: if isAuth() && canReadFinance();
-      allow create: if isAuth() && canWriteFinance() && validAmount('amount');
-      allow update: if isAuth() && canUpdateFinance() && validAmount('amount');
+      allow create: if isAuth() && canWriteFinance() && validAmount('amount') && boundedRecord();
+      allow update: if isAuth() && canUpdateFinance() && validAmount('amount') && boundedRecord();
       allow delete: if isAuth() && canReadFinance();
     }
 
     match /categories/{docId} {
       allow get, list: if isAuth() && canReadFinance();
-      allow create: if isAuth() && canWriteFinance();
-      allow update: if isAuth() && canUpdateFinance();
+      allow create: if isAuth() && canWriteFinance() && boundedRecord();
+      allow update: if isAuth() && canUpdateFinance() && boundedRecord();
       allow delete: if isAuth() && canReadFinance();
     }
 

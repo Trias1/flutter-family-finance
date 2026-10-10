@@ -12,7 +12,7 @@ import { EmptyState, PageHeader, Pill, Section, Skeleton } from "@/components/ui
 import { APP_VERSION_CODE, APP_VERSION_NAME } from "@/lib/app-info"
 import { auth, db } from "@/lib/firebase"
 import { useRouter } from "@/lib/i18n"
-import { startWebPresence } from "@/lib/web-presence"
+import { startWebPresence, writeWebPresence } from "@/lib/web-presence"
 
 type AdminUser = {
   id: string
@@ -175,7 +175,9 @@ export default function AdminPage() {
         router.replace("/dashboard")
         return
       }
-      stopPresence = startWebPresence(u.uid, u.email)
+      // Record this session first so the admin shows up as online in the list.
+      await writeWebPresence(u.uid).catch(() => {})
+      stopPresence = startWebPresence(u.uid)
       try {
         setOverview(await loadOverview())
       } catch {

@@ -99,9 +99,15 @@ class FirestoreDataSource {
   }
 
   /// Used by the family owner. Touches only the two fields rules let an
-  /// owner change on another member's profile.
-  Future<void> removeFamilyMember(String uid) {
-    return _users.doc(uid).update({'familyId': null, 'role': 'member'});
+  /// owner change on another member's profile, and records a ban so the
+  /// member cannot rejoin with the old code.
+  Future<void> removeFamilyMember(String uid, String familyId) {
+    final batch = _firestore.batch();
+    batch.update(_users.doc(uid), {'familyId': null, 'role': 'member'});
+    batch.set(_families.doc(familyId).collection('banned').doc(uid), {
+      'bannedAt': FieldValue.serverTimestamp(),
+    });
+    return batch.commit();
   }
 
   Future<FamilyModel?> getFamily(String id) async {

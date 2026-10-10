@@ -22,8 +22,9 @@ function getWebDeviceId() {
   return created
 }
 
-export async function writeWebPresence(uid: string, email?: string | null) {
+export async function writeWebPresence(uid: string) {
   const deviceId = getWebDeviceId()
+  // Overwrite rather than merge so older docs lose the email field they used to carry.
   await setDoc(
     doc(db, "users", uid, "devices", deviceId),
     {
@@ -34,21 +35,19 @@ export async function writeWebPresence(uid: string, email?: string | null) {
       androidVersion: "Web",
       appVersionName: APP_VERSION_NAME,
       appVersionCode: APP_VERSION_CODE,
-      email: email ?? null,
       lastSeenAt: serverTimestamp(),
       privacyNote: "Web session metadata only. No contacts, location, files, photos, or sensitive device identifiers are collected.",
     },
-    { merge: true }
   )
 }
 
-export function startWebPresence(uid: string, email?: string | null) {
+export function startWebPresence(uid: string) {
   let cancelled = false
 
   const sync = async () => {
     if (cancelled) return
     try {
-      await writeWebPresence(uid, email)
+      await writeWebPresence(uid)
     } catch {
       // Presence updates should never block app usage.
     }

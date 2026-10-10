@@ -34,7 +34,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
         return
       }
       setUser(u)
-      stopPresence = startWebPresence(u.uid, u.email)
+      stopPresence = startWebPresence(u.uid)
       try {
         const snap = await getDoc(doc(db, "users", u.uid))
         setIsSuperadmin(snap.data()?.systemRole === "superadmin")

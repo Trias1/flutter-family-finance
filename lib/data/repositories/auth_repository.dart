@@ -174,7 +174,9 @@ class AuthRepository {
     if (fromFamilyId != null && user.familyId != fromFamilyId) {
       throw Exception('User tidak dalam keluarga ini');
     }
-    await _firestoreDataSource.removeFamilyMember(targetUid);
+    final familyId = user.familyId;
+    if (familyId == null || familyId.isEmpty) return;
+    await _firestoreDataSource.removeFamilyMember(targetUid, familyId);
   }
 
   Future<void> signOut({bool keepGoogleSession = false}) =>

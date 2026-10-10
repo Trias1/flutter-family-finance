@@ -13,9 +13,9 @@ export default function PublicNavbar() {
   const [open, setOpen] = useState(false)
   const t = useTranslations()
   const navItems = [
-    { label: t("publicNav.features"), href: "/#features" },
-    { label: t("publicNav.docs"), href: "/guide" },
-    { label: t("nav.download"), href: "/guide#download" },
+    { key: "features", label: t("publicNav.features"), href: { pathname: "/", hash: "features" } },
+    { key: "guide", label: t("publicNav.docs"), href: { pathname: "/guide" } },
+    { key: "download", label: t("nav.download"), href: { pathname: "/guide", hash: "download" } },
   ]
 
   return (
@@ -28,9 +28,9 @@ export default function PublicNavbar() {
 
         <nav className="hidden items-center gap-6 md:flex">
           {navItems.map((item) => (
-            <a key={item.href} href={item.href} className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
+            <Link key={item.key} href={item.href} className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -52,9 +52,9 @@ export default function PublicNavbar() {
       {open && (
         <div className="border-t px-5 py-3 md:hidden" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
           {navItems.map((item) => (
-            <a key={item.href} href={item.href} onClick={() => setOpen(false)} className="block py-2.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+            <Link key={item.key} href={item.href} onClick={() => setOpen(false)} className="block py-2.5 text-sm" style={{ color: "var(--text-secondary)" }}>
               {item.label}
-            </a>
+            </Link>
           ))}
           <div className="py-2.5"><LocaleToggle /></div>
           <div className="mt-2 grid grid-cols-2 gap-2">

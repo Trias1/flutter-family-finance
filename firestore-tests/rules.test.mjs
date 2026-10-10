@@ -214,6 +214,62 @@ describe("finance data", () => {
   })
 })
 
+describe("security review fixes", () => {
+  test("a removed member cannot rejoin with the old code", async () => {
+    const db = as("alice")
+    const batch = writeBatch(db)
+    batch.update(doc(db, "users", "bob"), { familyId: null, role: "member" })
+    batch.set(doc(db, "families", "F1", "banned", "bob"), { bannedAt: now })
+    await assertSucceeds(batch.commit())
+    await assertFails(updateDoc(doc(as("bob"), "users", "bob"), { familyId: "F1", joinCode: "ABCD2345" }))
+  })
+
+  test("a member cannot ban others or lift their own ban", async () => {
+    await assertFails(setDoc(doc(as("bob"), "families", "F1", "banned", "carol"), { bannedAt: now }))
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "families", "F1", "banned", "dave"), { bannedAt: now }))
+    await assertFails(deleteDoc(doc(as("dave"), "families", "F1", "banned", "dave")))
+  })
+
+  test("rotating the invite code revokes the old one", async () => {
+    const db = as("alice")
+    const batch = writeBatch(db)
+    batch.update(doc(db, "families", "F1"), { inviteCode: "NEWC2345" })
+    batch.set(doc(db, "family_invites", "NEWC2345"), { familyId: "F1", familyName: "Keluarga A", createdBy: "alice" })
+    batch.delete(doc(db, "family_invites", "ABCD2345"))
+    await assertSucceeds(batch.commit())
+    await assertFails(updateDoc(doc(as("carol"), "users", "carol"), { familyId: "F1", joinCode: "ABCD2345" }))
+    await assertSucceeds(updateDoc(doc(as("dave"), "users", "dave"), { familyId: "F1", joinCode: "NEWC2345" }))
+  })
+
+  test("only the author or the owner can edit an expense", async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), "users", "carol"), { familyId: "F1" }))
+    await assertFails(updateDoc(doc(as("carol"), "expenses", "e-bob"), { amount: 1 }))
+    await assertSucceeds(updateDoc(doc(as("bob"), "expenses", "e-bob"), { amount: 2000 }))
+    await assertSucceeds(updateDoc(doc(as("alice"), "expenses", "e-bob"), { amount: 3000 }))
+  })
+
+  test("oversized notes are rejected", async () => {
+    await assertFails(setDoc(doc(as("bob"), "expenses", "big"), { familyId: "F1", userId: "bob", amount: 1, note: "x".repeat(501), date: now, createdAt: now }))
+    await assertSucceeds(setDoc(doc(as("bob"), "expenses", "ok"), { familyId: "F1", userId: "bob", amount: 1, note: "x".repeat(200), date: now, createdAt: now }))
+  })
+
+  test("device docs accept known fields only (no email)", async () => {
+    const base = { deviceId: "web-1", platform: "web", brand: "Chrome", model: "Win32", androidVersion: "Web", appVersionName: "1.1.10", appVersionCode: 14, lastSeenAt: now }
+    await assertSucceeds(setDoc(doc(as("bob"), "users", "bob", "devices", "web-1"), base))
+    await assertFails(setDoc(doc(as("bob"), "users", "bob", "devices", "web-2"), { ...base, email: "bob@x.test" }))
+    await assertFails(setDoc(doc(as("bob"), "users", "bob", "devices", "web-3"), { ...base, brand: "x".repeat(500) }))
+  })
+
+  test("debt payments cannot be edited to a negative amount", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "debts", "d1"), { familyId: "F1", userId: "bob", amount: 1000, remainingAmount: 500, createdAt: now })
+      await setDoc(doc(ctx.firestore(), "debt_payments", "p1"), { debtId: "d1", amount: 500, date: now })
+    })
+    await assertFails(updateDoc(doc(as("bob"), "debt_payments", "p1"), { amount: -100 }))
+    await assertSucceeds(updateDoc(doc(as("bob"), "debt_payments", "p1"), { amount: 400 }))
+  })
+})
+
 describe("server-only collections", () => {
   test("rate_limits and admin_audit are closed to clients", async () => {
     await assertFails(getDoc(doc(as("alice"), "rate_limits", "x")))
