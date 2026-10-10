@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { onAuthStateChanged, type User } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
-import { BookOpen, ChevronDown, LogOut, Shield } from "lucide-react"
+import { BookOpen, ChevronDown, LogOut, Shield, UserRound } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 
 import LocaleToggle from "@/components/LocaleToggle"
@@ -132,6 +132,9 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                         <LocaleToggle />
                         <ThemeToggle />
                       </div>
+                      <Link href="/dashboard/account" role="menuitem" onClick={() => setMenuOpen(false)} className="menu-item">
+                        <UserRound size={15} /> {t("nav.account")}
+                      </Link>
                       <Link href="/dashboard/guide" role="menuitem" onClick={() => setMenuOpen(false)} className="menu-item">
                         <BookOpen size={15} /> {t("nav.guide")}
                       </Link>

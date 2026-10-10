@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeftRight, BarChart3, LayoutGrid, Scale, Target, type LucideIcon } from "lucide-react"
+import { ArrowLeftRight, BarChart3, LayoutGrid, Scale, Target, UserRound, type LucideIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import BrandMark from "@/components/public/BrandMark"
@@ -65,6 +65,23 @@ export default function Sidebar() {
           )
         })}
       </nav>
+
+      {/* Account sits apart from the finance pages; on phones it is in the user menu. */}
+      <div className="border-t px-3 py-2" style={{ borderColor: "var(--border)" }}>
+        <Link
+          href="/dashboard/account"
+          aria-current={isActive("/dashboard/account") ? "page" : undefined}
+          className="nav-link flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm"
+          style={{
+            color: isActive("/dashboard/account") ? "var(--text-primary)" : "var(--text-secondary)",
+            backgroundColor: isActive("/dashboard/account") ? "var(--surface-soft)" : undefined,
+            fontWeight: isActive("/dashboard/account") ? 600 : 400,
+          }}
+        >
+          <UserRound size={16} strokeWidth={1.8} style={{ color: isActive("/dashboard/account") ? "var(--primary)" : undefined }} />
+          {t("nav.account")}
+        </Link>
+      </div>
 
       <p className="border-t px-5 py-3 text-[11px]" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
         v{APP_VERSION_LABEL}
