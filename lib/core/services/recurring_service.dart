@@ -8,7 +8,16 @@ import 'package:family_finance_manager/data/repositories/budget_repository.dart'
 ///
 /// Runs for the signed-in user only (the rules let each person write their
 /// own records), and each occurrence gets a fixed document id, so running on
-/// two phones or twice in a row never creates duplicates.
+/// two phones or twice in a row never creates duplicates. An occurrence the
+/// user already entered by hand (see [alreadyRecorded]) is skipped.
+/// What [RecurringService.alreadyRecorded] needs from an income or expense.
+typedef RecordedEntry = ({
+  DateTime date,
+  double amount,
+  String category,
+  String? recurringId,
+});
+
 class RecurringService {
   static final RecurringService _instance = RecurringService._();
   factory RecurringService() => _instance;
@@ -44,13 +53,23 @@ class RecurringService {
   Future<void> _catchUp(RecurringModel recurring) async {
     var current = recurring;
     final now = DateTime.now();
+    List<RecordedEntry>? existing;
     for (var i = 0; i < _maxCatchUp && !current.nextDate.isAfter(now); i++) {
       if (current.endDate != null &&
           current.nextDate.isAfter(current.endDate!)) {
         await _dataSource.updateRecurring(_copy(current, isActive: false));
         return;
       }
-      await _generate(current);
+      existing ??= await _recorded(recurring);
+      if (!alreadyRecorded(
+        frequency: current.frequency,
+        due: current.nextDate,
+        category: current.category,
+        amount: current.amount,
+        existing: existing,
+      )) {
+        await _generate(current);
+      }
       current = _copy(
         current,
         nextDate: current.calculateNextDate(),
@@ -58,6 +77,65 @@ class RecurringService {
       );
       await _dataSource.updateRecurring(current);
     }
+  }
+
+  /// Records in the same scope and of the same type, loaded once per
+  /// template.
+  Future<List<RecordedEntry>> _recorded(RecurringModel r) async {
+    if (r.type == 'income') {
+      return [
+        for (final i in await _dataSource.getIncomes(r.familyId))
+          (
+            date: i.date,
+            amount: i.amount,
+            category: i.category,
+            recurringId: i.recurringId,
+          ),
+      ];
+    }
+    return [
+      for (final e in await _dataSource.getExpenses(r.familyId))
+        (
+          date: e.date,
+          amount: e.amount,
+          category: e.category,
+          recurringId: e.recurringId,
+        ),
+    ];
+  }
+
+  /// Whether the user already entered this occurrence by hand: a record
+  /// not made by a recurring template, with the same category and amount,
+  /// in the same period as [due] (same day for daily, within three days for
+  /// weekly, same month for monthly and yearly). A salary noted on the 25th
+  /// then stops the template from adding another on the 28th.
+  static bool alreadyRecorded({
+    required RecurringFrequency frequency,
+    required DateTime due,
+    required String category,
+    required double amount,
+    required Iterable<RecordedEntry> existing,
+  }) {
+    bool samePeriod(DateTime d) => switch (frequency) {
+      RecurringFrequency.daily =>
+        d.year == due.year && d.month == due.month && d.day == due.day,
+      RecurringFrequency.weekly =>
+        DateTime(d.year, d.month, d.day)
+                .difference(DateTime(due.year, due.month, due.day))
+                .inDays
+                .abs() <=
+            3,
+      RecurringFrequency.monthly ||
+      RecurringFrequency.yearly => d.year == due.year && d.month == due.month,
+    };
+    final want = category.trim().toLowerCase();
+    return existing.any(
+      (e) =>
+          e.recurringId == null &&
+          e.category.trim().toLowerCase() == want &&
+          (e.amount - amount).abs() < 0.5 &&
+          samePeriod(e.date),
+    );
   }
 
   Future<void> _generate(RecurringModel r) async {
