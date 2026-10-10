@@ -345,19 +345,23 @@ body {
   background-color: color-mix(in srgb, var(--surface-soft) 60%, transparent);
 }
 
-.field {
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-card);
-  padding: 0 10px;
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  outline: none;
-}
+/* In the components layer so utilities on the element (pl-9 for an icon,
+   py-2 / h-auto for textareas) can override the defaults. */
+@layer components {
+  .field {
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    padding: 0 10px;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    outline: none;
+  }
 
-.field:focus {
-  border-color: var(--primary);
+  .field:focus {
+    border-color: var(--primary);
+  }
 }
 
 .seg {

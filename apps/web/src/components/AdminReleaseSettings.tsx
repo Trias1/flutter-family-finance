@@ -71,7 +71,7 @@ export function AndroidReleaseSettings({
             onChange={(e) => setNotes(e.target.value)}
             maxLength={500}
             rows={3}
-            className="field w-full resize-y py-2"
+            className="field h-auto w-full resize-y py-2"
             placeholder={t("notesPlaceholder")}
           />
           <p className="mt-1 text-right text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>{notes.length}/500</p>
@@ -137,11 +137,11 @@ export function AnnouncementSettings({
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label htmlFor="ann-id" className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{t("messageId")}</label>
-            <textarea id="ann-id" rows={2} maxLength={280} value={draft.messageId} onChange={(e) => setDraft((d) => ({ ...d, messageId: e.target.value }))} className="field w-full resize-y py-2" placeholder={t("placeholderId")} />
+            <textarea id="ann-id" rows={2} maxLength={280} value={draft.messageId} onChange={(e) => setDraft((d) => ({ ...d, messageId: e.target.value }))} className="field h-auto w-full resize-y py-2" placeholder={t("placeholderId")} />
           </div>
           <div>
             <label htmlFor="ann-en" className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{t("messageEn")}</label>
-            <textarea id="ann-en" rows={2} maxLength={280} value={draft.messageEn} onChange={(e) => setDraft((d) => ({ ...d, messageEn: e.target.value }))} className="field w-full resize-y py-2" placeholder={t("placeholderEn")} />
+            <textarea id="ann-en" rows={2} maxLength={280} value={draft.messageEn} onChange={(e) => setDraft((d) => ({ ...d, messageEn: e.target.value }))} className="field h-auto w-full resize-y py-2" placeholder={t("placeholderEn")} />
           </div>
         </div>
         <p className="text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t("hint")}</p>
