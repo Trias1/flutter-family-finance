@@ -92,7 +92,26 @@
     "signInToAccount": "Sign in to your account",
     "continueWithGoogle": "Continue with Google",
     "enterEmail": "Enter your email",
-    "enterPassword": "Enter your password"
+    "enterPassword": "Enter your password",
+    "redirecting": "Signed in. Redirecting…",
+    "resetTitle": "Reset password",
+    "resetDesc": "Enter your account email and we'll send a link to set a new password.",
+    "sendResetLink": "Send reset link",
+    "resetSent": "If that email is registered, a reset link is on its way. Check your inbox and spam folder.",
+    "backToLogin": "Back to sign in",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "passwordHint": "At least 8 characters, with letters and numbers.",
+    "lockedFor": "Try again in {seconds}s",
+    "errors": {
+      "invalidEmail": "Enter a valid email address.",
+      "invalidCredentials": "Incorrect email or password.",
+      "registerFailed": "We couldn't create an account with this email. If you already have one, sign in or reset your password.",
+      "weakPassword": "Password must be at least 8 characters and include letters and numbers.",
+      "tooMany": "Too many attempts. Wait a few minutes and try again.",
+      "network": "Connection problem. Check your internet and try again.",
+      "googleFailed": "Google sign-in failed. Please try again."
+    }
   },
   "publicNav": {
     "features": "Features",
@@ -296,5 +315,32 @@
     "aiCenter": "AI Center",
     "aiAssistant": "AI Assistant",
     "aiAssistantHint": "Secure provider from admin server"
+  },
+  "home": {
+    "eyebrow": "Family finance",
+    "title": "Record on Android, review together on the web.",
+    "desc": "Your family's income, spending, budgets, savings, and debts in one place. Everyone records from their own phone and sees the same numbers.",
+    "ctaPrimary": "Create account",
+    "ctaApk": "Download Android APK",
+    "ctaNote": "Free. Only members of your family can open your data.",
+    "footer": "Built for families in Indonesia.",
+    "features": {
+      "overview": {
+        "title": "Monthly summary",
+        "desc": "Balance, income, spending, and remaining budget for the month on one screen."
+      },
+      "transactions": {
+        "title": "Transaction history",
+        "desc": "Search and filter by month, type, or category."
+      },
+      "budget": {
+        "title": "Budgets and savings",
+        "desc": "Per-category limits, alerts when one is nearly spent, and savings goals."
+      },
+      "privacy": {
+        "title": "Your family's data",
+        "desc": "Access is scoped to your family through Firebase Auth and database rules."
+      }
+    }
   }
 }

@@ -98,7 +98,26 @@
     "signInToAccount": "Masuk ke akun kamu",
     "continueWithGoogle": "Lanjutkan dengan Google",
     "enterEmail": "Masukkan email kamu",
-    "enterPassword": "Masukkan kata sandi kamu"
+    "enterPassword": "Masukkan kata sandi kamu",
+    "redirecting": "Berhasil masuk. Mengalihkan…",
+    "resetTitle": "Reset kata sandi",
+    "resetDesc": "Masukkan email akunmu. Kami kirim link untuk membuat kata sandi baru.",
+    "sendResetLink": "Kirim link reset",
+    "resetSent": "Jika email itu terdaftar, link reset sudah dikirim. Cek inbox dan folder spam.",
+    "backToLogin": "Kembali ke halaman masuk",
+    "showPassword": "Tampilkan kata sandi",
+    "hidePassword": "Sembunyikan kata sandi",
+    "passwordHint": "Minimal 8 karakter, berisi huruf dan angka.",
+    "lockedFor": "Coba lagi dalam {seconds} dtk",
+    "errors": {
+      "invalidEmail": "Masukkan alamat email yang valid.",
+      "invalidCredentials": "Email atau kata sandi salah.",
+      "registerFailed": "Akun tidak bisa dibuat dengan email ini. Kalau sudah punya akun, silakan masuk atau reset kata sandi.",
+      "weakPassword": "Kata sandi minimal 8 karakter dan harus berisi huruf dan angka.",
+      "tooMany": "Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.",
+      "network": "Koneksi bermasalah. Cek internet lalu coba lagi.",
+      "googleFailed": "Masuk dengan Google gagal. Coba lagi."
+    }
   },
   "publicNav": {
     "features": "Fitur",
@@ -296,5 +315,32 @@
     "aiCenter": "AI Center",
     "aiAssistant": "AI Assistant",
     "aiAssistantHint": "Provider aman dari server admin"
+  },
+  "home": {
+    "eyebrow": "Keuangan keluarga",
+    "title": "Catat di Android, pantau bersama dari web.",
+    "desc": "Pemasukan, pengeluaran, budget, tabungan, dan hutang keluarga tersimpan di satu tempat. Setiap anggota mencatat dari HP masing-masing, dan semua orang melihat angka yang sama.",
+    "ctaPrimary": "Buat akun",
+    "ctaApk": "Download APK Android",
+    "ctaNote": "Gratis. Data hanya bisa dibuka oleh anggota keluargamu.",
+    "footer": "Dibuat untuk keluarga di Indonesia.",
+    "features": {
+      "overview": {
+        "title": "Ringkasan bulanan",
+        "desc": "Saldo, pemasukan, pengeluaran, dan sisa budget bulan ini dalam satu layar."
+      },
+      "transactions": {
+        "title": "Riwayat transaksi",
+        "desc": "Cari dan saring transaksi per bulan, jenis, atau kategori."
+      },
+      "budget": {
+        "title": "Budget dan tabungan",
+        "desc": "Batas per kategori, peringatan saat hampir habis, dan target tabungan."
+      },
+      "privacy": {
+        "title": "Data milik keluarga",
+        "desc": "Akses dibatasi per keluarga lewat Firebase Auth dan aturan database."
+      }
+    }
   }
 }

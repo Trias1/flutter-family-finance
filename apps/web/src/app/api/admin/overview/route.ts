@@ -1,37 +1,33 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 
-import { adminAuth, adminDb } from "@/lib/firebase-admin"
+import { db, errorResponse, requireSuperadmin } from "@/lib/api-auth"
 import { APP_VERSION_CODE, APP_VERSION_NAME } from "@/lib/app-info"
 
 export const runtime = "nodejs"
 
-function getMillis(value: any) {
-  if (!value) return null
-  if (typeof value.toMillis === "function") return value.toMillis()
-  if (typeof value._seconds === "number") return value._seconds * 1000
+type Device = { id: string; lastSeenAt?: unknown; platform?: string; appVersionName?: string; appVersionCode?: number; brand?: string; model?: string }
+
+function getMillis(value: unknown): number | null {
+  if (!value || typeof value !== "object") return null
+  const v = value as { toMillis?: () => number; _seconds?: number }
+  if (typeof v.toMillis === "function") return v.toMillis()
+  if (typeof v._seconds === "number") return v._seconds * 1000
   return null
 }
 
 export async function GET(req: NextRequest) {
   try {
-    if (!adminAuth || !adminDb) {
-      return NextResponse.json({ error: "Server not configured" }, { status: 500 })
-    }
+    await requireSuperadmin(req)
+    const firestore = db()
 
-    const token = req.headers.get("authorization")?.replace("Bearer ", "")
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    const decoded = await adminAuth.verifyIdToken(token)
-    const callerSnap = await adminDb.collection("users").doc(decoded.uid).get()
-    if (!callerSnap.exists || callerSnap.data()?.systemRole !== "superadmin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    const [usersSnap, devicesSnap, configSnap] = await Promise.all([
-      adminDb.collection("user_public").get(),
-      adminDb.collectionGroup("devices").get(),
-      adminDb.collection("app_config").doc("android").get(),
+    const [usersSnap, profilesSnap, devicesSnap, configSnap, familiesCount] = await Promise.all([
+      firestore.collection("user_public").get(),
+      firestore.collection("users").select("email", "role", "systemRole").get(),
+      firestore.collectionGroup("devices").get(),
+      firestore.collection("app_config").doc("android").get(),
+      firestore.collection("families").count().get(),
     ])
+    const profiles = new Map(profilesSnap.docs.map((doc) => [doc.id, doc.data()]))
 
     const latestVersionCode = (configSnap.data()?.latestVersionCode as number | undefined) ?? APP_VERSION_CODE
     const latestVersionName = (configSnap.data()?.latestVersionName as string | undefined) ?? APP_VERSION_NAME
@@ -39,13 +35,13 @@ export async function GET(req: NextRequest) {
     const onlineThreshold = now - 2 * 60 * 1000
     const activeDayThreshold = now - 24 * 60 * 60 * 1000
 
-    const devicesByUser = new Map<string, any[]>()
+    const devicesByUser = new Map<string, Device[]>()
 
     for (const deviceDoc of devicesSnap.docs) {
       const uid = deviceDoc.ref.parent.parent?.id
       if (!uid) continue
       const list = devicesByUser.get(uid) ?? []
-      list.push({ id: deviceDoc.id, ...deviceDoc.data() })
+      list.push({ id: deviceDoc.id, ...(deviceDoc.data() as Omit<Device, "id">) })
       devicesByUser.set(uid, list)
     }
 
@@ -56,6 +52,7 @@ export async function GET(req: NextRequest) {
 
     const users = usersSnap.docs.map((doc) => {
       const data = doc.data()
+      const profile = profiles.get(doc.id) ?? {}
       const devices = (devicesByUser.get(doc.id) ?? []).sort((a, b) => (getMillis(b.lastSeenAt) ?? 0) - (getMillis(a.lastSeenAt) ?? 0))
       const latestDevice = devices[0] ?? null
       const latestSeen = getMillis(latestDevice?.lastSeenAt)
@@ -85,8 +82,8 @@ export async function GET(req: NextRequest) {
       return {
         id: doc.id,
         name: data.name ?? "-",
-        email: data.email ?? "-",
-        role: data.role ?? "user",
+        email: typeof profile.email === "string" && profile.email ? profile.email : "-",
+        role: profile.systemRole === "superadmin" ? "superadmin" : typeof profile.role === "string" ? profile.role : "member",
         devicesCount: devices.length,
         latestSource: platform,
         latestDeviceName: latestDevice ? `${latestDevice.brand ?? "-"} ${latestDevice.model ?? ""}`.trim() : "-",
@@ -111,7 +108,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       stats: {
         totalUsers: users.length,
-        totalFamilies: 0,
+        totalFamilies: familiesCount.data().count,
         activeToday: users.filter((user) => user.activeToday).length,
         onlineUsers: users.filter((user) => user.online).length,
         activeDevices: devicesSnap.size,
@@ -129,7 +126,7 @@ export async function GET(req: NextRequest) {
       },
       users: users.sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0)),
     })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (error) {
+    return errorResponse(error, "admin/overview")
   }
 }
