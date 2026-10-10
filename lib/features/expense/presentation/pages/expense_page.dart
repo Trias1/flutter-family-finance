@@ -15,6 +15,8 @@ import 'package:family_finance_manager/features/expense/presentation/providers/e
 import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
 
 import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
+import 'package:family_finance_manager/core/utils/duplicate_check.dart';
+import 'package:family_finance_manager/features/family/presentation/providers/family_provider.dart';
 
 class ExpensePage extends ConsumerWidget {
   const ExpensePage({super.key});
@@ -392,6 +394,38 @@ class ExpensePage extends ConsumerWidget {
                       if (isSaving) return;
                       FocusScope.of(ctx).unfocus();
                       if (!formKey.currentState!.validate()) return;
+                      if (expense == null) {
+                        // Ask before saving what looks like a second copy.
+                        final scope = ref.read(financeScopeIdProvider);
+                        final recent =
+                            ref.read(expenseStreamProvider(scope)).valueOrNull ?? const [];
+                        final members =
+                            ref.read(familyMembersProvider).valueOrNull ??
+                            const [];
+                        final ok = await confirmIfDuplicate(
+                          context: ctx,
+                          recent: recent.map(
+                            (e) => (
+                              userId: e.userId,
+                              amount: e.amount,
+                              category: e.category,
+                              createdAt: e.createdAt,
+                            ),
+                          ),
+                          amount: double.tryParse(amountController.text) ?? 0,
+                          category: selectedCategory,
+                          myUid:
+                              ref
+                                  .read(firebaseAuthDataSourceProvider)
+                                  .currentUser
+                                  ?.uid ??
+                              '',
+                          memberNames: {for (final m in members) m.id: m.name},
+                          isId:
+                              Localizations.localeOf(ctx).languageCode == 'id',
+                        );
+                        if (!ok) return;
+                      }
                       setSheetState(() => isSaving = true);
                       try {
                         final fId = ref.read(financeScopeIdProvider);

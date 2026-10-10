@@ -94,6 +94,31 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return sorted;
   }
 
+  /// Same type, category and amount saved within 3 hours of each other by
+  /// different people (or twice by one): likely the same purchase entered
+  /// twice. Only flagged; the user decides what to delete.
+  Set<String> _possibleDuplicates(List<TransactionItem> items) {
+    final flagged = <String>{};
+    final groups = <String, List<TransactionItem>>{};
+    for (final item in items) {
+      final key = '${item.type.name}|${item.category}|${item.amount}';
+      groups.putIfAbsent(key, () => []).add(item);
+    }
+    for (final group in groups.values) {
+      if (group.length < 2) continue;
+      group.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      for (var i = 1; i < group.length; i++) {
+        final gap = group[i].createdAt.difference(group[i - 1].createdAt);
+        if (gap <= const Duration(hours: 3)) {
+          flagged
+            ..add(group[i].id)
+            ..add(group[i - 1].id);
+        }
+      }
+    }
+    return flagged;
+  }
+
   Future<void> _openItem(TransactionItem item) async {
     final ds = ref.read(firestoreDataSourceProvider);
     if (item.type == TransactionType.income) {
@@ -170,6 +195,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             ),
             data: (items) {
               final filtered = _applyFilters(items);
+              final maybeDuplicate = _possibleDuplicates(items);
 
               if (filtered.isEmpty) {
                 return const EmptyWidget(message: 'Belum ada transaksi');
@@ -228,13 +254,33 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                 children: [
                                   Row(
                                     children: [
-                                      Text(
-                                        item.category,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14,
+                                      Flexible(
+                                        child: Text(
+                                          item.category,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
                                         ),
                                       ),
+                                      if (maybeDuplicate.contains(item.id)) ...[
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          Localizations.localeOf(
+                                                    context,
+                                                  ).languageCode ==
+                                                  'id'
+                                              ? 'Mungkin dobel'
+                                              : 'Possible double',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.warningColor,
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(width: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
