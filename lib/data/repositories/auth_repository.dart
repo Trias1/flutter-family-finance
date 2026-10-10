@@ -139,7 +139,9 @@ class AuthRepository {
     await _firestoreDataSource.updateUser(updated, joinCode: joinCode);
   }
 
-  Future<void> leaveFamily() async {
+  /// An owner who leaves hands the family to [newOwnerId] (chosen in the
+  /// app); without a choice, the first other member takes over.
+  Future<void> leaveFamily({String? newOwnerId}) async {
     final uid = _authDataSource.currentUser?.uid;
     if (uid == null) throw Exception('No user logged in');
     final user = await _firestoreDataSource.getUser(uid);
@@ -151,10 +153,10 @@ class AuthRepository {
         final members = await _firestoreDataSource.getUsersByFamilyId(familyId);
         final others = members.where((m) => m.id != uid).toList();
         if (others.isNotEmpty) {
-          await _firestoreDataSource.transferFamilyOwnership(
-            familyId,
-            others.first.id,
-          );
+          final heir = others.any((m) => m.id == newOwnerId)
+              ? newOwnerId!
+              : others.first.id;
+          await _firestoreDataSource.transferFamilyOwnership(familyId, heir);
         }
       }
     }

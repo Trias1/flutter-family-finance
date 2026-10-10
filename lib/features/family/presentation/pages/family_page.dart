@@ -252,24 +252,88 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
                 onPressed: () async {
                   final family = familyAsync.valueOrNull;
                   final isOwner = family?.createdBy == user?.id;
-                  final msg = isOwner
-                      ? 'Kamu adalah admin. Admin akan otomatis pindah ke anggota lain saat kamu keluar. Lanjutkan?'
-                      : 'Yakin ingin keluar dari keluarga?';
+                  final others = (membersAsync.valueOrNull ?? [])
+                      .where((m) => m.id != user?.id)
+                      .toList();
+                  final isId =
+                      Localizations.localeOf(context).languageCode == 'id';
+                  String? heir = others.isNotEmpty ? others.first.id : null;
                   final confirm = await showDialog<bool>(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Keluar dari Keluarga'),
-                      content: Text(msg),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-                        ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ya, Keluar')),
-                      ],
+                    builder: (ctx) => StatefulBuilder(
+                      builder: (ctx, setState) => AlertDialog(
+                        title: Text(
+                          isId ? 'Keluar dari keluarga?' : 'Leave the family?',
+                        ),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Records belong to the family's shared history.
+                              Text(
+                                isId
+                                    ? 'Catatan yang kamu tambahkan tetap ada di keluarga ini. Setelah keluar, kamu kembali memakai data pribadimu. Untuk masuk lagi, perlu kode undangan terbaru.'
+                                    : 'Records you added stay with this family. After leaving you go back to your personal data. Rejoining needs the current invite code.',
+                              ),
+                              if (isOwner && others.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                Text(
+                                  isId
+                                      ? 'Pilih pemilik baru keluarga:'
+                                      : 'Choose the new family owner:',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                for (final m in others)
+                                  RadioListTile<String>(
+                                    contentPadding: EdgeInsets.zero,
+                                    dense: true,
+                                    value: m.id,
+                                    groupValue: heir,
+                                    onChanged: (v) => setState(() => heir = v),
+                                    title: Text(m.name),
+                                  ),
+                              ],
+                              if (isOwner && others.isEmpty) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  isId
+                                      ? 'Kamu satu-satunya anggota. Keluarga dan catatannya tidak bisa dibuka lagi setelah kamu keluar.'
+                                      : "You are the only member. Nobody will be able to open this family's records after you leave.",
+                                  style: const TextStyle(
+                                    color: AppTheme.errorColor,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text(isId ? 'Batal' : 'Cancel'),
+                          ),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.errorColor,
+                            ),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: Text(isId ? 'Keluar' : 'Leave'),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                   if (confirm != true) return;
-                  final err = await ref.read(authNotifierProvider.notifier).leaveFamily();
+                  final err = await ref
+                      .read(authNotifierProvider.notifier)
+                      .leaveFamily(newOwnerId: isOwner ? heir : null);
                   if (context.mounted && err != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(err)));
                   }
                 },
                 icon: const Icon(Icons.exit_to_app_rounded, color: AppTheme.errorColor),

@@ -190,9 +190,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     }
   }
 
-  Future<String?> leaveFamily() async {
+  Future<String?> leaveFamily({String? newOwnerId}) async {
     try {
-      await _authRepository.leaveFamily();
+      await _authRepository.leaveFamily(newOwnerId: newOwnerId);
       final uid = _authRepository.currentUser?.uid;
       if (uid != null) {
         final updated = await _authRepository.getUser(uid);

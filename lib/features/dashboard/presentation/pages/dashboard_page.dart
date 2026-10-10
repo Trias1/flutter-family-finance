@@ -14,6 +14,9 @@ import 'package:family_finance_manager/features/dashboard/presentation/providers
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_settings_page.dart';
 import 'package:family_finance_manager/features/expense/presentation/pages/expense_page.dart';
 import 'package:family_finance_manager/features/income/presentation/pages/income_page.dart';
+import 'package:family_finance_manager/data/models/debt_model.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/widgets/insight_cards.dart';
+import 'package:family_finance_manager/features/family/presentation/providers/family_provider.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -43,21 +46,35 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         };
 
     return dashboardAsync.when(
-      loading: () => const LoadingWidget(message: 'Memuat dashboard...'),
+      loading: () => LoadingWidget(
+        message: isId ? 'Memuat dashboard...' : 'Loading dashboard...',
+      ),
       error: (e, _) => Scaffold(
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('Gagal memuat dashboard: $e'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(dashboardProvider),
-                child: const Text('Coba Lagi'),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.cloud_off_rounded,
+                  size: 48,
+                  color: AppTheme.warningColor,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isId
+                      ? 'Dashboard belum bisa dimuat. Cek koneksi internet lalu coba lagi.'
+                      : "The dashboard couldn't load. Check your connection and try again.",
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => ref.invalidate(dashboardProvider),
+                  child: Text(isId ? 'Coba lagi' : 'Try again'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -70,6 +87,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (data.failedSections.isNotEmpty) ...[
+                  LoadIssueBanner(
+                    isId: isId,
+                    onRetry: () => ref.invalidate(dashboardProvider),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 _ModeCard(
                   userName: user?.name,
                   isFamilyMode: familyId.isNotEmpty,
@@ -92,6 +116,43 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 if (dashboardSections['menu'] ?? true) ...[
                   const SizedBox(height: 16),
                   _buildMenuGrid(isId),
+                ],
+                if (dashboardSections['insights'] ?? true) ...[
+                  if (familyId.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    MemberSpendingCard(
+                      expenses: data.allExpenses,
+                      members:
+                          ref.watch(familyMembersProvider).valueOrNull ??
+                          const [],
+                      isId: isId,
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  CategoryBreakdownCard(
+                    expenses: data.allExpenses,
+                    isId: isId,
+                  ),
+                  if (data.debts.any(
+                    (d) => d.status == DebtStatus.active,
+                  )) ...[
+                    const SizedBox(height: 16),
+                    DebtsSummaryCard(
+                      debts: data.debts,
+                      isId: isId,
+                      onOpen: () => context.push('/debts'),
+                    ),
+                  ],
+                  if (data.prediction != null &&
+                      (data.allIncomes.isNotEmpty ||
+                          data.allExpenses.isNotEmpty)) ...[
+                    const SizedBox(height: 16),
+                    ForecastCard(
+                      prediction: data.prediction!,
+                      currentBalance: data.totalBalance,
+                      isId: isId,
+                    ),
+                  ],
                 ],
                 if (dashboardSections['recent'] ?? true) ...[
                   const SizedBox(height: 20),

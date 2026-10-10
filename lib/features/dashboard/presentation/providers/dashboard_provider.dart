@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/services/prediction_service.dart';
 import 'package:family_finance_manager/core/services/widget_service.dart';
 import 'package:family_finance_manager/data/models/bill_model.dart';
+import 'package:family_finance_manager/data/models/debt_model.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
 import 'package:family_finance_manager/data/models/income_model.dart';
@@ -40,6 +41,10 @@ class DashboardData {
   final Map<DateTime, DailySummary> dailySummary;
   final Map<DateTime, List<BillModel>> billsByDate;
   final PredictionResult? prediction;
+  final List<DebtModel> debts;
+
+  /// Collections that could not be loaded (e.g. offline or no permission).
+  final List<String> failedSections;
 
   DashboardData({
     required this.totalIncome,
@@ -56,6 +61,8 @@ class DashboardData {
     required this.dailySummary,
     required this.billsByDate,
     this.prediction,
+    this.debts = const [],
+    this.failedSections = const [],
   });
 
   double get totalBalance => totalIncome - totalExpense;
@@ -111,10 +118,17 @@ Map<DateTime, DailySummary> _buildDailySummary(
   };
 }
 
-Future<List<T>> _safeQuery<T>(Future<List<T>> Function() query) async {
+/// One failed collection should not blank the whole dashboard, but the user
+/// must be told: failures are recorded under [name] and shown as a banner.
+Future<List<T>> _safeQuery<T>(
+  String name,
+  List<String> failed,
+  Future<List<T>> Function() query,
+) async {
   try {
     return await query();
   } catch (e) {
+    failed.add(name);
     return [];
   }
 }
@@ -124,17 +138,19 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
   final dataSource = ref.watch(firestoreDataSourceProvider);
   final budgetRepo = BudgetRepository(dataSource: dataSource);
 
+  final failed = <String>[];
   final results = await Future.wait([
-    _safeQuery(() => dataSource.getIncomes(familyId)),
-    _safeQuery(() => dataSource.getExpenses(familyId)),
-    _safeQuery(() => dataSource.getSavings(familyId)),
-    _safeQuery(() async {
+    _safeQuery('incomes', failed, () => dataSource.getIncomes(familyId)),
+    _safeQuery('expenses', failed, () => dataSource.getExpenses(familyId)),
+    _safeQuery('savings', failed, () => dataSource.getSavings(familyId)),
+    _safeQuery('budgets', failed, () async {
       await budgetRepo.rolloverIfNeeded(familyId);
       final month =
           '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
       return budgetRepo.getBudgetsByMonth(familyId, month);
     }),
-    _safeQuery(() => dataSource.getBills(familyId)),
+    _safeQuery('bills', failed, () => dataSource.getBills(familyId)),
+    _safeQuery('debts', failed, () => dataSource.getDebts(familyId)),
   ]);
 
   final incomes = results[0] as List<IncomeModel>;
@@ -142,6 +158,7 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
   final savings = results[2] as List<SavingModel>;
   final budgets = results[3] as List<BudgetModel>;
   final allBills = results[4] as List<BillModel>;
+  final debts = results[5] as List<DebtModel>;
 
   final totalIncome = incomes.fold<double>(0, (sum, e) => sum + e.amount);
   final totalExpense = expenses.fold<double>(0, (sum, e) => sum + e.amount);
@@ -180,6 +197,8 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
     upcomingBills: upcomingBills.take(3).toList(),
     dailySummary: _buildDailySummary(incomes, expenses),
     billsByDate: billsByDate,
+    debts: debts,
+    failedSections: failed,
     prediction: PredictionService().predict30Days(
       incomes: incomes,
       expenses: expenses,
