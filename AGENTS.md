@@ -26,6 +26,15 @@
 - [x] Remove Unused Features - Wallet, QR Scanner, Wishlist dihapus (overlap & tidak terpakai)
 - [x] Gold Investment in Goals - Tambah kategori "Investasi Emas" di Goals dengan tracking gram, harga beli/sekarang, profit/loss
 - [x] Navbar 4 Tabs with Profile - Dashboard, Transactions, Budget, Profile (hapus dropdown profile dari AppBar)
+- [x] Scan Struk & Bukti Transfer - OCR di HP (ML Kit), QRIS/struk -> pengeluaran, transfer masuk/gaji -> pemasukan
+- [x] Impor Mutasi - screenshot mutasi -> hanya pemasukan dicentang; refund & pindah antar rekening sendiri diabaikan
+- [x] Rekap Google Sheets - spreadsheet di Drive milik user sendiri (drive.file), tab per bulan + Ringkasan + grafik
+- [x] Bagikan -> Family Finance - share gambar dari galeri/app bank langsung dibaca seperti scan
+- [x] Back Android 14+ - sub-halaman (Tagihan/Utang/Tabungan) kembali ke Dashboard, tidak menutup app
+- [x] Recurring anti-dobel - lewati periode yang sudah dicatat manual (kategori + nominal sama)
+- [ ] Tes struk belanja asli (kertas) di HP user
+- [ ] Baca notifikasi bank (menunggu contoh notifikasi asli)
+- [ ] OTP login (ditunda: berbayar) dan App Check
 
 ## Key Decisions
 - Swipe uses local PageController state, no GoRouter involvement
