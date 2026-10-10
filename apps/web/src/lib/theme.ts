@@ -8,7 +8,7 @@ export const COLOR_THEME_STORAGE_KEY = "family-finance-color-theme"
 export const colorThemes: { id: ColorThemeId; name: string; swatch: string }[] = [
   { id: "oceanBlue", name: "Ocean Blue", swatch: "#1D4ED8" },
   { id: "sage", name: "Sage", swatch: "#3F6212" },
-  { id: "lavender", name: "Lavender", swatch: "#7C3AED" },
+  { id: "lavender", name: "Lavender", swatch: "#5B4B8A" },
   { id: "charcoalGold", name: "Charcoal Gold", swatch: "#111827" },
   { id: "mochaBrown", name: "Mocha Brown", swatch: "#6B3F2A" },
   { id: "softPink", name: "Soft Pink", swatch: "#BE185D" },
