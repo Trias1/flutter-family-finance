@@ -1,0 +1,9 @@
+# Vercel builds only apps/web (project Root Directory). Upload nothing else
+# from this Flutter repo when deploying with the CLI from the repo root.
+/*
+!/apps
+/apps/*
+!/apps/web
+/apps/web/node_modules
+/apps/web/.next
+/apps/web/.vercel
