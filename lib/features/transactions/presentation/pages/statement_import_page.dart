@@ -2,25 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/constants/app_constants.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
+import 'package:family_finance_manager/core/services/own_accounts.dart';
 import 'package:family_finance_manager/core/services/statement_parser.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
 import 'package:family_finance_manager/data/models/income_model.dart';
+import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/expense/presentation/providers/expense_provider.dart';
 import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
+import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
 
-/// Review screen for a scanned transaction list (mutasi rekening): every row
-/// can be ticked off, switched between money in and out, and given a
-/// category. Rows that look already recorded start unticked.
+/// What a statement row becomes when saved.
+enum RowKind { income, expense, internal, savings }
+
+/// Review screen for a scanned transaction list (mutasi rekening).
+///
+/// By default only real income is ticked: spending usually arrives through
+/// QRIS/receipt scans, so statement spending rows are shown unticked (tick
+/// the ones not recorded yet), and transfers between the user's own
+/// accounts or family members are neither income nor spending.
 class StatementImportPage extends ConsumerStatefulWidget {
   final List<StatementItem> items;
+  final List<String> ownNames;
 
-  const StatementImportPage({super.key, required this.items});
+  const StatementImportPage({
+    super.key,
+    required this.items,
+    this.ownNames = const [],
+  });
 
   @override
   ConsumerState<StatementImportPage> createState() =>
@@ -30,16 +44,19 @@ class StatementImportPage extends ConsumerStatefulWidget {
 class _Row {
   final StatementItem item;
   bool selected;
-  bool isIncome;
+  RowKind kind;
   String category;
+  String? goalId;
   final bool maybeDuplicate;
+  final bool ownTransfer;
 
   _Row({
     required this.item,
     required this.selected,
-    required this.isIncome,
+    required this.kind,
     required this.category,
     required this.maybeDuplicate,
+    required this.ownTransfer,
   });
 }
 
@@ -47,6 +64,7 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
   late final List<_Row> _rows;
   bool _saving = false;
   int _done = 0;
+  bool _incomeOnly = true;
 
   static const _hintWords = {
     'groceries': ['belanja', 'kebutuhan', 'groceries', 'shopping', 'sembako'],
@@ -57,74 +75,97 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
     'refund': ['refund', 'cashback', 'lain', 'other'],
   };
 
-  String _pick(String? hint, List<String> categories, List<String> fallback) {
+  String get _scope => ref.read(financeScopeIdProvider);
+
+  List<String> get _incomeCategories =>
+      ref.read(effectiveIncomeCategoriesProvider(_scope));
+  List<String> get _expenseCategories =>
+      ref.read(effectiveExpenseCategoriesProvider(_scope));
+
+  String _pick(String? hint, bool income) {
+    final categories = income ? _incomeCategories : _expenseCategories;
     for (final word in _hintWords[hint] ?? const <String>[]) {
       for (final c in categories) {
         if (c.toLowerCase().contains(word)) return c;
       }
     }
-    return categories.isNotEmpty ? categories.first : fallback.first;
+    if (categories.isNotEmpty) return categories.first;
+    return income
+        ? AppConstants.incomeCategories.first
+        : AppConstants.expenseCategories.first;
   }
-
-  List<String> get _incomeCategories => ref.read(
-    effectiveIncomeCategoriesProvider(ref.read(financeScopeIdProvider)),
-  );
-  List<String> get _expenseCategories => ref.read(
-    effectiveExpenseCategoriesProvider(ref.read(financeScopeIdProvider)),
-  );
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  /// Refunds and cashback give back a fee or part of a purchase; they are
+  /// not new income, so they are not ticked (the user can still add them).
+  bool _isRefund(_Row r) => r.item.categoryHint == 'refund';
+
+  /// Money-in rows worth recording: green on the bank screen, minus refunds.
+  bool _isRealIncome(_Row r) => r.item.isIncome && !_isRefund(r);
+
+  /// The default tick for a row under the current filter.
+  bool _defaultSelected(_Row r) {
+    if (r.maybeDuplicate || r.kind == RowKind.internal || _isRefund(r)) {
+      return false;
+    }
+    if (r.kind == RowKind.income) return true;
+    return !_incomeOnly;
+  }
+
   @override
   void initState() {
     super.initState();
-    final scope = ref.read(financeScopeIdProvider);
-    final incomes = ref.read(incomeStreamProvider(scope)).valueOrNull ?? [];
-    final expenses = ref.read(expenseStreamProvider(scope)).valueOrNull ?? [];
-    _rows = [
-      for (final item in widget.items)
-        () {
-          final date = item.date;
-          // Same direction, amount and day as something already saved.
-          final dup =
-              date != null &&
-              (item.isIncome
-                  ? incomes.any(
-                      (e) =>
-                          (e.amount - item.amount).abs() < 0.5 &&
-                          _sameDay(e.date, date),
-                    )
-                  : expenses.any(
-                      (e) =>
-                          (e.amount - item.amount).abs() < 0.5 &&
-                          _sameDay(e.date, date),
-                    ));
-          return _Row(
-            item: item,
-            selected: !dup,
-            isIncome: item.isIncome,
-            category: item.isIncome
-                ? _pick(
-                    item.categoryHint,
-                    _incomeCategories,
-                    AppConstants.incomeCategories,
-                  )
-                : _pick(
-                    item.categoryHint,
-                    _expenseCategories,
-                    AppConstants.expenseCategories,
-                  ),
-            maybeDuplicate: dup,
-          );
-        }(),
-    ];
+    final incomes = ref.read(incomeStreamProvider(_scope)).valueOrNull ?? [];
+    final expenses = ref.read(expenseStreamProvider(_scope)).valueOrNull ?? [];
+    _rows = [];
+    for (final item in widget.items) {
+      final date = item.date;
+      // Same direction, amount and day as something already saved.
+      final dup =
+          date != null &&
+          (item.isIncome
+              ? incomes.any(
+                  (e) =>
+                      (e.amount - item.amount).abs() < 0.5 &&
+                      _sameDay(e.date, date),
+                )
+              : expenses.any(
+                  (e) =>
+                      (e.amount - item.amount).abs() < 0.5 &&
+                      _sameDay(e.date, date),
+                ));
+      final own = OwnAccounts.isOwnTransfer(item.description, widget.ownNames);
+      final row = _Row(
+        item: item,
+        selected: false,
+        kind: own
+            ? RowKind.internal
+            : (item.isIncome ? RowKind.income : RowKind.expense),
+        category: _pick(item.categoryHint, item.isIncome),
+        maybeDuplicate: dup,
+        ownTransfer: own,
+      );
+      row.selected = _defaultSelected(row);
+      _rows.add(row);
+    }
   }
 
-  Future<void> _save(bool isId) async {
-    final chosen = _rows.where((r) => r.selected).toList();
+  void _setFilter(bool incomeOnly) {
+    setState(() {
+      _incomeOnly = incomeOnly;
+      for (final r in _rows) {
+        r.selected = _defaultSelected(r);
+      }
+    });
+  }
+
+  Future<void> _save(bool isId, List<SavingModel> goals) async {
+    final chosen = _rows
+        .where((r) => r.selected && r.kind != RowKind.internal)
+        .toList();
     if (chosen.isEmpty) return;
-    final scope = ref.read(financeScopeIdProvider);
     final uid = ref.read(firebaseAuthDataSourceProvider).currentUser?.uid ?? '';
     setState(() {
       _saving = true;
@@ -133,36 +174,56 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
     var failed = 0;
     for (final r in chosen) {
       final date = r.item.date ?? DateTime.now();
-      final note = r.item.description.isEmpty ? null : r.item.description;
+      final desc = r.item.description;
       String? error;
-      if (r.isIncome) {
-        error = await ref
-            .read(incomeNotifierProvider.notifier)
-            .addIncome(
-              IncomeModel(
-                id: '',
-                familyId: scope,
-                userId: uid,
-                amount: r.item.amount,
-                category: r.category,
-                note: note,
-                date: date,
-              ),
-            );
-      } else {
-        error = await ref
-            .read(expenseNotifierProvider.notifier)
-            .addExpense(
-              ExpenseModel(
-                id: '',
-                familyId: scope,
-                userId: uid,
-                amount: r.item.amount,
-                category: r.category,
-                note: note,
-                date: date,
-              ),
-            );
+      switch (r.kind) {
+        case RowKind.income:
+          error = await ref
+              .read(incomeNotifierProvider.notifier)
+              .addIncome(
+                IncomeModel(
+                  id: '',
+                  familyId: _scope,
+                  userId: uid,
+                  amount: r.item.amount,
+                  category: r.category,
+                  note: desc.isEmpty ? null : desc,
+                  date: date,
+                ),
+              );
+        case RowKind.expense:
+          error = await ref
+              .read(expenseNotifierProvider.notifier)
+              .addExpense(
+                ExpenseModel(
+                  id: '',
+                  familyId: _scope,
+                  userId: uid,
+                  amount: r.item.amount,
+                  category: r.category,
+                  note: desc.isEmpty ? null : desc,
+                  date: date,
+                ),
+              );
+        case RowKind.savings:
+          // "Tabungan" with the goal's name in the note credits that goal and
+          // is never counted as spending.
+          final goal = goals.where((g) => g.id == r.goalId).firstOrNull;
+          error = await ref
+              .read(expenseNotifierProvider.notifier)
+              .addExpense(
+                ExpenseModel(
+                  id: '',
+                  familyId: _scope,
+                  userId: uid,
+                  amount: r.item.amount,
+                  category: 'Tabungan',
+                  note: goal == null ? desc : '${goal.name} · $desc',
+                  date: date,
+                ),
+              );
+        case RowKind.internal:
+          break;
       }
       if (error != null) failed++;
       if (mounted) setState(() => _done++);
@@ -193,13 +254,24 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
   Widget build(BuildContext context) {
     final isId = ref.watch(localeProvider).languageCode == 'id';
     final scheme = Theme.of(context).colorScheme;
-    final chosen = _rows.where((r) => r.selected).toList();
+    final goals = ref.watch(savingStreamProvider(_scope)).valueOrNull ?? [];
+    final chosen = _rows
+        .where((r) => r.selected && r.kind != RowKind.internal)
+        .toList();
     final totalIn = chosen
-        .where((r) => r.isIncome)
+        .where((r) => r.kind == RowKind.income)
         .fold<double>(0, (s, r) => s + r.item.amount);
     final totalOut = chosen
-        .where((r) => !r.isIncome)
+        .where((r) => r.kind != RowKind.income)
         .fold<double>(0, (s, r) => s + r.item.amount);
+    // "Income only" shows just the money-in rows (green on the bank screen).
+    final visible = _incomeOnly
+        ? _rows.where((r) => _isRealIncome(r) || r.selected).toList()
+        : _rows;
+    final hidden = _rows.length - visible.length;
+    final needsGoal = chosen.any(
+      (r) => r.kind == RowKind.savings && r.goalId == null,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -208,11 +280,33 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: SegmentedButton<bool>(
+              segments: [
+                ButtonSegment(
+                  value: true,
+                  label: Text(isId ? 'Pemasukan saja' : 'Income only'),
+                ),
+                ButtonSegment(
+                  value: false,
+                  label: Text(isId ? 'Semua' : 'All'),
+                ),
+              ],
+              selected: {_incomeOnly},
+              showSelectedIcon: false,
+              onSelectionChanged: _saving ? null : (s) => _setFilter(s.first),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
             child: Text(
-              isId
-                  ? 'Cek dulu sebelum disimpan. Yang sepertinya sudah pernah dicatat tidak dicentang. Top up e-wallet atau pindah ke rekening sendiri bisa kamu lepas centangnya.'
-                  : 'Check before saving. Rows that look already recorded start unticked. Untick e-wallet top-ups or moves between your own accounts.',
+              _incomeOnly
+                  ? (isId
+                        ? 'Pengeluaran biasanya sudah tercatat lewat scan QRIS atau struk, jadi tidak dicentang. Centang yang belum tercatat (misalnya bayar pakai kartu debit). Pindah antar rekening sendiri tidak dihitung.'
+                        : 'Spending usually comes in through QRIS or receipt scans, so it starts unticked. Tick anything not recorded yet (e.g. debit card). Moves between your own accounts are not counted.')
+                  : (isId
+                        ? 'Semua transaksi dicentang, kecuali yang sepertinya sudah ada dan pindah antar rekening sendiri.'
+                        : 'Everything is ticked except rows that look already recorded and moves between your own accounts.'),
               style: TextStyle(
                 color: scheme.onSurfaceVariant,
                 fontSize: 12,
@@ -223,27 +317,37 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              itemCount: _rows.length,
+              itemCount: visible.length + (hidden > 0 ? 1 : 0),
               separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _RowTile(
-                row: _rows[i],
-                isId: isId,
-                enabled: !_saving,
-                incomeCategories: _incomeCategories,
-                expenseCategories: _expenseCategories,
-                onChanged: () => setState(() {}),
-                pickFor: (row, isIncome) => isIncome
-                    ? _pick(
-                        row.item.categoryHint,
-                        _incomeCategories,
-                        AppConstants.incomeCategories,
-                      )
-                    : _pick(
-                        row.item.categoryHint,
-                        _expenseCategories,
-                        AppConstants.expenseCategories,
+              itemBuilder: (_, i) => i == visible.length
+                  ? TextButton(
+                      onPressed: _saving ? null : () => _setFilter(false),
+                      child: Text(
+                        isId
+                            ? '$hidden transaksi lain disembunyikan · Tampilkan'
+                            : '$hidden other rows hidden · Show',
                       ),
-              ),
+                    )
+                  : _RowTile(
+                      row: visible[i],
+                      isId: isId,
+                      enabled: !_saving,
+                      goals: goals,
+                      categoriesFor: (income) =>
+                          income ? _incomeCategories : _expenseCategories,
+                      onKind: (kind) => setState(() {
+                        final r = visible[i];
+                        r.kind = kind;
+                        if (kind == RowKind.income || kind == RowKind.expense) {
+                          r.category = _pick(
+                            r.item.categoryHint,
+                            kind == RowKind.income,
+                          );
+                        }
+                        r.selected = kind != RowKind.internal;
+                      }),
+                      onChanged: () => setState(() {}),
+                    ),
             ),
           ),
           SafeArea(
@@ -261,26 +365,32 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${isId ? 'Masuk' : 'In'} ${CurrencyFormatter.format(totalIn)}  ·  ${isId ? 'Keluar' : 'Out'} ${CurrencyFormatter.format(totalOut)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '${isId ? 'Masuk' : 'In'} ${CurrencyFormatter.format(totalIn)}  ·  ${isId ? 'Keluar' : 'Out'} ${CurrencyFormatter.format(totalOut)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
+                  if (needsGoal) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      isId
+                          ? 'Pilih target tabungan untuk baris Tabungan.'
+                          : 'Pick a savings goal for the Savings rows.',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.warningColor,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: _saving || chosen.isEmpty
+                      onPressed: _saving || chosen.isEmpty || needsGoal
                           ? null
-                          : () => _save(isId),
+                          : () => _save(isId, goals),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -309,32 +419,50 @@ class _RowTile extends StatelessWidget {
   final _Row row;
   final bool isId;
   final bool enabled;
-  final List<String> incomeCategories;
-  final List<String> expenseCategories;
+  final List<SavingModel> goals;
+  final List<String> Function(bool income) categoriesFor;
+  final ValueChanged<RowKind> onKind;
   final VoidCallback onChanged;
-  final String Function(_Row row, bool isIncome) pickFor;
 
   const _RowTile({
     required this.row,
     required this.isId,
     required this.enabled,
-    required this.incomeCategories,
-    required this.expenseCategories,
+    required this.goals,
+    required this.categoriesFor,
+    required this.onKind,
     required this.onChanged,
-    required this.pickFor,
   });
+
+  String _label(RowKind k) => switch (k) {
+    RowKind.income => isId ? 'Pemasukan' : 'Income',
+    RowKind.expense => isId ? 'Pengeluaran' : 'Spending',
+    RowKind.internal => isId ? 'Pindah rekening' : 'Own transfer',
+    RowKind.savings => isId ? 'Tabungan' : 'Savings',
+  };
+
+  Color _color(RowKind k) => switch (k) {
+    RowKind.income => AppTheme.incomeColor,
+    RowKind.expense => AppTheme.expenseColor,
+    RowKind.internal => AppTheme.primaryColor,
+    RowKind.savings => AppTheme.savingsColor,
+  };
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = row.isIncome ? AppTheme.incomeColor : AppTheme.expenseColor;
-    final categories = row.isIncome ? incomeCategories : expenseCategories;
+    final color = _color(row.kind);
+    final sign = row.item.isIncome ? '+' : '-';
+    final isEntry = row.kind == RowKind.income || row.kind == RowKind.expense;
+    final categories = isEntry
+        ? categoriesFor(row.kind == RowKind.income)
+        : const <String>[];
     final options = categories.contains(row.category)
         ? categories
         : [row.category, ...categories];
 
     return Opacity(
-      opacity: row.selected ? 1 : 0.55,
+      opacity: row.selected && row.kind != RowKind.internal ? 1 : 0.55,
       child: Container(
         padding: const EdgeInsets.fromLTRB(4, 8, 12, 8),
         decoration: BoxDecoration(
@@ -348,8 +476,8 @@ class _RowTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Checkbox(
-              value: row.selected,
-              onChanged: enabled
+              value: row.selected && row.kind != RowKind.internal,
+              onChanged: enabled && row.kind != RowKind.internal
                   ? (v) {
                       row.selected = v ?? false;
                       onChanged();
@@ -364,10 +492,12 @@ class _RowTile extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '${row.isIncome ? '+' : '-'}${CurrencyFormatter.format(row.item.amount)}',
+                          '$sign${CurrencyFormatter.format(row.item.amount)}',
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
-                            color: color,
+                            color: row.item.isIncome
+                                ? AppTheme.incomeColor
+                                : scheme.onSurface,
                           ),
                         ),
                       ),
@@ -389,12 +519,16 @@ class _RowTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13, height: 1.35),
                   ),
-                  if (row.maybeDuplicate) ...[
+                  if (row.maybeDuplicate || row.ownTransfer) ...[
                     const SizedBox(height: 4),
                     Text(
-                      isId
-                          ? 'Mungkin sudah ada di catatan'
-                          : 'May already be recorded',
+                      row.ownTransfer
+                          ? (isId
+                                ? 'Ke/dari rekening sendiri atau keluarga'
+                                : 'To/from your own or family account')
+                          : (isId
+                                ? 'Mungkin sudah ada di catatan'
+                                : 'May already be recorded'),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -403,44 +537,55 @@ class _RowTile extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 6),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      // Tap to switch money in / money out.
-                      ActionChip(
-                        label: Text(
-                          row.isIncome
-                              ? (isId ? 'Masuk' : 'In')
-                              : (isId ? 'Keluar' : 'Out'),
+                      PopupMenuButton<RowKind>(
+                        enabled: enabled,
+                        onSelected: onKind,
+                        itemBuilder: (_) => [
+                          for (final k in RowKind.values)
+                            PopupMenuItem(value: k, child: Text(_label(k))),
+                        ],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _label(row.kind),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: color,
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_drop_down_rounded,
+                                size: 18,
+                                color: color,
+                              ),
+                            ],
+                          ),
                         ),
-                        avatar: Icon(
-                          row.isIncome
-                              ? Icons.south_west_rounded
-                              : Icons.north_east_rounded,
-                          size: 16,
-                          color: color,
-                        ),
-                        onPressed: enabled
-                            ? () {
-                                row.isIncome = !row.isIncome;
-                                row.category = pickFor(row, row.isIncome);
-                                onChanged();
-                              }
-                            : null,
-                        visualDensity: VisualDensity.compact,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButton<String>(
+                      if (isEntry)
+                        DropdownButton<String>(
                           value: row.category,
-                          isExpanded: true,
                           isDense: true,
                           underline: const SizedBox.shrink(),
                           items: [
                             for (final c in options)
-                              DropdownMenuItem(
-                                value: c,
-                                child: Text(c, overflow: TextOverflow.ellipsis),
-                              ),
+                              DropdownMenuItem(value: c, child: Text(c)),
                           ],
                           onChanged: enabled
                               ? (v) {
@@ -450,7 +595,38 @@ class _RowTile extends StatelessWidget {
                                 }
                               : null,
                         ),
-                      ),
+                      if (row.kind == RowKind.savings)
+                        goals.isEmpty
+                            ? Text(
+                                isId
+                                    ? 'Belum ada target tabungan'
+                                    : 'No savings goals yet',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              )
+                            : DropdownButton<String>(
+                                value: row.goalId,
+                                isDense: true,
+                                hint: Text(
+                                  isId ? 'Pilih target' : 'Pick a goal',
+                                ),
+                                underline: const SizedBox.shrink(),
+                                items: [
+                                  for (final g in goals)
+                                    DropdownMenuItem(
+                                      value: g.id,
+                                      child: Text(g.name),
+                                    ),
+                                ],
+                                onChanged: enabled
+                                    ? (v) {
+                                        row.goalId = v;
+                                        onChanged();
+                                      }
+                                    : null,
+                              ),
                     ],
                   ),
                 ],

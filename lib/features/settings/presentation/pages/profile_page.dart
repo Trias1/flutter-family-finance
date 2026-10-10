@@ -91,12 +91,12 @@ class ProfilePage extends ConsumerWidget {
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-        child: Text(
-          Localizations.localeOf(context).languageCode == 'id'
-              ? 'Profil belum bisa dimuat. Coba lagi nanti.'
-              : "Couldn't load your profile. Try again later.",
+          child: Text(
+            Localizations.localeOf(context).languageCode == 'id'
+                ? 'Profil belum bisa dimuat. Coba lagi nanti.'
+                : "Couldn't load your profile. Try again later.",
+          ),
         ),
-      ),
       ),
     );
   }

@@ -28,6 +28,7 @@ import 'package:family_finance_manager/core/widgets/announcement_banner.dart';
 import 'package:family_finance_manager/core/services/receipt_parser.dart';
 import 'package:family_finance_manager/core/services/receipt_scanner.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/statement_import_page.dart';
+import 'package:family_finance_manager/core/services/own_accounts.dart';
 
 const _tabRoutes = ['/dashboard', '/transactions', '/budget', '/profile'];
 const _tabPages = <Widget>[
@@ -316,9 +317,14 @@ class _MainShellState extends ConsumerState<MainShell> {
     if (scan == null || !mounted) return;
     // A transaction list (mutasi): review and save every row at once.
     if (scan.isStatement) {
+      final ownNames = await ref
+          .read(ownAccountNamesProvider.future)
+          .catchError((_) => const <String>[]);
+      if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => StatementImportPage(items: scan!.items),
+          builder: (_) =>
+              StatementImportPage(items: scan!.items, ownNames: ownNames),
         ),
       );
       return;

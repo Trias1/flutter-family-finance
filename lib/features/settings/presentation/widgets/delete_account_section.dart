@@ -87,7 +87,12 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
 
   Future<void> _delete() async {
     if (_confirm.text.trim().toUpperCase() != _word) {
-      setState(() => _error = _t('Ketik $_word untuk konfirmasi.', 'Type $_word to confirm.'));
+      setState(
+        () => _error = _t(
+          'Ketik $_word untuk konfirmasi.',
+          'Type $_word to confirm.',
+        ),
+      );
       return;
     }
     final ds = ref.read(firebaseAuthDataSourceProvider);
