@@ -12,6 +12,7 @@ class AppStrings {
   String get expense => _id ? 'Pengeluaran' : 'Expense';
   String get transactions => _id ? 'Riwayat' : 'History';
   String get debts => _id ? 'Hutang' : 'Debts';
+  String get bills => _id ? 'Tagihan' : 'Bills';
   String get wallets => _id ? 'Dompet' : 'Wallets';
   String get savings => 'Goals';
   String get budget => _id ? 'Anggaran' : 'Budget';
@@ -87,6 +88,7 @@ class AppStrings {
     if (loc.startsWith('/expense')) return expense;
     if (loc.startsWith('/transactions')) return transactions;
     if (loc.startsWith('/debts')) return debts;
+    if (loc.startsWith('/bills')) return bills;
     if (loc.startsWith('/wallets')) return wallets;
     if (loc.startsWith('/savings')) return savings;
     if (loc.startsWith('/budget/history')) {
@@ -101,6 +103,7 @@ class AppStrings {
     if (loc.startsWith('/categories')) return categories;
     if (loc.startsWith('/privacy-security')) return privacySecurity;
     if (loc.startsWith('/backup')) return backupRestore;
+    if (loc.startsWith('/settings/profile')) return profile;
     if (loc.startsWith('/settings')) return settings;
     if (loc.startsWith('/family')) return family;
     return dashboard;

@@ -18,9 +18,31 @@ import 'package:family_finance_manager/features/reports/presentation/providers/r
 import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
 import 'package:family_finance_manager/core/utils/duplicate_check.dart';
 import 'package:family_finance_manager/features/family/presentation/providers/family_provider.dart';
+import 'package:family_finance_manager/core/services/receipt_parser.dart';
 
 class ExpensePage extends ConsumerWidget {
   const ExpensePage({super.key});
+
+  /// Opens the form filled from a scanned receipt; the user reviews and saves.
+  static Future<void> openFromReceipt(
+    BuildContext context,
+    WidgetRef ref,
+    ReceiptDraft draft,
+  ) => const ExpensePage()._showExpenseForm(context, ref, draft: draft);
+
+  /// Picks one of the user's categories for a scanned receipt, if any fits.
+  static String? _categoryFor(String? hint, List<String> categories) {
+    const wanted = {
+      'groceries': ['belanja', 'kebutuhan', 'groceries', 'shopping', 'sembako'],
+      'transfer': ['transfer', 'kirim'],
+    };
+    for (final word in wanted[hint] ?? const <String>[]) {
+      for (final c in categories) {
+        if (c.toLowerCase().contains(word)) return c;
+      }
+    }
+    return null;
+  }
 
   /// Opens an empty form from other screens, e.g. the + button.
   static Future<void> openNew(BuildContext context, WidgetRef ref) =>
@@ -249,10 +271,18 @@ class ExpensePage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     ExpenseModel? expense,
+    ReceiptDraft? draft,
   }) async {
     final formKey = GlobalKey<FormState>();
+    final scanned = draft?.amount;
     final amountController = TextEditingController(
-      text: expense != null ? expense.amount.toString() : '',
+      text: expense != null
+          ? expense.amount.toString()
+          : scanned == null
+          ? ''
+          : (scanned == scanned.roundToDouble()
+                ? scanned.toStringAsFixed(0)
+                : scanned.toString()),
     );
     final familyId = ref.read(financeScopeIdProvider);
     final categories = ref.read(effectiveExpenseCategoriesProvider(familyId));
@@ -260,11 +290,16 @@ class ExpensePage extends ConsumerWidget {
     final savings = await dataSource.getSavings(familyId);
     String selectedCategory =
         expense?.category ??
+        _categoryFor(draft?.categoryHint, categories) ??
         (categories.isNotEmpty
             ? categories.first
             : AppConstants.expenseCategories.first);
-    final noteController = TextEditingController(text: expense?.note ?? '');
-    DateTime selectedDate = expense?.date ?? DateTime.now();
+    final draftIsId =
+        context.mounted && Localizations.localeOf(context).languageCode == 'id';
+    final noteController = TextEditingController(
+      text: expense?.note ?? draft?.noteFor(isId: draftIsId) ?? '',
+    );
+    DateTime selectedDate = expense?.date ?? draft?.date ?? DateTime.now();
     String? selectedSavingId;
     bool isSaving = false;
 

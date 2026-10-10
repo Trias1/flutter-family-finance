@@ -25,6 +25,8 @@ import 'package:family_finance_manager/core/services/notification_service.dart';
 import 'package:family_finance_manager/data/models/bill_model.dart';
 import 'package:family_finance_manager/features/bills/presentation/providers/bill_provider.dart';
 import 'package:family_finance_manager/core/widgets/announcement_banner.dart';
+import 'package:family_finance_manager/core/services/receipt_parser.dart';
+import 'package:family_finance_manager/core/services/receipt_scanner.dart';
 
 const _tabRoutes = ['/dashboard', '/transactions', '/budget', '/profile'];
 const _tabPages = <Widget>[
@@ -265,8 +267,64 @@ class _MainShellState extends ConsumerState<MainShell> {
         // The shell's ref outlives the sheet; the forms save through it.
         onIncome: () => IncomePage.openNew(context, ref),
         onExpense: () => ExpensePage.openNew(context, ref),
+        onScan: _scanReceipt,
       ),
     );
+  }
+
+  /// Photo or screenshot -> on-device text reading -> a filled expense form
+  /// the user checks before saving.
+  Future<void> _scanReceipt(bool fromCamera) async {
+    final isId = ref.read(localeProvider).languageCode == 'id';
+    var showingProgress = false;
+    ReceiptDraft? draft;
+    try {
+      draft = await ReceiptScanner.pickAndRead(
+        fromCamera: fromCamera,
+        onReading: () {
+          if (!mounted) return;
+          showingProgress = true;
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              content: Row(
+                children: [
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      isId ? 'Membaca struk…' : 'Reading the receipt…',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (_) {
+      draft = const ReceiptDraft();
+    } finally {
+      if (showingProgress && mounted) Navigator.of(context).pop();
+    }
+    if (draft == null || !mounted) return;
+    if (draft.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isId
+                ? 'Struk belum terbaca jelas. Isi nominalnya manual, ya.'
+                : "Couldn't read the receipt clearly. Please fill in the amount.",
+          ),
+        ),
+      );
+    }
+    await ExpensePage.openFromReceipt(context, ref, draft);
   }
 
   /// "Active now" for the admin panel, like the web: every 60 seconds while
@@ -647,12 +705,14 @@ class _AddBottomSheet extends ConsumerWidget {
   final BuildContext shellContext;
   final VoidCallback onIncome;
   final VoidCallback onExpense;
+  final void Function(bool fromCamera) onScan;
 
   const _AddBottomSheet({
     required this.strings,
     required this.shellContext,
     required this.onIncome,
     required this.onExpense,
+    required this.onScan,
   });
 
   @override
@@ -695,6 +755,37 @@ class _AddBottomSheet extends ConsumerWidget {
               Navigator.pop(context);
               onExpense();
             },
+          ),
+          const SizedBox(height: 12),
+          // Scan a receipt or a payment screenshot into a filled expense form.
+          Row(
+            children: [
+              Expanded(
+                child: _SmallAddOption(
+                  icon: Icons.photo_camera_outlined,
+                  color: AppTheme.expenseColor,
+                  label: isId ? 'Foto struk' : 'Photo a receipt',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onScan(true);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SmallAddOption(
+                  icon: Icons.document_scanner_outlined,
+                  color: AppTheme.expenseColor,
+                  label: isId
+                      ? 'Bukti bayar dari galeri'
+                      : 'Payment screenshot',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onScan(false);
+                  },
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           // Less frequent actions open their own pages, which hold the forms.

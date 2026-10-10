@@ -8,6 +8,7 @@ import 'package:family_finance_manager/features/auth/presentation/providers/auth
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:family_finance_manager/core/widgets/brand_mark.dart';
 
 /// Picks the Indonesian or English text for the app's current language.
 String _tr(BuildContext context, String id, String en) =>
@@ -231,25 +232,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(22),
                         ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 44),
-                            Positioned(
-                              top: 22,
-                              right: 16,
-                              child: Container(
-                                width: 18,
-                                height: 18,
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.warningColor,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.attach_money, color: Colors.white, size: 12),
-                              ),
-                            ),
-                          ],
-                        ),
+                        alignment: Alignment.center,
+                        child: const BrandMark(size: 46),
                       ),
                       const SizedBox(height: 16),
                       const Text(
@@ -426,7 +410,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 Expanded(child: Divider(color: Theme.of(context).colorScheme.outlineVariant)),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text('atau', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
+                                  child: Text(_tr(context, 'atau', 'or'), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
                                 ),
                                 Expanded(child: Divider(color: Theme.of(context).colorScheme.outlineVariant)),
                               ],
