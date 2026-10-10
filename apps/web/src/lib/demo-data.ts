@@ -68,3 +68,46 @@ export function buildDemoData() {
   ]
   return { incomes, expenses, budgets, savings, debts, bills, members }
 }
+
+export function buildDemoAdminOverview() {
+  const rand = seeded(7)
+  const now = Date.now()
+  const names = ["Trias", "Dewi", "Budi", "Sari", "Andi", "Rina", "Joko", "Maya", "Fajar", "Lina", "Hadi", "Tari"]
+  const versions = ["1.1.10+14", "1.1.10+14", "1.1.9+13", "1.1.8+12"]
+  const users = names.map((name, i) => {
+    const web = i % 4 === 0
+    const lastSeenAt = now - Math.floor(rand() * (i < 3 ? 90_000 : 5 * 86_400_000))
+    const version = web ? "1.1.10+14" : versions[Math.floor(rand() * versions.length)]
+    return {
+      id: `u${i}`,
+      name,
+      devicesCount: 1 + Math.floor(rand() * 2),
+      latestSource: web ? "web" : "android",
+      latestDeviceName: web ? "Chrome Win32" : ["Samsung SM-A546E", "Xiaomi 23021RAA2Y", "OPPO CPH2591"][i % 3],
+      appVersionLabel: version,
+      online: now - lastSeenAt < 120_000,
+      outdated: !web && version !== "1.1.10+14",
+      activeToday: now - lastSeenAt < 86_400_000,
+      lastSeenAt,
+    }
+  })
+  const growth = Array.from({ length: 14 }, (_, i) => ({
+    day: new Date(now - (13 - i) * 86_400_000).toISOString().slice(5, 10),
+    users: Math.floor(rand() * 3),
+    active: 2 + Math.floor(rand() * 8),
+  }))
+  const versionCounts = new Map<string, number>()
+  for (const u of users) versionCounts.set(u.appVersionLabel, (versionCounts.get(u.appVersionLabel) ?? 0) + 1)
+  return {
+    totalUsers: users.length,
+    onlineUsers: users.filter((u) => u.online).length,
+    activeToday: users.filter((u) => u.activeToday).length,
+    outdatedUsers: users.filter((u) => u.outdated).length,
+    activeDevices: users.reduce((s, u) => s + u.devicesCount, 0),
+    latestVersionName: "1.1.10",
+    latestVersionCode: 14,
+    growth,
+    versions: Array.from(versionCounts, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
+    users: users.sort((a, b) => b.lastSeenAt - a.lastSeenAt),
+  }
+}

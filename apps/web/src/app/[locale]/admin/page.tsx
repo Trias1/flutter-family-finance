@@ -157,6 +157,13 @@ export default function AdminPage() {
         return
       }
       setUser(u)
+      // Development-only layout review with sample data; dropped from production builds.
+      if (process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("demo") === "1") {
+        const { buildDemoAdminOverview } = await import("@/lib/demo-data")
+        setOverview(buildDemoAdminOverview())
+        setState("ready")
+        return
+      }
       const snap = await getDoc(doc(db, "users", u.uid)).catch(() => null)
       if (snap?.data()?.systemRole !== "superadmin") {
         setState("denied")
@@ -225,11 +232,8 @@ export default function AdminPage() {
         <Section><EmptyState title={t("noPermission")} /></Section>
       ) : (
         <div className="space-y-6">
-          <PageHeader
-            title={t("dashboardTitle")}
-            description={t("dashboardDesc")}
-            actions={
-              <div className="flex flex-wrap gap-2">
+          <PageHeader title={t("dashboardTitle")} description={t("dashboardDesc")} />
+          <div className="-mt-2 flex flex-wrap gap-2">
                 <button type="button" onClick={() => run("invites")} disabled={busy !== ""} className="auth-btn-secondary !h-9 !w-auto px-3">
                   {busy === "invites" ? t("processing") : t("syncInvites")}
                 </button>
@@ -239,15 +243,13 @@ export default function AdminPage() {
                 <button type="button" onClick={() => run("backfill")} disabled={busy !== ""} className="auth-btn-primary !h-9 !w-auto px-3">
                   {busy === "backfill" ? t("processing") : t("syncLegacyUsers")}
                 </button>
-              </div>
-            }
-          />
+          </div>
 
           {notice && <p className={`auth-notice ${notice.tone === "ok" ? "auth-notice-ok" : "auth-notice-error"}`}>{notice.text}</p>}
 
           {overview && (
             <>
-              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border lg:grid-cols-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--border)" }}>
+              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border lg:grid-cols-5 [&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1" style={{ borderColor: "var(--border)", backgroundColor: "var(--border)" }}>
                 <Count label={t("totalUsers")} value={overview.totalUsers} note={t("registeredAccounts")} />
                 <Count label={t("onlineNow")} value={overview.onlineUsers} note={t("activeIn2Minutes")} />
                 <Count label={t("activeToday")} value={overview.activeToday} note={t("active24Hours")} />
