@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeftRight, BarChart3, HandCoins, LayoutGrid, PiggyBank, type LucideIcon } from "lucide-react"
+import { ArrowLeftRight, BarChart3, LayoutGrid, Scale, Target, type LucideIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import BrandMark from "@/components/public/BrandMark"
@@ -13,8 +13,8 @@ type NavItem = { href: string; key: string; icon: LucideIcon }
 export const navItems: NavItem[] = [
   { href: "/dashboard", key: "overview", icon: LayoutGrid },
   { href: "/dashboard/transactions", key: "transactions", icon: ArrowLeftRight },
-  { href: "/dashboard/budget-savings", key: "budget", icon: PiggyBank },
-  { href: "/dashboard/debts", key: "debts", icon: HandCoins },
+  { href: "/dashboard/budget-savings", key: "budget", icon: Target },
+  { href: "/dashboard/debts", key: "debts", icon: Scale },
   { href: "/dashboard/reports", key: "reports", icon: BarChart3 },
 ]
 
