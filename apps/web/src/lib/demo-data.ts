@@ -52,9 +52,9 @@ export function buildDemoData() {
     usedAmount: thisMonth.filter((e) => e.category === category).reduce((s, e) => s + e.amount, 0),
   }))
   const savings: Saving[] = [
-    { id: "s1", name: "Dana darurat", category: "emergency", targetAmount: 30_000_000, currentAmount: 18_400_000, targetDate: new Date(now.getFullYear() + 1, 5, 1), goldGrams: null },
-    { id: "s2", name: "Emas Antam", category: "gold", targetAmount: 15_000_000, currentAmount: 6_250_000, targetDate: new Date(now.getFullYear() + 1, 11, 1), goldGrams: 4.5 },
-    { id: "s3", name: "Liburan keluarga", category: "vacation", targetAmount: 8_000_000, currentAmount: 8_000_000, targetDate: new Date(now.getFullYear(), now.getMonth() + 2, 1), goldGrams: null },
+    { id: "s1", name: "Dana darurat", category: "emergency", targetAmount: 30_000_000, currentAmount: 18_400_000, targetDate: new Date(now.getFullYear() + 1, 5, 1), createdAt: new Date(now.getFullYear() - 1, 5, 1), goldGrams: null },
+    { id: "s2", name: "Emas Antam", category: "gold", targetAmount: 15_000_000, currentAmount: 6_250_000, targetDate: new Date(now.getFullYear() + 1, 11, 1), createdAt: new Date(now.getFullYear() - 1, 0, 1), goldGrams: 4.5 },
+    { id: "s3", name: "Liburan keluarga", category: "vacation", targetAmount: 8_000_000, currentAmount: 8_000_000, targetDate: new Date(now.getFullYear(), now.getMonth() + 2, 1), createdAt: null, goldGrams: null },
   ]
   const debts: Debt[] = [
     { id: "d1", type: "hutang", personName: "Cicilan motor", description: "Leasing 24x", amount: 18_000_000, remainingAmount: 9_750_000, dueDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 5), status: "active" },

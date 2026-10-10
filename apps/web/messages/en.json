@@ -421,7 +421,8 @@
       "reports": "Reports",
       "guide": "Guide",
       "admin": "Admin panel",
-      "signOut": "Sign out"
+      "signOut": "Sign out",
+      "account": "Account"
     },
     "navShort": {
       "overview": "Overview",
@@ -447,12 +448,14 @@
       "income": "Income",
       "expense": "Spending",
       "all": "All",
-      "net": "Net"
+      "net": "Net",
+      "member": "Member",
+      "otherCategory": "Other"
     },
     "overview": {
       "title": "Overview",
       "personalNotice": "You haven't joined a family yet, so this shows your personal records from the Android app. Once you join, family data appears here automatically.",
-      "net": "Net this month",
+      "net": "Net",
       "netNote": "Income minus spending",
       "income": "Income",
       "expense": "Spending",
@@ -462,7 +465,6 @@
       "noBudgetSet": "No budget for this month",
       "noBudgetHint": "Set per-category budgets in the Android app and their progress shows up here.",
       "cashflow": "Cash flow",
-      "last6Months": "Last 6 months",
       "budgetWatch": "Budget watch",
       "overBy": "Over by {amount}",
       "leftOf": "{left} left of {total}",
@@ -472,8 +474,12 @@
       "noBills": "No bills due in the next 14 days",
       "overdue": "Overdue since",
       "due": "Due",
-      "noCompare": "No data for last month yet",
-      "noCashflow": "No transactions in the last 6 months"
+      "noCompare": "No data for the previous month",
+      "noCashflow": "No transactions in these 6 months",
+      "topCategories": "Top spending",
+      "debts": "Debts",
+      "nextDue": "Next due",
+      "noDebtsDue": "No active debts with a due date"
     },
     "transactions": {
       "title": "Transactions",
@@ -492,7 +498,8 @@
       "note": "Note",
       "by": "By",
       "amount": "Amount",
-      "showMore": "Show {count} more"
+      "showMore": "Show {count} more",
+      "since": "Showing records since {month}. Pick a month to see older ones."
     },
     "budget": {
       "title": "Budgets & savings",
@@ -506,7 +513,11 @@
       "noSavings": "No savings goals yet",
       "noSavingsHint": "Create a savings or gold goal in the Android app.",
       "grams": "{grams} g",
-      "target": "Target {date}"
+      "target": "Target {date}",
+      "perMonth": "Needs {amount}/month for {months, plural, one {# month} other {# months}}",
+      "behind": "Behind schedule",
+      "pastTarget": "Target date passed",
+      "stillNeeded": "{amount} still needed"
     },
     "debts": {
       "title": "Debts",
@@ -545,7 +556,71 @@
       "savingRate": "Savings rate",
       "vsPrev": "Spending vs previous month",
       "vsPrevNote": "Savings rate is net divided by income. The percentage next to each category compares with the previous month.",
-      "monthly": "Month by month"
+      "monthly": "Month by month",
+      "noCashflow": "No transactions in this period"
+    },
+    "errors": {
+      "loadFailed": "Couldn't load this data",
+      "loadFailedHint": "Check your connection, then try again. Nothing is shown until it loads, so the numbers are never wrong.",
+      "retry": "Try again"
+    },
+    "members": {
+      "title": "Spending by member",
+      "share": "{pct}% of total",
+      "former": "Former member"
+    },
+    "account": {
+      "title": "Account",
+      "desc": "Your profile, family, and sign-in settings.",
+      "profile": "Profile",
+      "name": "Name",
+      "email": "Email",
+      "signInMethod": "Sign-in method",
+      "methodPassword": "Email and password",
+      "methodGoogle": "Google",
+      "methodOther": "Other",
+      "currency": "Display currency",
+      "editInApp": "Name and currency are changed in the Android app.",
+      "family": "Family",
+      "memberCount": "{count, plural, one {# member} other {# members}}",
+      "noFamily": "You are not in a family",
+      "noFamilyHint": "Create or join one in the Android app with an invite code.",
+      "you": "You",
+      "owner": "Owner",
+      "security": "Password",
+      "googleOnly": "You sign in with Google, so there is no password to change here. Manage it in your Google account.",
+      "changePassword": "Change password",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "repeatPassword": "Repeat new password",
+      "saving": "Saving…",
+      "passwordChanged": "Password changed. Other devices will need to sign in again.",
+      "resetHint": "Forgot your current password? We can email you a link to set a new one.",
+      "sendReset": "Email me a reset link",
+      "sending": "Sending…",
+      "resetSent": "Reset link sent to {email}. Check your inbox and spam folder.",
+      "errors": {
+        "wrongPassword": "The current password is incorrect.",
+        "mismatch": "The new passwords don't match.",
+        "samePassword": "Choose a password different from the current one.",
+        "userMismatch": "That Google account is not the one you are signed in with.",
+        "popupBlocked": "The browser blocked the Google window. Allow pop-ups for this site and try again.",
+        "generic": "Something went wrong. Try again."
+      },
+      "delete": {
+        "title": "Delete account",
+        "intro": "Deleting your account removes:",
+        "personal": "your personal records (those not in a family) and their budgets, savings, debts, and bills;",
+        "profile": "your profile, devices, and sign-in.",
+        "ownership": "If you own the family, ownership passes to the longest-standing other member. A family with nobody else in it is deleted with its records.",
+        "shared": "Records you added to the family stay with the family.",
+        "irreversible": "This cannot be undone.",
+        "word": "DELETE",
+        "typeWord": "Type {word} to confirm",
+        "googleReauth": "You will be asked to confirm with Google first.",
+        "button": "Delete my account",
+        "deleting": "Deleting…"
+      }
     }
   },
   "meta": {
@@ -584,6 +659,9 @@
     "weakPassword": "Password must be at least 8 characters and include letters and numbers.",
     "cannotResetSelf": "Change your own password from your account page.",
     "cannotResetSuperadmin": "A superadmin's password cannot be reset here.",
-    "server": "Something went wrong on the server. Try again later."
+    "server": "Something went wrong on the server. Try again later.",
+    "confirmRequired": "Type the confirmation word to continue.",
+    "reauthRequired": "For your safety, confirm your password or Google sign-in again, then retry.",
+    "cannotDeleteSuperadmin": "A superadmin account cannot be deleted here."
   }
 }

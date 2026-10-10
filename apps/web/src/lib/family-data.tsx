@@ -1,19 +1,22 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   collection,
   doc,
   onSnapshot,
+  orderBy,
   query,
+  Timestamp,
   where,
   type DocumentData,
+  type Query,
   type QueryDocumentSnapshot,
-  type Timestamp,
 } from "firebase/firestore"
+import { useTranslations } from "next-intl"
 
 import { db } from "@/lib/firebase"
-import { setDisplayCurrency } from "@/lib/money"
+import { setDisplayCurrency, startOfMonth } from "@/lib/money"
 
 export type Tx = {
   id: string
@@ -42,6 +45,7 @@ export type Saving = {
   targetAmount: number
   currentAmount: number
   targetDate: Date | null
+  createdAt: Date | null
   goldGrams: number | null
 }
 
@@ -77,7 +81,7 @@ type Collections = {
   members: Member[]
 }
 
-type CollectionKey = keyof Collections
+export type CollectionKey = keyof Collections
 
 export type SyncState = "connecting" | "synced" | "offline"
 
@@ -85,15 +89,33 @@ export type FamilyData = Collections & {
   ready: boolean
   scope: "family" | "personal"
   familyName: string | null
+  /** Uid of the family's creator (family mode only). */
+  familyOwnerId: string | null
+  /** Name on the signed-in user's own profile doc. */
+  profileName: string | null
   /** ISO code shown for amounts, e.g. "IDR". */
   currency: string
   sync: SyncState
   lastSyncedAt: Date | null
   failed: CollectionKey[]
   memberName: (userId: string) => string
+  /** Incomes and expenses are loaded from this month onwards. */
+  loadedFrom: Date
+  /** True while an older range requested with `loadOlder` is still arriving. */
+  loadingOlder: boolean
+  /** Makes sure records from `monthsBack` months ago onwards are loaded. */
+  loadOlder: (monthsBack: number) => void
+  /** Drops every listener and subscribes again, e.g. after a failed load. */
+  retry: () => void
 }
 
-const empty: Collections = { incomes: [], expenses: [], budgets: [], savings: [], debts: [], bills: [], members: [] }
+// Incomes and expenses are the only collections that grow without bound, so
+// only the last 13 months (this month plus 12) are kept live by default.
+export const WINDOW_MONTHS = 12
+
+const emptyRest = { budgets: [], savings: [], debts: [], bills: [], members: [] }
+type Rest = Omit<Collections, "incomes" | "expenses">
+type RestKey = keyof Rest
 
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : Number(value) || 0)
 const str = (value: unknown) => (typeof value === "string" ? value : "")
@@ -104,9 +126,9 @@ const date = (value: unknown) => {
 
 type Doc = QueryDocumentSnapshot<DocumentData>
 
-const parsers: { [K in CollectionKey]: (d: Doc) => Collections[K][number] } = {
-  incomes: (d) => parseTx(d, "income"),
-  expenses: (d) => parseTx(d, "expense"),
+// Names and categories may be empty here; the provider fills them in the
+// viewer's language (see `localized` below).
+const parsers: { [K in RestKey]: (d: Doc) => Rest[K][number] } = {
   budgets: (d) => {
     const x = d.data()
     return { id: d.id, month: str(x.month), category: str(x.category), budgetAmount: num(x.budgetAmount) + num(x.rolloverAmount), usedAmount: num(x.usedAmount), rolloverAmount: num(x.rolloverAmount) }
@@ -120,6 +142,7 @@ const parsers: { [K in CollectionKey]: (d: Doc) => Collections[K][number] } = {
       targetAmount: num(x.targetAmount),
       currentAmount: num(x.currentAmount),
       targetDate: date(x.targetDate),
+      createdAt: date(x.createdAt),
       goldGrams: typeof x.goldGrams === "number" ? x.goldGrams : null,
     }
   },
@@ -142,21 +165,16 @@ const parsers: { [K in CollectionKey]: (d: Doc) => Collections[K][number] } = {
   },
   members: (d) => {
     const x = d.data()
-    return { id: d.id, name: str(x.name) || str(x.email).split("@")[0] || "Anggota" }
+    return { id: d.id, name: str(x.name) || str(x.email).split("@")[0] }
   },
 }
 
-function parseTx(d: Doc, kind: Tx["kind"]): Tx {
+/** A record without any usable date belongs to no month, so it is skipped rather than shown as January 1970. */
+function parseTx(d: Doc, kind: Tx["kind"]): Tx | null {
   const x = d.data()
-  return {
-    id: d.id,
-    kind,
-    amount: num(x.amount),
-    category: str(x.category) || "Lainnya",
-    note: str(x.note),
-    date: date(x.date) ?? date(x.createdAt) ?? new Date(0),
-    userId: str(x.userId),
-  }
+  const when = date(x.date) ?? date(x.createdAt)
+  if (!when) return null
+  return { id: d.id, kind, amount: num(x.amount), category: str(x.category), note: str(x.note), date: when, userId: str(x.userId) }
 }
 
 const FamilyDataContext = createContext<FamilyData | null>(null)
@@ -169,6 +187,15 @@ export function useFamilyData() {
 
 type Scope = { id: string; kind: "family" | "personal" } | null
 
+/** One date range of incomes and expenses; `to` is null for the live, open-ended newest range. */
+type Chunk = { from: number; to: number | null }
+const chunkKey = (c: Chunk) => `${c.from}-${c.to ?? "now"}`
+
+/** Fills an empty category in, keeping the array as is when nothing is missing. */
+function withCategory(items: Tx[], fallback: string) {
+  return items.some((x) => !x.category) ? items.map((x) => (x.category ? x : { ...x, category: fallback })) : items
+}
+
 /**
  * Live view of the signed-in user's finance data. Data recorded on Android
  * shows up within seconds; Firestore's local cache makes reloads instant.
@@ -176,17 +203,25 @@ type Scope = { id: string; kind: "family" | "personal" } | null
  * so that is used as the scope.
  */
 export function FamilyDataProvider({ uid, children }: { uid: string; children: ReactNode }) {
+  const tc = useTranslations("dash.common")
   const [scope, setScope] = useState<Scope>(null)
   const [familyName, setFamilyName] = useState<string | null>(null)
+  const [familyOwnerId, setFamilyOwnerId] = useState<string | null>(null)
+  const [profileName, setProfileName] = useState<string | null>(null)
   const [userCurrency, setUserCurrency] = useState<string | null>(null)
   const [familyCurrency, setFamilyCurrency] = useState<string | null>(null)
-  const [data, setData] = useState<Collections>(empty)
-  const [loaded, setLoaded] = useState<Set<CollectionKey>>(new Set())
-  const [cached, setCached] = useState<Set<CollectionKey>>(new Set())
+  const [rest, setRest] = useState<Rest>(emptyRest)
+  const [txByChunk, setTxByChunk] = useState<Record<string, { incomes: Tx[]; expenses: Tx[] }>>({})
+  const [loaded, setLoaded] = useState<Set<string>>(new Set())
+  const [cached, setCached] = useState<Set<string>>(new Set())
   const [failed, setFailed] = useState<CollectionKey[]>([])
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
   const [online, setOnline] = useState(true)
   const [isDemo, setIsDemo] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  // Newest first: the first chunk is live and open-ended, older ones are added by loadOlder.
+  const [chunks, setChunks] = useState<Chunk[]>(() => [{ from: startOfMonth(new Date(), -WINDOW_MONTHS).getTime(), to: null }])
+  const txUnsubs = useRef(new Map<string, () => void>())
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine)
@@ -208,6 +243,7 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
       (snap) => {
         const familyId = str(snap.data()?.familyId)
         setUserCurrency(str(snap.data()?.currency) || null)
+        setProfileName(str(snap.data()?.name) || null)
         setScope((prev) => {
           const next: Scope = familyId ? { id: familyId, kind: "family" } : { id: uid, kind: "personal" }
           return prev && prev.id === next.id && prev.kind === next.kind ? prev : next
@@ -217,6 +253,43 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
     )
   }, [uid])
 
+  /**
+   * Subscribes with metadata changes so the cached -> synced switch is seen
+   * (the indicator needs it), but only re-parses when documents changed.
+   */
+  const listen = useCallback((q: Query, key: string, onDocs: (docs: Doc[]) => void, onFail: (code: string) => void) => {
+    let first = true
+    return onSnapshot(
+      q,
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (first || snap.docChanges().length > 0) onDocs(snap.docs)
+        first = false
+        setLoaded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
+        const fromCache = snap.metadata.fromCache
+        setCached((prev) => {
+          if (prev.has(key) === fromCache) return prev
+          const next = new Set(prev)
+          if (fromCache) next.add(key)
+          else next.delete(key)
+          return next
+        })
+        if (!fromCache) setLastSyncedAt(new Date())
+      },
+      (error) => {
+        onFail(error.code)
+        setLoaded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
+      },
+    )
+  }, [])
+
+  const markOk = useCallback((key: CollectionKey) => setFailed((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : prev)), [])
+  const markFailed = useCallback((key: CollectionKey, code: string) => {
+    console.warn(`[family-data] ${key}:`, code)
+    setFailed((prev) => (prev.includes(key) ? prev : [...prev, key]))
+  }, [])
+
+  // Everything except incomes/expenses: small collections, loaded whole.
   useEffect(() => {
     if (!scope) return
 
@@ -224,10 +297,11 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
       let cancelled = false
       void import("@/lib/demo-data").then(({ buildDemoData }) => {
         if (cancelled) return
-        setData(buildDemoData())
+        const demo = buildDemoData()
+        setRest({ budgets: demo.budgets, savings: demo.savings, debts: demo.debts, bills: demo.bills, members: demo.members })
+        setTxByChunk({ demo: { incomes: demo.incomes, expenses: demo.expenses } })
         setFamilyName("Keluarga Contoh")
         setIsDemo(true)
-        setLoaded(new Set<CollectionKey>(["incomes", "expenses", "budgets", "savings", "debts", "bills", "members"]))
         setLastSyncedAt(new Date())
       })
       return () => {
@@ -235,34 +309,21 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
       }
     }
 
-    const keys: CollectionKey[] = ["incomes", "expenses", "budgets", "savings", "debts", "bills"]
+    const keys: RestKey[] = ["budgets", "savings", "debts", "bills"]
     if (scope.kind === "family") keys.push("members")
 
-    const unsubs = keys.map((key) => {
-      const source = key === "members" ? "users" : key
-      return onSnapshot(
-        query(collection(db, source), where("familyId", "==", scope.id)),
-        { includeMetadataChanges: true },
-        (snap) => {
-          const parse = parsers[key] as (d: Doc) => Collections[typeof key][number]
-          setData((prev) => ({ ...prev, [key]: snap.docs.map((d) => parse(d)) }))
-          setLoaded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
-          setCached((prev) => {
-            const next = new Set(prev)
-            if (snap.metadata.fromCache) next.add(key)
-            else next.delete(key)
-            return next
-          })
-          if (!snap.metadata.fromCache) setLastSyncedAt(new Date())
-          setFailed((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : prev))
+    const unsubs = keys.map((key) =>
+      listen(
+        query(collection(db, key === "members" ? "users" : key), where("familyId", "==", scope.id)),
+        key,
+        (docs) => {
+          const parse = parsers[key] as (d: Doc) => Rest[typeof key][number]
+          setRest((prev) => ({ ...prev, [key]: docs.map((d) => parse(d)) }))
+          markOk(key)
         },
-        (error) => {
-          console.warn(`[family-data] ${key}:`, error.code)
-          setLoaded((prev) => new Set(prev).add(key))
-          setFailed((prev) => (prev.includes(key) ? prev : [...prev, key]))
-        },
-      )
-    })
+        (code) => markFailed(key, code),
+      ),
+    )
 
     const unsubFamily =
       scope.kind === "family"
@@ -271,6 +332,7 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
             (snap) => {
               setFamilyName(str(snap.data()?.name) || null)
               setFamilyCurrency(str(snap.data()?.currency) || null)
+              setFamilyOwnerId(str(snap.data()?.createdBy) || null)
             },
             () => setFamilyName(null),
           )
@@ -279,34 +341,112 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
     return () => {
       unsubs.forEach((unsub) => unsub())
       unsubFamily()
-      setData(empty)
+      setRest(emptyRest)
       setLoaded(new Set())
       setCached(new Set())
       setFailed([])
       setFamilyName(null)
       setFamilyCurrency(null)
+      setFamilyOwnerId(null)
     }
-  }, [scope])
+  }, [scope, attempt, listen, markOk, markFailed])
+
+  // Incomes/expenses: one listener pair per date range. Extending the window
+  // only adds listeners for the new, older range, so nothing is read twice.
+  useEffect(() => {
+    if (!scope || isDemo) return
+    const active = txUnsubs.current
+    for (const chunk of chunks) {
+      const id = chunkKey(chunk)
+      if (active.has(id)) continue
+      const unsubs = (["incomes", "expenses"] as const).map((key) => {
+        const constraints = [
+          where("familyId", "==", scope.id),
+          where("date", ">=", Timestamp.fromMillis(chunk.from)),
+          ...(chunk.to === null ? [] : [where("date", "<", Timestamp.fromMillis(chunk.to))]),
+          // Matches the existing (familyId asc, date desc) composite indexes.
+          orderBy("date", "desc"),
+        ]
+        return listen(
+          query(collection(db, key), ...constraints),
+          `${key}:${id}`,
+          (docs) => {
+            const kind = key === "incomes" ? "income" : "expense"
+            const parsed = docs.map((d) => parseTx(d, kind)).filter((tx): tx is Tx => tx !== null)
+            setTxByChunk((prev) => ({ ...prev, [id]: { incomes: prev[id]?.incomes ?? [], expenses: prev[id]?.expenses ?? [], [key]: parsed } }))
+            markOk(key)
+          },
+          (code) => markFailed(key, code),
+        )
+      })
+      active.set(id, () => unsubs.forEach((u) => u()))
+    }
+  }, [scope, chunks, attempt, isDemo, listen, markOk, markFailed])
+
+  // A new scope (or a retry) drops every range listener; the effect above
+  // then subscribes again to the same ranges.
+  useEffect(() => {
+    const active = txUnsubs.current
+    return () => {
+      active.forEach((unsub) => unsub())
+      active.clear()
+      setTxByChunk({})
+    }
+  }, [scope, attempt])
+
+  const loadOlder = useCallback((monthsBack: number) => {
+    const from = startOfMonth(new Date(), -Math.max(0, Math.ceil(monthsBack))).getTime()
+    setChunks((prev) => {
+      const oldest = prev[prev.length - 1].from
+      return from < oldest ? [...prev, { from, to: oldest }] : prev
+    })
+  }, [])
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+
+  const other = tc("otherCategory")
+  const memberFallback = tc("member")
+  const localized = useMemo(() => {
+    const parts = Object.values(txByChunk)
+    return {
+      incomes: withCategory(parts.flatMap((p) => p.incomes), other),
+      expenses: withCategory(parts.flatMap((p) => p.expenses), other),
+      members: rest.members.map((m) => (m.name ? m : { ...m, name: memberFallback })),
+    }
+  }, [txByChunk, rest.members, other, memberFallback])
 
   const value = useMemo<FamilyData>(() => {
     const kind = isDemo ? "family" : scope?.kind ?? "personal"
-    const expected = scope?.kind === "family" || isDemo ? 7 : 6
-    const names = new Map(data.members.map((m) => [m.id, m.name]))
+    const restKeys = kind === "family" ? 5 : 4
+    const loadedRest = Array.from(loaded).filter((k) => !k.includes(":")).length
+    const newest = chunkKey(chunks[0])
+    const txReady = isDemo || (loaded.has(`incomes:${newest}`) && loaded.has(`expenses:${newest}`))
+    const allReady = isDemo || (loadedRest >= restKeys && txReady)
+    const loadingOlder = !isDemo && chunks.slice(1).some((c) => !loaded.has(`incomes:${chunkKey(c)}`) || !loaded.has(`expenses:${chunkKey(c)}`))
+    const names = new Map(localized.members.map((m) => [m.id, m.name]))
     // Set before children render so every amount uses the same currency.
     const currency = (kind === "family" ? familyCurrency : userCurrency) ?? "IDR"
     setDisplayCurrency(currency)
     return {
-      ...data,
-      ready: scope !== null && loaded.size >= expected,
+      ...rest,
+      ...localized,
+      ready: scope !== null && (isDemo ? lastSyncedAt !== null : allReady),
       scope: kind,
       familyName,
-      sync: !online ? "offline" : cached.size > 0 || loaded.size < expected ? "connecting" : "synced",
+      familyOwnerId,
+      profileName,
+      sync: !online ? "offline" : cached.size > 0 || !allReady ? "connecting" : "synced",
       lastSyncedAt,
       failed,
       memberName: (userId) => names.get(userId) ?? "",
       currency,
+      // Demo data covers six months only, but nothing older exists there.
+      loadedFrom: isDemo ? new Date(0) : new Date(chunks[chunks.length - 1].from),
+      loadingOlder,
+      loadOlder,
+      retry,
     }
-  }, [data, scope, loaded, cached, failed, familyName, lastSyncedAt, online, isDemo, userCurrency, familyCurrency])
+  }, [rest, localized, chunks, scope, loaded, cached, failed, familyName, familyOwnerId, profileName, lastSyncedAt, online, isDemo, userCurrency, familyCurrency, loadOlder, retry])
 
   return <FamilyDataContext.Provider value={value}>{children}</FamilyDataContext.Provider>
 }

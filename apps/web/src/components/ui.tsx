@@ -62,16 +62,39 @@ export function StatStrip({ children }: { children: ReactNode }) {
 /**
  * `limit` bars (budgets) turn amber near the limit and red past it;
  * `goal` bars (savings, repayments) turn green when complete.
+ * `label` names the bar for screen readers, e.g. the budget's category.
  */
-export function ProgressBar({ value, max, kind = "limit", warnAt = 0.85 }: { value: number; max: number; kind?: "limit" | "goal"; warnAt?: number }) {
+export function ProgressBar({ value, max, label, kind = "limit", warnAt = 0.85 }: { value: number; max: number; label: string; kind?: "limit" | "goal"; warnAt?: number }) {
   const ratio = max > 0 ? value / max : 0
+  const pct = Math.round(ratio * 100)
   const color =
     kind === "goal"
       ? ratio >= 1 ? "var(--income)" : "var(--primary)"
       : ratio >= 1 ? "var(--expense)" : ratio >= warnAt ? "var(--warning)" : "var(--primary)"
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-soft)" }} role="progressbar" aria-valuenow={Math.round(ratio * 100)} aria-valuemin={0} aria-valuemax={100}>
-      <div className="h-full rounded-full" style={{ width: `${Math.min(ratio, 1) * 100}%`, backgroundColor: color }} />
+    // aria-valuenow must stay within min..max; aria-valuetext carries any overspend.
+    <div
+      className="h-1.5 w-full overflow-hidden rounded-full"
+      style={{ backgroundColor: "var(--surface-soft)" }}
+      role="progressbar"
+      aria-label={label}
+      aria-valuenow={Math.min(Math.max(pct, 0), 100)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuetext={`${pct}%`}
+    >
+      <div className="h-full rounded-full" style={{ width: `${Math.min(Math.max(ratio, 0), 1) * 100}%`, backgroundColor: color }} />
+    </div>
+  )
+}
+
+/** Shown instead of an empty state when the data behind it failed to load. */
+export function ErrorState({ title, hint, retryLabel, onRetry }: { title: string; hint?: string; retryLabel: string; onRetry: () => void }) {
+  return (
+    <div className="px-5 py-8 text-center" role="alert">
+      <p className="text-sm font-medium" style={{ color: "var(--expense)" }}>{title}</p>
+      {hint && <p className="mx-auto mt-1 max-w-sm text-xs leading-5" style={{ color: "var(--text-muted)" }}>{hint}</p>}
+      <button type="button" onClick={onRetry} className="auth-btn-secondary mx-auto mt-3 !h-8 !w-auto px-3 text-xs">{retryLabel}</button>
     </div>
   )
 }

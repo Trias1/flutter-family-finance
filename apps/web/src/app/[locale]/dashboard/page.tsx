@@ -4,11 +4,16 @@ import { useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 
 import CashflowChart from "@/components/CashflowChart"
+import DataError, { useFailed } from "@/components/DataError"
+import MemberSpending from "@/components/MemberSpending"
+import MonthSelect from "@/components/MonthSelect"
 import { EmptyState, Money, PageHeader, ProgressBar, Section, Skeleton, Stat, StatStrip } from "@/components/ui"
 import { useFamilyData } from "@/lib/family-data"
-import { budgetsForMonth, cashflowSeries, change, monthTotals } from "@/lib/finance"
+import { budgetsForMonth, byCategory, cashflowSeries, change, monthTotals, spending } from "@/lib/finance"
 import { Link } from "@/lib/i18n"
-import { formatRupiah } from "@/lib/money"
+import { formatRupiah, startOfMonth } from "@/lib/money"
+
+const CHART_MONTHS = 6
 
 function ChangeNote({ value, invert = false, label, noCompare }: { value: number | null; invert?: boolean; label: string; noCompare: string }) {
   if (value === null) return <>{noCompare}</>
@@ -26,23 +31,42 @@ export default function OverviewPage() {
   const locale = useLocale()
   const data = useFamilyData()
   const [now] = useState(() => new Date())
+  const [offset, setOffset] = useState(0)
+  const txFailed = useFailed("incomes", "expenses")
+  const budgetsFailed = useFailed("budgets")
+  const billsFailed = useFailed("bills")
+  const debtsFailed = useFailed("debts")
+
+  const pickMonth = (o: number) => {
+    setOffset(o)
+    // The chart reaches back five months before the chosen one.
+    data.loadOlder(-o + CHART_MONTHS - 1)
+  }
+  const covered = data.loadedFrom <= startOfMonth(now, offset - CHART_MONTHS + 1) && !data.loadingOlder
 
   const view = useMemo(() => {
-    const current = monthTotals(data.incomes, data.expenses, now)
-    const previous = monthTotals(data.incomes, data.expenses, now, -1)
-    const budgets = budgetsForMonth(data.budgets, now)
+    const ref = startOfMonth(now, offset)
+    const current = monthTotals(data.incomes, data.expenses, ref)
+    const previous = monthTotals(data.incomes, data.expenses, ref, -1)
+    const budgets = budgetsForMonth(data.budgets, ref)
     const budgetLimit = budgets.reduce((s, b) => s + b.budgetAmount, 0)
     const budgetUsed = budgets.reduce((s, b) => s + b.usedAmount, 0)
     const watch = budgets
       .map((b) => ({ ...b, ratio: b.usedAmount / b.budgetAmount }))
       .sort((a, b) => b.ratio - a.ratio)
       .slice(0, 5)
+    const prevCategories = new Map(byCategory(spending(data.expenses), previous.from, previous.to).map((c) => [c.category, c.amount]))
+    const topCategories = byCategory(spending(data.expenses), current.from, current.to)
+      .slice(0, 5)
+      .map((c) => ({ ...c, delta: change(c.amount, prevCategories.get(c.category) ?? 0) }))
     const recent = [...data.incomes, ...data.expenses].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 8)
     const soon = new Date(now.getTime() + 14 * 86_400_000)
     const bills = data.bills
       .filter((b) => b.status !== "paid" && b.dueDate && b.dueDate <= soon)
       .sort((a, b) => (a.dueDate?.getTime() ?? 0) - (b.dueDate?.getTime() ?? 0))
       .slice(0, 5)
+    const activeDebts = data.debts.filter((d) => d.status === "active")
+    const nextDebt = activeDebts.filter((d) => d.dueDate).sort((a, b) => (a.dueDate?.getTime() ?? 0) - (b.dueDate?.getTime() ?? 0))[0] ?? null
     return {
       current,
       incomeChange: change(current.income, previous.income),
@@ -50,14 +74,22 @@ export default function OverviewPage() {
       budgetLimit,
       budgetUsed,
       watch,
+      topCategories,
       recent,
       bills,
-      series: cashflowSeries(data.incomes, data.expenses, now, 6, locale),
+      owe: activeDebts.filter((d) => d.type === "hutang").reduce((s, d) => s + d.remainingAmount, 0),
+      owed: activeDebts.filter((d) => d.type === "piutang").reduce((s, d) => s + d.remainingAmount, 0),
+      nextDebt,
+      series: cashflowSeries(data.incomes, data.expenses, ref, CHART_MONTHS, locale),
+      chartFrom: startOfMonth(ref, -(CHART_MONTHS - 1)),
     }
-  }, [data.incomes, data.expenses, data.budgets, data.bills, now, locale])
+  }, [data.incomes, data.expenses, data.budgets, data.bills, data.debts, now, offset, locale])
 
-  const monthName = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(now)
+  const monthFmt = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" })
+  const shortFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" })
   const dateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" })
+  const monthName = monthFmt.format(view.current.from)
+  const chartRange = `${shortFmt.format(view.chartFrom)} – ${shortFmt.format(view.current.from)}`
 
   if (!data.ready) {
     return (
@@ -74,7 +106,7 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("overview.title")} description={monthName} />
+      <PageHeader title={t("overview.title")} description={monthName} actions={<MonthSelect value={offset} onChange={pickMonth} now={now} />} />
 
       {data.scope === "personal" && (
         <p className="rounded-md border px-4 py-3 text-sm" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)", color: "var(--text-secondary)" }}>
@@ -82,31 +114,45 @@ export default function OverviewPage() {
         </p>
       )}
 
-      <StatStrip>
-        <Stat label={t("overview.net")} value={view.current.net} tone="auto" note={t("overview.netNote")} />
-        <Stat label={t("overview.income")} value={view.current.income} tone="income" note={<ChangeNote value={view.incomeChange} label={t("overview.vsLastMonth")} noCompare={t("overview.noCompare")} />} />
-        <Stat label={t("overview.expense")} value={view.current.expense} tone="expense" note={<ChangeNote value={view.expenseChange} invert label={t("overview.vsLastMonth")} noCompare={t("overview.noCompare")} />} />
-        <Stat
-          label={t("overview.budgetLeft")}
-          value={view.budgetLimit - view.budgetUsed}
-          tone="auto"
-          note={view.budgetLimit > 0 ? t("overview.ofBudget", { amount: formatRupiah(view.budgetLimit) }) : t("overview.noBudgetSet")}
-        />
-      </StatStrip>
+      {txFailed ? (
+        <Section><DataError /></Section>
+      ) : !covered ? (
+        <Skeleton className="h-[106px] w-full" />
+      ) : (
+        <StatStrip>
+          <Stat label={t("overview.net")} value={view.current.net} tone="auto" note={t("overview.netNote")} />
+          <Stat label={t("overview.income")} value={view.current.income} tone="income" note={<ChangeNote value={view.incomeChange} label={t("overview.vsLastMonth")} noCompare={t("overview.noCompare")} />} />
+          <Stat label={t("overview.expense")} value={view.current.expense} tone="expense" note={<ChangeNote value={view.expenseChange} invert label={t("overview.vsLastMonth")} noCompare={t("overview.noCompare")} />} />
+          <Stat
+            label={t("overview.budgetLeft")}
+            value={view.budgetLimit - view.budgetUsed}
+            tone="auto"
+            note={budgetsFailed ? t("errors.loadFailed") : view.budgetLimit > 0 ? t("overview.ofBudget", { amount: formatRupiah(view.budgetLimit) }) : t("overview.noBudgetSet")}
+          />
+        </StatStrip>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <Section title={t("overview.cashflow")} aside={t("overview.last6Months")}>
-            <CashflowChart data={view.series} labels={{ income: t("overview.income"), expense: t("overview.expense"), net: t("common.net") }} emptyLabel={t("overview.noCashflow")} />
-            <div className="mt-3 flex gap-4 text-xs" style={{ color: "var(--text-muted)" }}>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "var(--chart-in)" }} />{t("overview.income")}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "var(--chart-out)" }} />{t("overview.expense")}</span>
-            </div>
+          <Section title={t("overview.cashflow")} aside={chartRange}>
+            {txFailed ? (
+              <DataError />
+            ) : !covered ? (
+              <Skeleton className="h-[240px] w-full" />
+            ) : (
+              <CashflowChart
+                data={view.series}
+                labels={{ income: t("overview.income"), expense: t("overview.expense"), net: t("common.net"), month: t("transactions.month"), caption: `${t("overview.cashflow")}, ${chartRange}` }}
+                emptyLabel={t("overview.noCashflow")}
+              />
+            )}
           </Section>
         </div>
 
         <Section title={t("overview.budgetWatch")} aside={<Link href="/dashboard/budget-savings" className="hover:underline">{t("common.seeAll")}</Link>} flush>
-          {view.watch.length === 0 ? (
+          {budgetsFailed ? (
+            <DataError />
+          ) : view.watch.length === 0 ? (
             <EmptyState title={t("overview.noBudgetSet")} hint={t("overview.noBudgetHint")} />
           ) : (
             <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -118,7 +164,7 @@ export default function OverviewPage() {
                       {Math.round(b.ratio * 100)}%
                     </span>
                   </div>
-                  <ProgressBar value={b.usedAmount} max={b.budgetAmount} />
+                  <ProgressBar value={b.usedAmount} max={b.budgetAmount} label={b.category} />
                   <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
                     {b.ratio >= 1
                       ? t("overview.overBy", { amount: formatRupiah(b.usedAmount - b.budgetAmount) })
@@ -131,10 +177,75 @@ export default function OverviewPage() {
         </Section>
       </div>
 
+      <div className={`grid gap-6 ${data.scope === "family" ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+        <Section title={t("overview.topCategories")} aside={<Link href="/dashboard/reports" className="hover:underline">{t("common.seeAll")}</Link>} flush>
+          {txFailed ? (
+            <DataError />
+          ) : !covered ? (
+            <div className="space-y-3 p-5">{Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-6 w-full" />)}</div>
+          ) : view.topCategories.length === 0 ? (
+            <EmptyState title={t("reports.noExpense")} />
+          ) : (
+            <ul>
+              {view.topCategories.map((c) => (
+                <li key={c.category} className="flex items-baseline justify-between gap-3 border-b px-5 py-3 text-sm last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                  <span className="min-w-0 truncate" style={{ color: "var(--text-primary)" }}>{c.category}</span>
+                  <span className="flex shrink-0 items-baseline gap-3">
+                    <Money value={c.amount} />
+                    <span className="w-12 text-right text-xs tabular-nums" style={{ color: c.delta === null ? "var(--text-muted)" : c.delta > 0 ? "var(--expense)" : "var(--income)" }}>
+                      {c.delta === null ? t("reports.new") : `${c.delta > 0 ? "+" : ""}${c.delta.toFixed(0)}%`}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        {covered && <MemberSpending from={view.current.from} to={view.current.to} />}
+
+        <Section title={t("overview.debts")} aside={<Link href="/dashboard/debts" className="hover:underline">{t("common.seeAll")}</Link>}>
+          {debtsFailed ? (
+            <DataError />
+          ) : (
+            <dl className="space-y-3 text-sm">
+              <div className="flex items-baseline justify-between gap-4">
+                <dt style={{ color: "var(--text-secondary)" }}>{t("debts.owe")}</dt>
+                <dd><Money value={view.owe} tone={view.owe > 0 ? "expense" : "neutral"} /></dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt style={{ color: "var(--text-secondary)" }}>{t("debts.owed")}</dt>
+                <dd><Money value={view.owed} tone={view.owed > 0 ? "income" : "neutral"} /></dd>
+              </div>
+              <div className="border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                <dt className="text-xs" style={{ color: "var(--text-muted)" }}>{t("overview.nextDue")}</dt>
+                <dd className="mt-1">
+                  {view.nextDebt?.dueDate ? (
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate" style={{ color: "var(--text-primary)" }}>
+                        {view.nextDebt.personName || "—"}
+                        <span className="ml-2 text-xs" style={{ color: view.nextDebt.dueDate < now ? "var(--expense)" : "var(--text-muted)" }}>
+                          {view.nextDebt.dueDate < now ? t("overview.overdue") : t("overview.due")} {dateFmt.format(view.nextDebt.dueDate)}
+                        </span>
+                      </span>
+                      <Money value={view.nextDebt.remainingAmount} className="shrink-0" />
+                    </span>
+                  ) : (
+                    <span style={{ color: "var(--text-muted)" }}>{t("overview.noDebtsDue")}</span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+          )}
+        </Section>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Section title={t("overview.recent")} aside={<Link href="/dashboard/transactions" className="hover:underline">{t("common.seeAll")}</Link>} flush>
-            {view.recent.length === 0 ? (
+            {txFailed ? (
+              <DataError />
+            ) : view.recent.length === 0 ? (
               <EmptyState title={t("transactions.empty")} hint={t("transactions.emptyHint")} />
             ) : (
               <ul>
@@ -159,7 +270,9 @@ export default function OverviewPage() {
         </div>
 
         <Section title={t("overview.bills")} aside={t("overview.next14Days")} flush>
-          {view.bills.length === 0 ? (
+          {billsFailed ? (
+            <DataError />
+          ) : view.bills.length === 0 ? (
             <EmptyState title={t("overview.noBills")} />
           ) : (
             <ul>

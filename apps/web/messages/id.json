@@ -421,7 +421,8 @@
       "reports": "Laporan",
       "guide": "Panduan",
       "admin": "Panel admin",
-      "signOut": "Keluar"
+      "signOut": "Keluar",
+      "account": "Akun"
     },
     "navShort": {
       "overview": "Ringkasan",
@@ -447,12 +448,14 @@
       "income": "Pemasukan",
       "expense": "Pengeluaran",
       "all": "Semua",
-      "net": "Selisih"
+      "net": "Selisih",
+      "member": "Anggota",
+      "otherCategory": "Lainnya"
     },
     "overview": {
       "title": "Ringkasan",
       "personalNotice": "Kamu belum bergabung ke keluarga, jadi yang tampil di sini adalah catatan pribadimu dari aplikasi Android. Setelah bergabung, data keluarga akan muncul otomatis.",
-      "net": "Selisih bulan ini",
+      "net": "Selisih",
       "netNote": "Pemasukan dikurangi pengeluaran",
       "income": "Pemasukan",
       "expense": "Pengeluaran",
@@ -462,7 +465,6 @@
       "noBudgetSet": "Belum ada budget bulan ini",
       "noBudgetHint": "Atur budget per kategori di aplikasi Android, nanti progresnya muncul di sini.",
       "cashflow": "Arus kas",
-      "last6Months": "6 bulan terakhir",
       "budgetWatch": "Pantauan budget",
       "overBy": "Lewat {amount}",
       "leftOf": "Sisa {left} dari {total}",
@@ -472,8 +474,12 @@
       "noBills": "Tidak ada tagihan dalam 14 hari ke depan",
       "overdue": "Terlambat sejak",
       "due": "Jatuh tempo",
-      "noCompare": "Belum ada data bulan lalu",
-      "noCashflow": "Belum ada transaksi dalam 6 bulan terakhir"
+      "noCompare": "Belum ada data bulan sebelumnya",
+      "noCashflow": "Belum ada transaksi dalam 6 bulan ini",
+      "topCategories": "Pengeluaran terbesar",
+      "debts": "Hutang & piutang",
+      "nextDue": "Jatuh tempo berikutnya",
+      "noDebtsDue": "Tidak ada hutang aktif yang punya jatuh tempo"
     },
     "transactions": {
       "title": "Transaksi",
@@ -492,7 +498,8 @@
       "note": "Catatan",
       "by": "Oleh",
       "amount": "Jumlah",
-      "showMore": "Tampilkan {count} lagi"
+      "showMore": "Tampilkan {count} lagi",
+      "since": "Menampilkan catatan sejak {month}. Pilih bulan untuk melihat yang lebih lama."
     },
     "budget": {
       "title": "Budget & Tabungan",
@@ -506,7 +513,11 @@
       "noSavings": "Belum ada target tabungan",
       "noSavingsHint": "Buat target tabungan atau investasi emas di aplikasi Android.",
       "grams": "{grams} gram",
-      "target": "Target {date}"
+      "target": "Target {date}",
+      "perMonth": "Perlu {amount}/bulan selama {months} bulan",
+      "behind": "Tertinggal",
+      "pastTarget": "Lewat target",
+      "stillNeeded": "Masih kurang {amount}"
     },
     "debts": {
       "title": "Hutang & Piutang",
@@ -545,7 +556,71 @@
       "savingRate": "Rasio menabung",
       "vsPrev": "Pengeluaran vs bulan sebelumnya",
       "vsPrevNote": "Rasio menabung adalah selisih dibagi pemasukan. Persentase di samping kategori dibandingkan dengan bulan sebelumnya.",
-      "monthly": "Rincian per bulan"
+      "monthly": "Rincian per bulan",
+      "noCashflow": "Belum ada transaksi di periode ini"
+    },
+    "errors": {
+      "loadFailed": "Data ini gagal dimuat",
+      "loadFailedHint": "Cek koneksi, lalu coba lagi. Angka tidak ditampilkan sebelum datanya termuat, jadi tidak akan keliru.",
+      "retry": "Coba lagi"
+    },
+    "members": {
+      "title": "Pengeluaran per anggota",
+      "share": "{pct}% dari total",
+      "former": "Mantan anggota"
+    },
+    "account": {
+      "title": "Akun",
+      "desc": "Profil, keluarga, dan pengaturan masuk.",
+      "profile": "Profil",
+      "name": "Nama",
+      "email": "Email",
+      "signInMethod": "Cara masuk",
+      "methodPassword": "Email dan kata sandi",
+      "methodGoogle": "Google",
+      "methodOther": "Lainnya",
+      "currency": "Mata uang tampilan",
+      "editInApp": "Nama dan mata uang diubah lewat aplikasi Android.",
+      "family": "Keluarga",
+      "memberCount": "{count} anggota",
+      "noFamily": "Kamu belum bergabung ke keluarga",
+      "noFamilyHint": "Buat atau gabung ke keluarga di aplikasi Android dengan kode undangan.",
+      "you": "Kamu",
+      "owner": "Pemilik",
+      "security": "Kata sandi",
+      "googleOnly": "Kamu masuk dengan Google, jadi tidak ada kata sandi yang bisa diganti di sini. Atur lewat akun Google-mu.",
+      "changePassword": "Ganti kata sandi",
+      "currentPassword": "Kata sandi saat ini",
+      "newPassword": "Kata sandi baru",
+      "repeatPassword": "Ulangi kata sandi baru",
+      "saving": "Menyimpan…",
+      "passwordChanged": "Kata sandi diganti. Perangkat lain perlu masuk lagi.",
+      "resetHint": "Lupa kata sandi saat ini? Kami bisa kirim tautan ke email untuk membuat yang baru.",
+      "sendReset": "Kirim tautan reset ke email",
+      "sending": "Mengirim…",
+      "resetSent": "Tautan reset dikirim ke {email}. Cek kotak masuk dan folder spam.",
+      "errors": {
+        "wrongPassword": "Kata sandi saat ini salah.",
+        "mismatch": "Kata sandi baru tidak sama.",
+        "samePassword": "Pilih kata sandi yang berbeda dari yang sekarang.",
+        "userMismatch": "Akun Google itu bukan akun yang sedang kamu pakai.",
+        "popupBlocked": "Browser memblokir jendela Google. Izinkan pop-up untuk situs ini lalu coba lagi.",
+        "generic": "Terjadi kesalahan. Coba lagi."
+      },
+      "delete": {
+        "title": "Hapus akun",
+        "intro": "Menghapus akun akan menghapus:",
+        "personal": "catatan pribadimu (yang tidak masuk keluarga) beserta budget, tabungan, hutang, dan tagihannya;",
+        "profile": "profil, perangkat, dan akses masukmu.",
+        "ownership": "Kalau kamu pemilik keluarga, kepemilikan pindah ke anggota lain yang paling lama bergabung. Keluarga tanpa anggota lain dihapus beserta catatannya.",
+        "shared": "Catatan yang kamu tambahkan ke keluarga tetap ada di keluarga.",
+        "irreversible": "Ini tidak bisa dibatalkan.",
+        "word": "HAPUS",
+        "typeWord": "Ketik {word} untuk konfirmasi",
+        "googleReauth": "Kamu akan diminta konfirmasi dengan Google dulu.",
+        "button": "Hapus akun saya",
+        "deleting": "Menghapus…"
+      }
     }
   },
   "meta": {
@@ -584,6 +659,9 @@
     "weakPassword": "Kata sandi minimal 8 karakter dan berisi huruf dan angka.",
     "cannotResetSelf": "Ganti kata sandimu sendiri lewat halaman akun.",
     "cannotResetSuperadmin": "Kata sandi superadmin tidak bisa direset dari sini.",
-    "server": "Terjadi kesalahan di server. Coba lagi nanti."
+    "server": "Terjadi kesalahan di server. Coba lagi nanti.",
+    "confirmRequired": "Ketik kata konfirmasi untuk melanjutkan.",
+    "reauthRequired": "Demi keamanan, konfirmasi lagi kata sandi atau akun Google-mu, lalu coba lagi.",
+    "cannotDeleteSuperadmin": "Akun superadmin tidak bisa dihapus dari sini."
   }
 }

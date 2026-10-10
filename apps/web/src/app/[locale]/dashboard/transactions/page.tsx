@@ -4,10 +4,12 @@ import { useMemo, useState } from "react"
 import { Search } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 
+import DataError, { useFailed } from "@/components/DataError"
+import { MONTHS_BACK } from "@/components/MonthSelect"
 import { EmptyState, Money, PageHeader, Section, Skeleton } from "@/components/ui"
 import { useFamilyData, type Tx } from "@/lib/family-data"
-import { isSavingsTransfer } from "@/lib/finance"
-import { monthKey } from "@/lib/money"
+import { isSavingsTransfer, monthsBetween } from "@/lib/finance"
+import { monthKey, startOfMonth } from "@/lib/money"
 
 type Kind = "all" | "income" | "expense"
 const pageSize = 50
@@ -21,17 +23,34 @@ export default function TransactionsPage() {
   const [category, setCategory] = useState("")
   const [search, setSearch] = useState("")
   const [limit, setLimit] = useState(pageSize)
+  const [now] = useState(() => new Date())
+  const failed = useFailed("incomes", "expenses")
 
   const all = useMemo(
     () => [...data.incomes, ...data.expenses].sort((a, b) => b.date.getTime() - a.date.getTime()),
     [data.incomes, data.expenses],
   )
 
+  // A fixed list of recent months (older ones load when picked), plus any
+  // month that has records, e.g. something dated in the future.
   const months = useMemo(() => {
     const keys = new Set(all.map((tx) => monthKey(tx.date)))
-    keys.add(monthKey(new Date()))
+    for (let i = 0; i < MONTHS_BACK; i++) keys.add(monthKey(startOfMonth(now, -i)))
     return Array.from(keys).sort().reverse()
-  }, [all])
+  }, [all, now])
+
+  const keyToDate = (key: string) => {
+    const [y, m] = key.split("-").map(Number)
+    return new Date(y, m - 1, 1)
+  }
+  const pickMonth = (key: string) => {
+    setMonth(key)
+    setCategory("")
+    resetPaging()
+    if (key !== "all") data.loadOlder(monthsBetween(keyToDate(key), now))
+  }
+  const covered = month === "all" || (data.loadedFrom <= keyToDate(month) && !data.loadingOlder)
+  const busy = !data.ready || !covered
 
   const inMonth = useMemo(() => (month === "all" ? all : all.filter((tx) => monthKey(tx.date) === month)), [all, month])
   const categories = useMemo(() => Array.from(new Set(inMonth.map((tx) => tx.category))).sort(), [inMonth])
@@ -57,10 +76,7 @@ export default function TransactionsPage() {
     return { income, expense }
   }, [rows])
 
-  const monthLabel = (key: string) => {
-    const [y, m] = key.split("-").map(Number)
-    return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(y, m - 1, 1))
-  }
+  const monthLabel = (key: string) => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(keyToDate(key))
   const dateFmt = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" })
   const visible = rows.slice(0, limit)
   const resetPaging = () => setLimit(pageSize)
@@ -83,7 +99,7 @@ export default function TransactionsPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={month} onChange={(e) => { setMonth(e.target.value); setCategory(""); resetPaging() }} className="field" aria-label={t("transactions.month")}>
+          <select value={month} onChange={(e) => pickMonth(e.target.value)} className="field" aria-label={t("transactions.month")}>
             <option value="all">{t("transactions.allMonths")}</option>
             {months.map((key) => <option key={key} value={key}>{monthLabel(key)}</option>)}
           </select>
@@ -101,15 +117,23 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-        <span>{t("transactions.count", { count: rows.length })}</span>
-        <span>{t("common.income")} <Money value={totals.income} tone="income" /></span>
-        <span>{t("common.expense")} <Money value={totals.expense} tone="expense" /></span>
-        <span>{t("common.net")} <Money value={totals.income - totals.expense} tone="auto" /></span>
-      </div>
+      {/* Totals wait for the data, so they never flash zero. */}
+      {busy || failed ? (
+        busy && !failed ? <Skeleton className="h-5 w-full max-w-md" /> : null
+      ) : (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <span>{t("transactions.count", { count: rows.length })}</span>
+          <span>{t("common.income")} <Money value={totals.income} tone="income" /></span>
+          <span>{t("common.expense")} <Money value={totals.expense} tone="expense" /></span>
+          <span>{t("common.net")} <Money value={totals.income - totals.expense} tone="auto" /></span>
+          {month === "all" && data.loadedFrom.getTime() > 0 && <span style={{ color: "var(--text-muted)" }}>{t("transactions.since", { month: monthLabel(monthKey(data.loadedFrom)) })}</span>}
+        </div>
+      )}
 
       <Section flush>
-        {!data.ready ? (
+        {failed ? (
+          <DataError />
+        ) : busy ? (
           <div className="space-y-3 p-5">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
         ) : rows.length === 0 ? (
           <EmptyState title={all.length === 0 ? t("transactions.empty") : t("transactions.noMatch")} hint={all.length === 0 ? t("transactions.emptyHint") : undefined} />

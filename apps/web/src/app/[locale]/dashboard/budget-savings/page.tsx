@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 
-import { EmptyState, Money, PageHeader, ProgressBar, Section, Skeleton } from "@/components/ui"
+import DataError, { useFailed } from "@/components/DataError"
+import { EmptyState, Money, PageHeader, Pill, ProgressBar, Section, Skeleton } from "@/components/ui"
 import { useFamilyData } from "@/lib/family-data"
-import { isSavingsTransfer } from "@/lib/finance"
+import { isSavingsTransfer, savingsPace } from "@/lib/finance"
 import { formatRupiah, monthKey } from "@/lib/money"
 
 export default function BudgetSavingsPage() {
@@ -13,6 +14,9 @@ export default function BudgetSavingsPage() {
   const locale = useLocale()
   const data = useFamilyData()
   const [month, setMonth] = useState(() => monthKey(new Date()))
+  const [now] = useState(() => new Date())
+  const budgetsFailed = useFailed("budgets")
+  const savingsFailed = useFailed("savings")
 
   const months = useMemo(() => {
     const keys = new Set(data.budgets.map((b) => b.month).filter(Boolean))
@@ -63,7 +67,9 @@ export default function BudgetSavingsPage() {
         aside={totals.limit > 0 ? <span><Money value={totals.used} /> / <Money value={totals.limit} /></span> : undefined}
         flush
       >
-        {budgets.length === 0 ? (
+        {budgetsFailed ? (
+          <DataError />
+        ) : budgets.length === 0 ? (
           <EmptyState title={t("overview.noBudgetSet")} hint={t("overview.noBudgetHint")} />
         ) : (
           <>
@@ -88,7 +94,7 @@ export default function BudgetSavingsPage() {
                       <span className="hidden text-right md:block"><Money value={b.usedAmount} /></span>
                       <span className="hidden text-right md:block"><Money value={left} tone="auto" /></span>
                     </div>
-                    <div className="mt-2"><ProgressBar value={b.usedAmount} max={b.budgetAmount} /></div>
+                    <div className="mt-2"><ProgressBar value={b.usedAmount} max={b.budgetAmount} label={b.category} /></div>
                     <p className="mt-1.5 text-xs md:hidden" style={{ color: "var(--text-muted)" }}>
                       {left >= 0 ? t("budget.leftShort", { amount: formatRupiah(left) }) : t("overview.overBy", { amount: formatRupiah(-left) })}
                     </p>
@@ -105,12 +111,15 @@ export default function BudgetSavingsPage() {
         aside={target > 0 ? <span><Money value={saved} /> / <Money value={target} /></span> : undefined}
         flush
       >
-        {savings.length === 0 ? (
+        {savingsFailed ? (
+          <DataError />
+        ) : savings.length === 0 ? (
           <EmptyState title={t("budget.noSavings")} hint={t("budget.noSavingsHint")} />
         ) : (
           <ul className="grid md:grid-cols-2">
             {savings.map((s, i) => {
               const pct = s.targetAmount > 0 ? Math.round((s.currentAmount / s.targetAmount) * 100) : 0
+              const pace = savingsPace(s, now)
               return (
                 <li
                   key={s.id}
@@ -119,16 +128,27 @@ export default function BudgetSavingsPage() {
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>{s.name}</p>
-                    <span className="text-xs tabular-nums" style={{ color: pct >= 100 ? "var(--income)" : "var(--text-muted)" }}>{pct}%</span>
+                    <span className="flex shrink-0 items-baseline gap-2">
+                      {pace?.behind && <Pill tone="warning">{pace.overdue ? t("budget.pastTarget") : t("budget.behind")}</Pill>}
+                      <span className="text-xs tabular-nums" style={{ color: pct >= 100 ? "var(--income)" : "var(--text-muted)" }}>{pct}%</span>
+                    </span>
                   </div>
                   <p className="mt-1 text-sm"><Money value={s.currentAmount} /> <span style={{ color: "var(--text-muted)" }}>/ </span><Money value={s.targetAmount} className="opacity-70" /></p>
-                  <div className="mt-2.5"><ProgressBar value={s.currentAmount} max={s.targetAmount} kind="goal" /></div>
+                  <div className="mt-2.5"><ProgressBar value={s.currentAmount} max={s.targetAmount} kind="goal" label={s.name} /></div>
                   <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
                     {[
                       s.goldGrams !== null ? t("budget.grams", { grams: s.goldGrams.toLocaleString(locale) }) : null,
                       s.targetDate ? t("budget.target", { date: dateFmt.format(s.targetDate) }) : null,
                     ].filter(Boolean).join(" · ")}
                   </p>
+                  {pace && !pace.overdue && (
+                    <p className="mt-1 text-xs" style={{ color: pace.behind ? "var(--warning)" : "var(--text-secondary)" }}>
+                      {t("budget.perMonth", { amount: formatRupiah(pace.perMonth), months: pace.monthsLeft })}
+                    </p>
+                  )}
+                  {pace?.overdue && (
+                    <p className="mt-1 text-xs" style={{ color: "var(--warning)" }}>{t("budget.stillNeeded", { amount: formatRupiah(pace.perMonth) })}</p>
+                  )}
                 </li>
               )
             })}
