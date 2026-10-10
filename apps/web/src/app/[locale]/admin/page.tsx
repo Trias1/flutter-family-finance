@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { needsEmailVerification } from "@/lib/auth-verify"
 import { onAuthStateChanged, type User } from "firebase/auth"
 import { collection, collectionGroup, doc, getDoc, getDocs } from "firebase/firestore"
 import { Search } from "lucide-react"
@@ -159,6 +160,10 @@ export default function AdminPage() {
       stopPresence?.()
       if (!u) {
         router.replace("/login")
+        return
+      }
+      if (needsEmailVerification(u)) {
+        router.replace("/login?verify=1")
         return
       }
       setUser(u)

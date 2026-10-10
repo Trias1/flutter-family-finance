@@ -8,6 +8,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Email/password accounts must confirm their address before touching
+    // finance or family data. Google sign-ins arrive already verified.
+    function isVerified() {
+      return isAuth() && request.auth.token.email_verified == true;
+    }
+
     function userPath(uid) {
       return /databases/$(database)/documents/users/$(uid);
     }
@@ -57,14 +63,16 @@ service cloud.firestore {
     // uid for personal records.
     function canReadFinance() {
       let fid = userFamilyId();
-      return resource.data.familyId == request.auth.uid
-        || (fid != null && resource.data.familyId == fid);
+      return isVerified()
+        && (resource.data.familyId == request.auth.uid
+        || (fid != null && resource.data.familyId == fid));
     }
 
     function canWriteFinance() {
       let fid = userFamilyId();
-      return request.resource.data.familyId == request.auth.uid
-        || (fid != null && request.resource.data.familyId == fid);
+      return isVerified()
+        && (request.resource.data.familyId == request.auth.uid
+        || (fid != null && request.resource.data.familyId == fid));
     }
 
     function canUpdateFinance() {
@@ -131,8 +139,8 @@ service cloud.firestore {
       let newRole = request.resource.data.get('role', 'member');
       let familyOk = newFid == oldFid
         || newFid == null
-        || isFamilyOwner(newFid)
-        || inviteMatches(newFid, request.resource.data.get('joinCode', null));
+        || (isVerified() && (isFamilyOwner(newFid)
+          || inviteMatches(newFid, request.resource.data.get('joinCode', null))));
       let roleOk = newRole in ['member', 'user']
         || (newRole == oldRole && newFid == oldFid)
         || (newRole == 'admin' && isFamilyOwner(newFid));
@@ -145,7 +153,8 @@ service cloud.firestore {
     function ownerUpdateAllowed() {
       let fid = resource.data.get('familyId', null);
       let newFid = request.resource.data.get('familyId', null);
-      return isFamilyOwner(fid)
+      return isVerified()
+        && isFamilyOwner(fid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['familyId', 'role'])
         && (newFid == fid || newFid == null)
         && request.resource.data.get('role', 'member') in ['member', 'admin', 'user'];
@@ -154,9 +163,9 @@ service cloud.firestore {
     match /users/{uid} {
       allow get: if isAuth() && (
         request.auth.uid == uid
-        || (userFamilyId() != null && resource.data.get('familyId', null) == userFamilyId())
+        || (isVerified() && userFamilyId() != null && resource.data.get('familyId', null) == userFamilyId())
       );
-      allow list: if isAuth()
+      allow list: if isVerified()
         && userFamilyId() != null
         && resource.data.get('familyId', null) == userFamilyId();
       allow create: if isAuth()
@@ -207,17 +216,17 @@ service cloud.firestore {
     // ============ FAMILIES ============
 
     match /families/{familyId} {
-      allow get: if isAuth() && (userFamilyId() == familyId || resource.data.createdBy == request.auth.uid);
+      allow get: if isVerified() && (userFamilyId() == familyId || resource.data.createdBy == request.auth.uid);
       allow list: if false;
       // A family id must never equal a user id: personal records are scoped by uid.
-      allow create: if isAuth()
+      allow create: if isVerified()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.inviteCode is string
         && request.resource.data.inviteCode.size() >= 6
         && !exists(userPath(familyId));
       // Only the owner edits; ownership can move to a current member.
-      allow update: if isAuth()
+      allow update: if isVerified()
         && resource.data.createdBy == request.auth.uid
         && unchanged(['createdAt'])
         && request.resource.data.inviteCode is string
@@ -228,24 +237,24 @@ service cloud.firestore {
 
       // Members removed by the owner; they cannot rejoin while listed here.
       match /banned/{bannedUid} {
-        allow read, write: if isAuth() && isFamilyOwner(familyId);
+        allow read, write: if isVerified() && isFamilyOwner(familyId);
       }
     }
 
     // Invite code -> family. Readable one code at a time; never listable.
     match /family_invites/{code} {
-      allow get: if isAuth();
+      allow get: if isVerified();
       allow list: if false;
-      allow create: if isAuth()
+      allow create: if isVerified()
         && request.resource.data.keys().hasOnly(['familyId', 'familyName', 'createdBy'])
         && request.resource.data.createdBy == request.auth.uid
         && getAfter(familyPath(request.resource.data.familyId)).data.createdBy == request.auth.uid
         && getAfter(familyPath(request.resource.data.familyId)).data.inviteCode == code;
-      allow update: if isAuth()
+      allow update: if isVerified()
         && isFamilyOwner(resource.data.familyId)
         && request.resource.data.familyId == resource.data.familyId
         && request.resource.data.keys().hasOnly(['familyId', 'familyName', 'createdBy']);
-      allow delete: if isAuth() && isFamilyOwner(resource.data.familyId);
+      allow delete: if isVerified() && isFamilyOwner(resource.data.familyId);
     }
 
     // ============ FINANCE DATA ============

@@ -12,6 +12,7 @@ import SyncStatus from "@/components/SyncStatus"
 import ThemeToggle from "@/components/ThemeToggle"
 import { Skeleton } from "@/components/ui"
 import { FamilyDataProvider } from "@/lib/family-data"
+import { needsEmailVerification } from "@/lib/auth-verify"
 import { auth, db, signOutAndClear } from "@/lib/firebase"
 import { Link, useRouter } from "@/lib/i18n"
 import { startWebPresence } from "@/lib/web-presence"
@@ -32,6 +33,10 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       if (!u) {
         setUser(null)
         router.replace("/login")
+        return
+      }
+      if (needsEmailVerification(u)) {
+        router.replace("/login?verify=1")
         return
       }
       setUser(u)

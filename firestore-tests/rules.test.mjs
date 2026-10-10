@@ -54,7 +54,37 @@ beforeEach(async () => {
   })
 })
 
-const as = (uid) => env.authenticatedContext(uid).firestore()
+// Signed-in users have a verified email unless a test says otherwise.
+const as = (uid) => env.authenticatedContext(uid, { email_verified: true }).firestore()
+const asUnverified = (uid) => env.authenticatedContext(uid, { email_verified: false }).firestore()
+
+describe("unverified email accounts", () => {
+  test("can create and read their own profile", async () => {
+    const db = asUnverified("erin")
+    await assertSucceeds(setDoc(doc(db, "users", "erin"), { name: "erin", email: "erin@x.test", familyId: null, role: "member", createdAt: now }))
+    await assertSucceeds(getDoc(doc(db, "users", "erin")))
+  })
+
+  test("cannot read or write finance records, even their own", async () => {
+    const db = asUnverified("carol")
+    await assertFails(getDoc(doc(db, "expenses", "e-carol")))
+    await assertFails(getDocs(query(collection(db, "expenses"), where("familyId", "==", "carol"))))
+    await assertFails(setDoc(doc(db, "expenses", "new"), { familyId: "carol", userId: "carol", amount: 1, category: "Makan", date: now, createdAt: now }))
+  })
+
+  test("cannot join a family, read its members, or create one", async () => {
+    await assertFails(updateDoc(doc(asUnverified("carol"), "users", "carol"), { familyId: "F1", joinCode: "ABCD2345" }))
+    await assertFails(getDoc(doc(asUnverified("carol"), "family_invites", "ABCD2345")))
+    await assertFails(getDoc(doc(asUnverified("bob"), "users", "alice")))
+    await assertFails(getDoc(doc(asUnverified("bob"), "families", "F1")))
+    await assertFails(setDoc(doc(asUnverified("dave"), "families", "F9"), { name: "x", inviteCode: "XXXX2345", createdBy: "dave", createdAt: now }))
+  })
+
+  test("the same accounts work once verified", async () => {
+    await assertSucceeds(getDoc(doc(as("carol"), "expenses", "e-carol")))
+    await assertSucceeds(getDoc(doc(as("bob"), "families", "F1")))
+  })
+})
 
 describe("joining a family", () => {
   test("cannot set familyId to another family without a code", async () => {

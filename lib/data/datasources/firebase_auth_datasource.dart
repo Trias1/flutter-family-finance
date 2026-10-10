@@ -68,4 +68,7 @@ class FirebaseAuthDataSource {
   User? get currentUser => _auth.currentUser;
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  /// Also fires after reload(), e.g. when the email becomes verified.
+  Stream<User?> get userChanges => _auth.userChanges();
 }

@@ -5,10 +5,12 @@ import { Eye, EyeOff } from "lucide-react"
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signOut,
   type User,
 } from "firebase/auth"
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
@@ -18,6 +20,7 @@ import { useTranslations } from "next-intl"
 import BrandMark from "@/components/public/BrandMark"
 import PublicTheme from "@/components/public/PublicTheme"
 import LocaleToggle from "@/components/LocaleToggle"
+import { needsEmailVerification } from "@/lib/auth-verify"
 import { auth, db } from "@/lib/firebase"
 import { Link, useRouter } from "@/lib/i18n"
 import { clearFailures, getLockRemaining, recordFailure } from "@/lib/login-throttle"
@@ -50,6 +53,22 @@ function LoginForm() {
   const [status, setStatus] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [lockSeconds, setLockSeconds] = useState(0)
+  // Signed in with an email that is not verified yet.
+  const [verifyUser, setVerifyUser] = useState<User | null>(null)
+  const [resendIn, setResendIn] = useState(0)
+
+  // Sent here by the dashboard (?verify=1), or a reload while unverified.
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u) => {
+      if (u && needsEmailVerification(u) && searchParams.get("verify") === "1") setVerifyUser(u)
+    })
+  }, [searchParams])
+
+  useEffect(() => {
+    if (resendIn <= 0) return
+    const id = window.setTimeout(() => setResendIn((s) => s - 1), 1000)
+    return () => window.clearTimeout(id)
+  }, [resendIn])
 
   // Reads the stored lock after mount and ticks the countdown so the button
   // re-enables on its own.
@@ -103,6 +122,13 @@ function LoginForm() {
   }
 
   const finishSignIn = async (user: User) => {
+    if (needsEmailVerification(user)) {
+      // The profile doc may be created now; finance data waits for the link.
+      await ensureUserDoc(user).catch(() => {})
+      setStatus("")
+      setVerifyUser(user)
+      return
+    }
     setStatus(t("redirecting"))
     try {
       const snap = await ensureUserDoc(user)
@@ -185,6 +211,97 @@ function LoginForm() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const checkVerified = async () => {
+    const user = auth.currentUser
+    if (!user || submitting) return
+    setSubmitting(true)
+    setError("")
+    setStatus("")
+    try {
+      // Fresh token first so the Firestore rules see email_verified.
+      await user.getIdToken(true)
+      await user.reload()
+      const fresh = auth.currentUser
+      if (fresh && !needsEmailVerification(fresh)) {
+        setVerifyUser(null)
+        await finishSignIn(fresh)
+      } else {
+        setError(t("verify.notYet"))
+      }
+    } catch {
+      setError(t("errors.network"))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const resendVerification = async () => {
+    const user = auth.currentUser
+    if (!user || resendIn > 0) return
+    setError("")
+    try {
+      await sendEmailVerification(user)
+      setStatus(t("verify.resent"))
+      setResendIn(60)
+    } catch (err) {
+      setError(errorCode(err).includes("too-many-requests") ? t("errors.tooMany") : t("verify.resendFailed"))
+    }
+  }
+
+  const leaveVerify = async () => {
+    await signOut(auth).catch(() => {})
+    setVerifyUser(null)
+    setError("")
+    setStatus("")
+    setPassword("")
+  }
+
+  if (verifyUser) {
+    return (
+      <main className="auth-page min-h-screen px-4 py-6 sm:py-10">
+        <header className="mx-auto flex w-full max-w-md items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            <BrandMark dark />
+            Family Finance
+          </Link>
+          <LocaleToggle />
+        </header>
+        <PublicTheme />
+
+        <section className="auth-card mx-auto mt-8 w-full max-w-md p-6 sm:p-8">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>{t("verify.title")}</h1>
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
+            {t.rich("verify.desc", {
+              email: verifyUser.email ?? "",
+              strong: (chunks) => <strong style={{ color: "var(--text-primary)" }}>{chunks}</strong>,
+            })}
+          </p>
+          <p className="mt-3 text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t("verify.why")}</p>
+
+          <div className="mt-6 space-y-3">
+            <button type="button" onClick={checkVerified} disabled={submitting} className="auth-btn-primary">
+              {submitting ? t("loading") : t("verify.done")}
+            </button>
+            <button type="button" onClick={resendVerification} disabled={resendIn > 0} className="auth-btn-secondary">
+              {resendIn > 0 ? t("verify.resendIn", { seconds: resendIn }) : t("verify.resend")}
+            </button>
+          </div>
+
+          <div aria-live="polite">
+            {status && <p className="auth-notice auth-notice-ok mt-4">{status}</p>}
+            {error && <p className="auth-notice auth-notice-error mt-4">{error}</p>}
+          </div>
+
+          <p className="mt-6 text-center text-sm">
+            <button type="button" onClick={leaveVerify} className="font-semibold" style={{ color: "var(--primary)" }}>
+              {t("verify.useAnother")}
+            </button>
+          </p>
+        </section>
+      </main>
+    )
   }
 
   const title = mode === "register" ? t("createYourAccount") : mode === "reset" ? t("resetTitle") : t("welcomeBack")

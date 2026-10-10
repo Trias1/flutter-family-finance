@@ -23,9 +23,16 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   );
 });
 
+// userChanges (not authStateChanges) so a verified email is noticed at once.
 final authStateProvider = StreamProvider<User?>((ref) {
-  return ref.watch(firebaseAuthDataSourceProvider).authStateChanges;
+  return ref.watch(firebaseAuthDataSourceProvider).userChanges;
 });
+
+/// Email/password accounts must verify their address first (the Firestore
+/// rules require it too). Google accounts are verified by Google.
+bool needsEmailVerification(User user) =>
+    !user.emailVerified &&
+    user.providerData.any((p) => p.providerId == 'password');
 
 final familyIdProvider = Provider<String>((ref) {
   final user = ref.watch(authNotifierProvider).valueOrNull;

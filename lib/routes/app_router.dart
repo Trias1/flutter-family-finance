@@ -5,6 +5,7 @@ import 'package:family_finance_manager/core/widgets/main_shell.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/login_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/register_page.dart';
+import 'package:family_finance_manager/features/auth/presentation/pages/verify_email_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/budget/presentation/pages/budget_history_page.dart';
 import 'package:family_finance_manager/features/budget/presentation/pages/budget_page.dart';
@@ -50,8 +51,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/forgot-password';
-      if (!isLoggedIn && !isAuthRoute) return '/login';
-      if (isLoggedIn && isAuthRoute) return '/dashboard';
+      final onVerify = state.matchedLocation == '/verify-email';
+      if (!isLoggedIn) return isAuthRoute ? null : '/login';
+      if (needsEmailVerification(firebaseUser)) {
+        return onVerify ? null : '/verify-email';
+      }
+      if (isAuthRoute || onVerify) return '/dashboard';
       return null;
     },
     routes: [
@@ -64,6 +69,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register',
         name: 'register',
         builder: (context, state) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        name: 'verifyEmail',
+        builder: (context, state) => const VerifyEmailPage(),
       ),
       GoRoute(
         path: '/forgot-password',

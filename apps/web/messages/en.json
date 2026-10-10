@@ -111,6 +111,18 @@
       "tooMany": "Too many attempts. Wait a few minutes and try again.",
       "network": "Connection problem. Check your internet and try again.",
       "googleFailed": "Google sign-in failed. Please try again."
+    },
+    "verify": {
+      "title": "Check your email",
+      "desc": "We sent a verification link to <strong>{email}</strong>. Open it, then come back here. If you can't find it, check your Spam folder.",
+      "why": "Your finances open once the email is verified, so nobody can sign up with an address that isn't theirs.",
+      "done": "I've verified",
+      "notYet": "Not verified yet. Open the link in your email first.",
+      "resend": "Resend email",
+      "resendIn": "Resend ({seconds})",
+      "resent": "Verification email sent again.",
+      "resendFailed": "Couldn't send the email. Try again later.",
+      "useAnother": "Sign out and use another email"
     }
   },
   "publicNav": {

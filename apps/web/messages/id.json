@@ -117,6 +117,18 @@
       "tooMany": "Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.",
       "network": "Koneksi bermasalah. Cek internet lalu coba lagi.",
       "googleFailed": "Masuk dengan Google gagal. Coba lagi."
+    },
+    "verify": {
+      "title": "Cek email kamu",
+      "desc": "Kami mengirim link verifikasi ke <strong>{email}</strong>. Buka link itu, lalu kembali ke sini. Kalau tidak ada, cek folder Spam.",
+      "why": "Data keuangan baru bisa dibuka setelah email terverifikasi, supaya akun tidak bisa dibuat dengan email orang lain.",
+      "done": "Saya sudah verifikasi",
+      "notYet": "Email belum terverifikasi. Buka link di email kamu dulu.",
+      "resend": "Kirim ulang email",
+      "resendIn": "Kirim ulang ({seconds})",
+      "resent": "Email verifikasi dikirim ulang.",
+      "resendFailed": "Email tidak terkirim. Coba lagi nanti.",
+      "useAnother": "Keluar dan pakai email lain"
     }
   },
   "publicNav": {
