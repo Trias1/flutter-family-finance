@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import BrandMark from "@/components/public/BrandMark"
+import PublicTheme from "@/components/public/PublicTheme"
 import LocaleToggle from "@/components/LocaleToggle"
 import { APP_NAME } from "@/lib/app-info"
 import { Link } from "@/lib/i18n"
@@ -20,6 +21,7 @@ export default function PublicNavbar() {
 
   return (
     <header className="absolute inset-x-0 top-0 z-30 border-b" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
+      <PublicTheme />
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
         <Link href="/" className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           <BrandMark dark />

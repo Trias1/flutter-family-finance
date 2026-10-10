@@ -16,7 +16,8 @@ import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 
 import BrandMark from "@/components/public/BrandMark"
-import ThemeToggle from "@/components/ThemeToggle"
+import PublicTheme from "@/components/public/PublicTheme"
+import LocaleToggle from "@/components/LocaleToggle"
 import { auth, db } from "@/lib/firebase"
 import { Link, useRouter } from "@/lib/i18n"
 import { clearFailures, getLockRemaining, recordFailure } from "@/lib/login-throttle"
@@ -197,8 +198,9 @@ function LoginForm() {
           <BrandMark dark />
           Family Finance
         </Link>
-        <ThemeToggle />
+        <LocaleToggle />
       </header>
+      <PublicTheme />
 
       <section className="auth-card mx-auto mt-8 w-full max-w-md p-6 sm:p-8">
         <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>{title}</h1>
