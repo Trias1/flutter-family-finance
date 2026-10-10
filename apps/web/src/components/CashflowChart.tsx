@@ -43,8 +43,8 @@ export default function CashflowChart({ data, labels, height = 240, emptyLabel }
           <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "var(--text-muted)" }} />
           <YAxis width={52} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--text-muted)" }} tickFormatter={formatCompact} />
           <Tooltip cursor={{ fill: "var(--surface-soft)" }} content={<ChartTooltip labels={labels} />} />
-          <Bar dataKey="income" fill="var(--income)" fillOpacity={0.85} isAnimationActive={false} radius={[3, 3, 0, 0]} maxBarSize={22} />
-          <Bar dataKey="expense" fill="var(--expense)" fillOpacity={0.55} isAnimationActive={false} radius={[3, 3, 0, 0]} maxBarSize={22} />
+          <Bar dataKey="income" fill="var(--chart-in)" fillOpacity={0.9} isAnimationActive={false} radius={[3, 3, 0, 0]} maxBarSize={22} />
+          <Bar dataKey="expense" fill="var(--chart-out)" fillOpacity={0.75} isAnimationActive={false} radius={[3, 3, 0, 0]} maxBarSize={22} />
         </BarChart>
       </ResponsiveContainer>
     </div>

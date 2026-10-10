@@ -7,7 +7,7 @@ export const COLOR_THEME_STORAGE_KEY = "family-finance-color-theme"
 // `swatch` is the light-mode primary, matching the Android presets.
 export const colorThemes: { id: ColorThemeId; name: string; swatch: string }[] = [
   { id: "oceanBlue", name: "Ocean Blue", swatch: "#1D4ED8" },
-  { id: "sage", name: "Sage", swatch: "#475569" },
+  { id: "sage", name: "Sage", swatch: "#3F6212" },
   { id: "lavender", name: "Lavender", swatch: "#7C3AED" },
   { id: "charcoalGold", name: "Charcoal Gold", swatch: "#111827" },
   { id: "mochaBrown", name: "Mocha Brown", swatch: "#6B3F2A" },

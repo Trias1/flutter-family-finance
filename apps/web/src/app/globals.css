@@ -76,46 +76,46 @@ body {
   overflow-x: hidden;
 }
 
-/* Accent presets, same primaries as the Android app. Light mode only;
-   dark mode has its own lighter variants below. */
-:root:not([data-theme="dark"])[data-color-theme="mochaBrown"] { --primary: #6B3F2A; }
-:root:not([data-theme="dark"])[data-color-theme="softPink"] { --primary: #BE185D; }
-:root:not([data-theme="dark"])[data-color-theme="roseGold"] { --primary: #9F1239; }
-:root:not([data-theme="dark"])[data-color-theme="lavender"] { --primary: #7C3AED; }
-:root:not([data-theme="dark"])[data-color-theme="charcoalGold"] { --primary: #111827; }
-:root:not([data-theme="dark"])[data-color-theme="sage"] { --primary: #475569; }
+/* Color presets, matching the Android app. Each preset sets a primary, a
+   secondary accent and the page tint; surfaces, rules and charts derive
+   from them. Income/expense text stays green/red in every preset. */
+:root:not([data-theme="dark"])[data-color-theme="oceanBlue"]    { --primary: #1D4ED8; --accent: #0891B2; --bg: #F8FAFC; }
+:root:not([data-theme="dark"])[data-color-theme="mochaBrown"]   { --primary: #6B3F2A; --accent: #B45309; --bg: #FAF7F2; }
+:root:not([data-theme="dark"])[data-color-theme="softPink"]     { --primary: #BE185D; --accent: #D97706; --bg: #FFF5F8; }
+:root:not([data-theme="dark"])[data-color-theme="roseGold"]     { --primary: #9F1239; --accent: #C2410C; --bg: #FFF8F1; }
+:root:not([data-theme="dark"])[data-color-theme="lavender"]     { --primary: #7C3AED; --accent: #DB2777; --bg: #F7F5FF; }
+:root:not([data-theme="dark"])[data-color-theme="charcoalGold"] { --primary: #111827; --accent: #B45309; --bg: #F9FAFB; }
+:root:not([data-theme="dark"])[data-color-theme="sage"]         { --primary: #3F6212; --accent: #A16207; --bg: #F8FAF5; }
 
 :root:not([data-theme="dark"])[data-color-theme] {
   --primary-light: color-mix(in srgb, var(--primary) 85%, white);
   --primary-bg: color-mix(in srgb, var(--primary) 12%, white);
+  --surface-soft: color-mix(in srgb, var(--primary) 7%, white);
+  --border: color-mix(in srgb, var(--primary) 14%, #E5E7EB);
 }
 
-[data-theme="dark"][data-color-theme="mochaBrown"] {
-  --primary: #D6A77A; --primary-light: #E7C29B; --primary-lighter: #F3DCC2; --primary-bg: rgba(214, 167, 122, 0.16);
+[data-theme="dark"][data-color-theme="oceanBlue"]    { --primary: #60A5FA; --accent: #22D3EE; }
+[data-theme="dark"][data-color-theme="mochaBrown"]   { --primary: #D6A77A; --accent: #F59E0B; }
+[data-theme="dark"][data-color-theme="softPink"]     { --primary: #F472B6; --accent: #FBBF24; }
+[data-theme="dark"][data-color-theme="roseGold"]     { --primary: #FB7185; --accent: #FDBA74; }
+[data-theme="dark"][data-color-theme="lavender"]     { --primary: #A78BFA; --accent: #F472B6; }
+[data-theme="dark"][data-color-theme="charcoalGold"] { --primary: #FBBF24; --accent: #E5E7EB; }
+[data-theme="dark"][data-color-theme="sage"]         { --primary: #A3E635; --accent: #FACC15; }
+
+[data-theme="dark"][data-color-theme] {
+  --primary-light: color-mix(in srgb, var(--primary) 80%, white);
+  --primary-lighter: color-mix(in srgb, var(--primary) 55%, white);
+  --primary-bg: color-mix(in srgb, var(--primary) 16%, transparent);
+  --bg: color-mix(in srgb, var(--primary) 4%, #07111F);
+  --bg-card: color-mix(in srgb, var(--primary) 6%, #0F1B2D);
+  --surface-soft: color-mix(in srgb, var(--primary) 12%, #0F1B2D);
+  --border: color-mix(in srgb, var(--primary) 18%, #22324A);
 }
 
-[data-theme="dark"][data-color-theme="softPink"] {
-  --primary: #F472B6; --primary-light: #FDA4AF; --primary-lighter: #FBCFE8; --primary-bg: rgba(244, 114, 182, 0.16);
-}
-
-[data-theme="dark"][data-color-theme="roseGold"] {
-  --primary: #FB7185; --primary-light: #FDA4AF; --primary-lighter: #FED7AA; --primary-bg: rgba(251, 113, 133, 0.16);
-}
-
-[data-theme="dark"][data-color-theme="oceanBlue"] {
-  --primary: #60A5FA; --primary-light: #38BDF8; --primary-lighter: #93C5FD; --primary-bg: rgba(96, 165, 250, 0.16);
-}
-
-[data-theme="dark"][data-color-theme="lavender"] {
-  --primary: #A78BFA; --primary-light: #C4B5FD; --primary-lighter: #DDD6FE; --primary-bg: rgba(167, 139, 250, 0.16);
-}
-
-[data-theme="dark"][data-color-theme="charcoalGold"] {
-  --primary: #FBBF24; --primary-light: #FCD34D; --primary-lighter: #FDE68A; --primary-bg: rgba(251, 191, 36, 0.16);
-}
-
-[data-theme="dark"][data-color-theme="sage"] {
-  --primary: #86EFAC; --primary-light: #A7F3D0; --primary-lighter: #D1FAE5; --primary-bg: rgba(134, 239, 172, 0.16);
+/* Chart series follow the active preset. */
+:root {
+  --chart-in: var(--primary);
+  --chart-out: var(--accent, #0891B2);
 }
 
 button,
