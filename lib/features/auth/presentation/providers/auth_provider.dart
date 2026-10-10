@@ -261,6 +261,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
         case 'network-request-failed':
           return 'Tidak ada koneksi internet';
         case 'weak-password':
+        // Server-side password policy (8+ characters with a number).
+        case 'password-does-not-meet-requirements':
           return 'Password minimal 8 karakter, berisi huruf dan angka';
         case 'invalid-email':
           return 'Email tidak valid';
