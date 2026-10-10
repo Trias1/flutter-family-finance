@@ -1,12 +1,24 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:family_finance_manager/core/services/receipt_parser.dart';
+import 'package:family_finance_manager/core/services/statement_parser.dart';
+
+/// One scan: read as a single receipt, and as a list of transactions. Two or
+/// more list rows mean a statement screenshot (mutasi) to import in bulk.
+class ScanResult {
+  final ReceiptDraft draft;
+  final List<StatementItem> items;
+
+  const ScanResult({required this.draft, required this.items});
+
+  bool get isStatement => items.length >= 2;
+}
 
 /// Reads a receipt or payment screenshot on the phone (Google ML Kit, no
 /// upload, no cost) and turns it into a draft expense.
 class ReceiptScanner {
   /// Returns null when the user cancels picking an image.
-  static Future<ReceiptDraft?> pickAndRead({
+  static Future<ScanResult?> pickAndRead({
     required bool fromCamera,
     void Function()? onReading,
   }) async {
@@ -23,8 +35,10 @@ class ReceiptScanner {
       final result = await recognizer.processImage(
         InputImage.fromFilePath(picked.path),
       );
-      return ReceiptParser.parse(
-        rowsText(result.blocks.expand((b) => b.lines)),
+      final text = rowsText(result.blocks.expand((b) => b.lines));
+      return ScanResult(
+        draft: ReceiptParser.parse(text),
+        items: StatementParser.parse(text),
       );
     } finally {
       await recognizer.close();

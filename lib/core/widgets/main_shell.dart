@@ -27,6 +27,7 @@ import 'package:family_finance_manager/features/bills/presentation/providers/bil
 import 'package:family_finance_manager/core/widgets/announcement_banner.dart';
 import 'package:family_finance_manager/core/services/receipt_parser.dart';
 import 'package:family_finance_manager/core/services/receipt_scanner.dart';
+import 'package:family_finance_manager/features/transactions/presentation/pages/statement_import_page.dart';
 
 const _tabRoutes = ['/dashboard', '/transactions', '/budget', '/profile'];
 const _tabPages = <Widget>[
@@ -277,9 +278,9 @@ class _MainShellState extends ConsumerState<MainShell> {
   Future<void> _scanReceipt(bool fromCamera) async {
     final isId = ref.read(localeProvider).languageCode == 'id';
     var showingProgress = false;
-    ReceiptDraft? draft;
+    ScanResult? scan;
     try {
-      draft = await ReceiptScanner.pickAndRead(
+      scan = await ReceiptScanner.pickAndRead(
         fromCamera: fromCamera,
         onReading: () {
           if (!mounted) return;
@@ -308,11 +309,21 @@ class _MainShellState extends ConsumerState<MainShell> {
         },
       );
     } catch (_) {
-      draft = const ReceiptDraft();
+      scan = const ScanResult(draft: ReceiptDraft(), items: []);
     } finally {
       if (showingProgress && mounted) Navigator.of(context).pop();
     }
-    if (draft == null || !mounted) return;
+    if (scan == null || !mounted) return;
+    // A transaction list (mutasi): review and save every row at once.
+    if (scan.isStatement) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => StatementImportPage(items: scan!.items),
+        ),
+      );
+      return;
+    }
+    final draft = scan.draft;
     if (draft.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
