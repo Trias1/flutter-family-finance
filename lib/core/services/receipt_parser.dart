@@ -12,8 +12,9 @@ class ReceiptDraft {
   /// Money came in (salary, a transfer received): it belongs in Income.
   final bool isIncoming;
 
-  /// For money received: who sent it.
+  /// For money received: who sent it, and from which bank.
   final String? sender;
+  final String? senderBank;
 
   /// For transfers: who received the money and at which bank.
   final String? recipient;
@@ -29,6 +30,7 @@ class ReceiptDraft {
     this.paidWith,
     this.isIncoming = false,
     this.sender,
+    this.senderBank,
     this.recipient,
     this.recipientBank,
     this.kind = ReceiptKind.other,
@@ -51,9 +53,10 @@ class ReceiptDraft {
       final label = categoryHint == 'salary'
           ? (isId ? 'Gaji' : 'Salary')
           : (isId ? 'Transfer masuk' : 'Money received');
+      final fromBank = senderBank == null ? '' : ' ($senderBank)';
       what = sender == null
           ? label
-          : '$label ${isId ? 'dari' : 'from'} $sender';
+          : '$label ${isId ? 'dari' : 'from'} $sender$fromBank';
     } else if (kind == ReceiptKind.transfer && recipient != null) {
       final bank = recipientBank == null ? '' : ' ($recipientBank)';
       what = '${isId ? 'Transfer ke' : 'Transfer to'} $recipient$bank';
@@ -75,6 +78,8 @@ class ReceiptParser {
     ],
     'BCA Syariah': ['bca syariah'],
     'BCA': [
+      // Tahapan is BCA's savings account; its app often shows only that.
+      'tahapan',
       'bca mobile',
       'm-bca',
       'mybca',
@@ -231,7 +236,7 @@ class ReceiptParser {
         payer ??= m.name;
       }
     }
-    if (isTransfer) {
+    if (isTransfer && !isIncoming) {
       for (final m in mentions) {
         if (m.name == payer && mentions.length > 1) continue;
         // A recipient's bank sits right under their (usually capitalised) name.
@@ -270,10 +275,38 @@ class ReceiptParser {
       }
     }
 
+    // Bank statements and cash-flow lists show "NAME - BANK X" (optionally
+    // after a "01/10" date): the sender and the bank they sent from.
+    String? senderBank;
+    if (isIncoming) {
+      final nameBank = RegExp(
+        r"^(?:\d{1,2}/\d{1,2}\s+)?([A-Za-z][A-Za-z .,']{2,40}?)\s+-\s+(.+)$",
+      );
+      for (final line in lines) {
+        final m = nameBank.firstMatch(line);
+        if (m == null) continue;
+        final bank = _findName(_payers, m.group(2)!.toLowerCase());
+        if (bank == null) continue;
+        sender ??= m.group(1)!.trim();
+        senderBank = bank;
+        break;
+      }
+      // The account that received the money is the other bank on screen.
+      if (senderBank != null) {
+        payer =
+            mentions
+                .where((m) => m.name != senderBank)
+                .map((m) => m.name)
+                .firstOrNull ??
+            (payer == senderBank ? null : payer);
+      }
+    }
+
     return ReceiptDraft(
       amount: _findAmount(lines),
       isIncoming: isIncoming,
       sender: sender,
+      senderBank: senderBank,
       merchant: store ?? (isTransfer ? null : _findMerchantLine(lines)),
       paidWith: payer,
       recipient: recipient,
@@ -443,6 +476,35 @@ class ReceiptParser {
           now.difference(d).inDays < 400) {
         return d;
       }
+    }
+    return _findShortDate(lines, now);
+  }
+
+  /// "01/10" without a year (lists such as BCA's cash flow): the year comes
+  /// from a "Oktober 2026" heading, else the current year (or last year if
+  /// that would be in the future).
+  static DateTime? _findShortDate(List<String> lines, DateTime now) {
+    final short = RegExp(r'(?<![\d/.])(\d{1,2})/(\d{1,2})(?![\d/])');
+    final heading = RegExp(r'\b([A-Za-z]{3,})\s+(\d{4})\b');
+    int? year;
+    for (final line in lines) {
+      final h = heading.firstMatch(line);
+      if (h != null &&
+          _months.containsKey(h.group(1)!.substring(0, 3).toLowerCase())) {
+        year = int.parse(h.group(2)!);
+        break;
+      }
+    }
+    for (final line in lines) {
+      final m = short.firstMatch(line);
+      if (m == null) continue;
+      final day = int.parse(m.group(1)!);
+      final month = int.parse(m.group(2)!);
+      var d = _safeDate(year ?? now.year, month, day);
+      if (d != null && year == null && d.isAfter(now)) {
+        d = _safeDate(now.year - 1, month, day);
+      }
+      if (d != null) return d;
     }
     return null;
   }

@@ -45,7 +45,9 @@ Reference Number
     });
 
     test('currency and amount on one line', () {
-      final d = ReceiptParser.parse(ocbcSplit.replaceFirst('IDR\n35,000', 'IDR 35,000'));
+      final d = ReceiptParser.parse(
+        ocbcSplit.replaceFirst('IDR\n35,000', 'IDR 35,000'),
+      );
       expect(d.amount, 35000);
     });
   });
@@ -130,6 +132,37 @@ BUDI SANTOSO
       expect(d.amount, 50000);
       expect(d.categoryHint, 'transfer_in');
       expect(d.noteFor(isId: false), 'Money received from BUDI SANTOSO · DANA');
+    });
+
+    test('BCA cash-flow list: incoming BI-FAST from OCBC', () {
+      // BCA mobile, Cashflow > Pemasukan; no "BCA" text, only "TAHAPAN".
+      const text = '''
+6:25 0.00 KB/s 88%
+Cashflow
+Pengeluaran Pemasukan
+Oktober 2026
+Transfer
+Rekening
+IDR
+260,000.00
+Tentang Catatan Finansial - Cashflow
+Transfer Rekening
+01/10 TRIAS ZAEN MUTAQIN - BANK OCBC NISP
+IDR 260,000.00
+BI-FAST CR
+727 - 522 - 6858 - TAHAPAN
+''';
+      final d = ReceiptParser.parse(text);
+      expect(d.isIncoming, isTrue);
+      expect(d.amount, 260000);
+      expect(d.sender, 'TRIAS ZAEN MUTAQIN');
+      expect(d.senderBank, 'OCBC');
+      expect(d.paidWith, 'BCA');
+      expect(d.date, DateTime(2026, 10, 1));
+      expect(
+        d.noteFor(isId: true),
+        'Transfer masuk dari TRIAS ZAEN MUTAQIN (OCBC) · BCA',
+      );
     });
 
     test('paying with a credit card is still spending', () {
