@@ -16,6 +16,7 @@ import { auth, db } from "@/lib/firebase"
 import { useRouter } from "@/lib/i18n"
 import { startWebPresence, writeWebPresence } from "@/lib/web-presence"
 import { APP_VERSION_CODE, APP_VERSION_NAME } from "@/lib/app-info"
+import { AndroidReleaseSettings, AnnouncementSettings } from "@/components/AdminReleaseSettings"
 
 type AuditEntry = {
   id: string
@@ -36,7 +37,7 @@ type Dialog =
 
 const PAGE_SIZE = 25
 const FILTERS: AdminFilter[] = ["all", "online", "android", "web", "outdated", "disabled"]
-const AUDIT_ACTIONS = ["reset_password", "disable_user", "enable_user", "android_config", "account_deleted"]
+const AUDIT_ACTIONS = ["reset_password", "disable_user", "enable_user", "android_config", "android_settings", "announcement_on", "announcement_off", "account_deleted"]
 
 /** Calls an admin route with the caller's ID token; errors carry the API's stable code. */
 async function adminFetch<T>(user: User, path: string, body?: Record<string, unknown>): Promise<T> {
@@ -221,9 +222,6 @@ export default function AdminPage() {
         <div className="space-y-6">
           <PageHeader title={t("dashboardTitle")} description={t("dashboardDesc")} />
           <div className="-mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={() => run("invites")} disabled={busy !== ""} className="auth-btn-secondary !h-9 !w-auto px-3">
-              {busy === "invites" ? t("processing") : t("syncInvites")}
-            </button>
             {/* The APK on this site is APP_VERSION; publishing is one click and
                 disabled once phones already get that version. */}
             <button
@@ -235,9 +233,6 @@ export default function AdminPage() {
               {stats && stats.latestVersionCode >= APP_VERSION_CODE
                 ? t("upToDate", { version: `${stats.latestVersionName}+${stats.latestVersionCode}` })
                 : t("publishVersion", { version: `${APP_VERSION_NAME}+${APP_VERSION_CODE}` })}
-            </button>
-            <button type="button" onClick={() => run("backfill")} disabled={busy !== ""} className="auth-btn-primary !h-9 !w-auto px-3">
-              {busy === "backfill" ? t("processing") : t("syncLegacyUsers")}
             </button>
           </div>
 
@@ -251,6 +246,31 @@ export default function AdminPage() {
                 <Count label={t("activeToday")} value={stats.activeToday} note={t("active24Hours")} />
                 <Count label={t("needsUpdate")} value={stats.outdatedUsers} note={t("oldAndroidVersion")} warn={stats.outdatedUsers > 0} />
                 <Count label={t("latestAndroid")} text={`v${stats.latestVersionName}+${stats.latestVersionCode}`} note={`${t("webVersion")} v${stats.webVersionName}+${stats.webVersionCode}`} />
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <AndroidReleaseSettings
+                  key={`${overview.release.forceUpdate}|${overview.release.releaseNotes}`}
+                  initial={overview.release}
+                  notify={(tone, text) => setNotice({ tone, text })}
+                  apiError={apiError}
+                  onSave={async (body) => {
+                    if (!user) return
+                    await adminFetch(user, "/api/admin/android-settings", body)
+                    refresh()
+                  }}
+                />
+                <AnnouncementSettings
+                  key={JSON.stringify(overview.announcement)}
+                  initial={overview.announcement}
+                  notify={(tone, text) => setNotice({ tone, text })}
+                  apiError={apiError}
+                  onSave={async (body) => {
+                    if (!user) return
+                    await adminFetch(user, "/api/admin/announcement", body)
+                    refresh()
+                  }}
+                />
               </div>
 
               <Section title={t("growthTitle")} aside={
@@ -405,20 +425,25 @@ export default function AdminPage() {
               </div>
 
               <div id="versions" className="scroll-mt-20">
-                <Section title={t("versionDistribution")} aside={t("activeDevicesCount", { count: stats.activeDevices })} flush>
+                <Section title={t("versionDistribution")} aside={t("versionWindow")} flush>
                   {overview.versions.length === 0 ? (
                     <EmptyState title={t("noVersions")} />
                   ) : (
                     <ul>
                       {overview.versions.map((v) => {
-                        const share = stats.totalUsers > 0 ? (v.value / stats.totalUsers) * 100 : 0
+                        const total = overview.versions.reduce((sum, x) => sum + x.value, 0)
+                        const share = total > 0 ? (v.value / total) * 100 : 0
+                        const isLatest = v.name === `${stats.latestVersionName}+${stats.latestVersionCode}`
                         return (
                           <li key={v.name} className="flex items-center gap-4 border-b px-5 py-3 last:border-b-0" style={{ borderColor: "var(--border)" }}>
-                            <span className="w-28 shrink-0 text-sm tabular-nums" style={{ color: "var(--text-primary)" }}>{v.name}</span>
+                            <span className="w-36 shrink-0 text-sm tabular-nums" style={{ color: "var(--text-primary)" }}>
+                              {v.name}
+                              {isLatest && <span className="ml-2 text-xs" style={{ color: "var(--income)" }}>{t("latestBadge")}</span>}
+                            </span>
                             <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: "var(--surface-soft)" }} aria-hidden="true">
                               <div className="h-full rounded-full" style={{ width: `${share}%`, backgroundColor: "var(--primary)" }} />
                             </div>
-                            <span className="w-24 text-right text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>{v.value} {t("usersLabel")}</span>
+                            <span className="w-28 text-right text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>{v.value} {t("usersLabel")} · {Math.round(share)}%</span>
                           </li>
                         )
                       })}
@@ -426,6 +451,20 @@ export default function AdminPage() {
                   )}
                 </Section>
               </div>
+
+              {/* One-off data migrations; tucked away so they are not run by accident. */}
+              <details className="rounded-lg border px-5 py-3.5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
+                <summary className="cursor-pointer text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{t("maintenanceTools")}</summary>
+                <p className="mt-2 text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t("maintenanceHint")}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => run("invites")} disabled={busy !== ""} className="auth-btn-secondary !h-9 !w-auto px-3">
+                    {busy === "invites" ? t("processing") : t("syncInvites")}
+                  </button>
+                  <button type="button" onClick={() => run("backfill")} disabled={busy !== ""} className="auth-btn-secondary !h-9 !w-auto px-3">
+                    {busy === "backfill" ? t("processing") : t("syncLegacyUsers")}
+                  </button>
+                </div>
+              </details>
 
               <div id="audit" className="scroll-mt-20">
                 <Section title={t("audit.title")} aside={t("audit.desc")} flush>

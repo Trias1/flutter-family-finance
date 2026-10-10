@@ -136,6 +136,13 @@ export async function GET(req: NextRequest) {
     const filter: Filter = (FILTERS as readonly string[]).includes(filterParam) ? (filterParam as Filter) : "all"
 
     const snapshot = await loadSnapshot()
+    // Settings change rarely but must show right after saving, so they are
+    // read fresh instead of from the 30-second cache.
+    const [androidConfig, announcementDoc] = await Promise.all([
+      db().collection("app_config").doc("android").get(),
+      db().collection("app_config").doc("announcement").get(),
+    ])
+    const ann = announcementDoc.data() ?? {}
     const { rows } = snapshot
     const now = Date.now()
 
@@ -184,7 +191,10 @@ export async function GET(req: NextRequest) {
         const day = new Date(r.lastSeenAt).toISOString().slice(0, 10)
         activityMap.set(day, (activityMap.get(day) ?? 0) + 1)
       }
-      if (r.appVersionLabel !== "-") versionMap.set(r.appVersionLabel, (versionMap.get(r.appVersionLabel) ?? 0) + 1)
+      // Only phones used in the last 30 days say how far an update has spread.
+      if (r.appVersionLabel !== "-" && (r.lastSeenAt ?? 0) >= now - 30 * 86_400_000) {
+        versionMap.set(r.appVersionLabel, (versionMap.get(r.appVersionLabel) ?? 0) + 1)
+      }
     }
     const growth = Array.from({ length: 14 }, (_, i) => {
       const key = new Date(now - (13 - i) * 86_400_000).toISOString().slice(0, 10)
@@ -205,6 +215,16 @@ export async function GET(req: NextRequest) {
         webVersionCode: APP_VERSION_CODE,
       },
       growth,
+      release: {
+        forceUpdate: androidConfig.data()?.forceUpdate === true,
+        releaseNotes: typeof androidConfig.data()?.releaseNotes === "string" ? (androidConfig.data()?.releaseNotes as string) : "",
+      },
+      announcement: {
+        active: ann.active === true,
+        messageId: typeof ann.messageId === "string" ? ann.messageId : "",
+        messageEn: typeof ann.messageEn === "string" ? ann.messageEn : "",
+        tone: ann.tone === "maintenance" ? "maintenance" : "info",
+      },
       versions: Array.from(versionMap, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
       users: slice.map((r) => ({
         id: r.id,

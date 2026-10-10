@@ -384,11 +384,51 @@
         "disable_user": "User disabled",
         "enable_user": "User enabled",
         "android_config": "Android version published",
-        "account_deleted": "Account deleted"
+        "account_deleted": "Account deleted",
+        "android_settings": "Android release settings changed",
+        "announcement_on": "Announcement shown",
+        "announcement_off": "Announcement hidden"
       }
     },
     "publishVersion": "Publish v{version}",
-    "upToDate": "Up to date · v{version}"
+    "upToDate": "Up to date · v{version}",
+    "latestBadge": "latest",
+    "versionWindow": "Android phones used in the last 30 days",
+    "maintenanceTools": "Maintenance tools",
+    "maintenanceHint": "One-off data fixes from earlier versions. Only needed after restoring old data.",
+    "release": {
+      "title": "Android release",
+      "aside": "Shown in the app's update dialog",
+      "forceLabel": "Require the update",
+      "forceHint": "Phones on an older version cannot close the update dialog until they install the latest APK. Use it for security fixes.",
+      "confirmForce": "Everyone on an older version will have to update before they can use the app. Continue?",
+      "notesLabel": "Release notes",
+      "notesPlaceholder": "What changed in this version",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Android release settings saved."
+    },
+    "announcement": {
+      "title": "Announcement",
+      "liveNow": "Showing now",
+      "off": "Off",
+      "toneLabel": "Type",
+      "tone": {
+        "info": "Information",
+        "maintenance": "Maintenance"
+      },
+      "messageId": "Message (Indonesian)",
+      "messageEn": "Message (English)",
+      "placeholderId": "Contoh: Perawatan server Sabtu 22.00–23.00 WIB.",
+      "placeholderEn": "Example: Server maintenance Saturday 22:00–23:00 WIB.",
+      "hint": "Shown as a banner in the Android app and on the web dashboard. If one language is empty, the other is used.",
+      "show": "Show banner",
+      "update": "Update banner",
+      "hide": "Hide banner",
+      "saving": "Saving…",
+      "shown": "The announcement is showing.",
+      "hidden": "The announcement is hidden."
+    }
   },
   "home": {
     "eyebrow": "Family finance",
@@ -719,6 +759,9 @@
     "invalidVersionName": "versionName must look like 1.2.3.",
     "invalidVersionCode": "versionCode must be a positive whole number.",
     "versionCodeLower": "versionCode can't be lower than the published one.",
-    "alreadyLatest": "Phones already get this version."
+    "alreadyLatest": "Phones already get this version.",
+    "notesTooLong": "Release notes can be at most 500 characters.",
+    "messageTooLong": "The message can be at most 280 characters.",
+    "messageRequired": "Write the message first."
   }
 }

@@ -26,6 +26,13 @@ export type AdminUser = {
   lastSeenAt: number | null
 }
 
+export type AdminAnnouncement = {
+  active: boolean
+  messageId: string
+  messageEn: string
+  tone: "info" | "maintenance"
+}
+
 export type AdminOverview = {
   stats: {
     totalUsers: number
@@ -40,6 +47,8 @@ export type AdminOverview = {
     webVersionCode: number
   }
   growth: { day: string; users: number; active: number }[]
+  release: { forceUpdate: boolean; releaseNotes: string }
+  announcement: AdminAnnouncement
   versions: { name: string; value: number }[]
   users: AdminUser[]
   page: number

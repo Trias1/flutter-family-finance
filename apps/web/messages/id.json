@@ -384,11 +384,51 @@
         "disable_user": "User dinonaktifkan",
         "enable_user": "User diaktifkan",
         "android_config": "Versi Android diterbitkan",
-        "account_deleted": "Akun dihapus"
+        "account_deleted": "Akun dihapus",
+        "android_settings": "Pengaturan rilis Android diubah",
+        "announcement_on": "Pengumuman ditampilkan",
+        "announcement_off": "Pengumuman disembunyikan"
       }
     },
     "publishVersion": "Terbitkan v{version}",
-    "upToDate": "Sudah terbaru · v{version}"
+    "upToDate": "Sudah terbaru · v{version}",
+    "latestBadge": "terbaru",
+    "versionWindow": "HP Android yang dipakai 30 hari terakhir",
+    "maintenanceTools": "Alat perawatan",
+    "maintenanceHint": "Perbaikan data sekali jalan dari versi lama. Hanya perlu setelah memulihkan data lama.",
+    "release": {
+      "title": "Rilis Android",
+      "aside": "Tampil di dialog update aplikasi",
+      "forceLabel": "Wajib update",
+      "forceHint": "HP dengan versi lama tidak bisa menutup dialog update sampai memasang APK terbaru. Pakai untuk perbaikan keamanan.",
+      "confirmForce": "Semua yang memakai versi lama harus update dulu sebelum bisa memakai aplikasi. Lanjutkan?",
+      "notesLabel": "Catatan rilis",
+      "notesPlaceholder": "Apa yang berubah di versi ini",
+      "save": "Simpan",
+      "saving": "Menyimpan…",
+      "saved": "Pengaturan rilis Android tersimpan."
+    },
+    "announcement": {
+      "title": "Pengumuman",
+      "liveNow": "Sedang tampil",
+      "off": "Mati",
+      "toneLabel": "Jenis",
+      "tone": {
+        "info": "Informasi",
+        "maintenance": "Perawatan"
+      },
+      "messageId": "Pesan (Indonesia)",
+      "messageEn": "Pesan (Inggris)",
+      "placeholderId": "Contoh: Perawatan server Sabtu 22.00–23.00 WIB.",
+      "placeholderEn": "Example: Server maintenance Saturday 22:00–23:00 WIB.",
+      "hint": "Tampil sebagai banner di aplikasi Android dan dashboard web. Kalau salah satu bahasa kosong, dipakai bahasa yang lain.",
+      "show": "Tampilkan banner",
+      "update": "Perbarui banner",
+      "hide": "Sembunyikan banner",
+      "saving": "Menyimpan…",
+      "shown": "Pengumuman sedang tampil.",
+      "hidden": "Pengumuman disembunyikan."
+    }
   },
   "home": {
     "eyebrow": "Keuangan keluarga",
@@ -719,6 +759,9 @@
     "invalidVersionName": "versionName harus berformat seperti 1.2.3.",
     "invalidVersionCode": "versionCode harus bilangan bulat positif.",
     "versionCodeLower": "versionCode tidak boleh lebih kecil dari yang sudah diterbitkan.",
-    "alreadyLatest": "HP sudah mendapat versi ini."
+    "alreadyLatest": "HP sudah mendapat versi ini.",
+    "notesTooLong": "Catatan rilis maksimal 500 karakter.",
+    "messageTooLong": "Pesan maksimal 280 karakter.",
+    "messageRequired": "Tulis pesannya dulu."
   }
 }

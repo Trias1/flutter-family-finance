@@ -129,6 +129,8 @@ export function buildDemoAdminOverview(query: OverviewQuery, pageSize: number): 
       webVersionCode: 14,
     },
     growth,
+    release: { forceUpdate: false, releaseNotes: "Perbaikan dan fitur baru." },
+    announcement: { active: false, messageId: "", messageEn: "", tone: "info" },
     versions: Array.from(versionCounts, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
     users: matching.slice((query.page - 1) * pageSize, query.page * pageSize),
     page: query.page,

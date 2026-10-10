@@ -24,6 +24,7 @@ import 'package:family_finance_manager/core/services/bill_reminder_service.dart'
 import 'package:family_finance_manager/core/services/notification_service.dart';
 import 'package:family_finance_manager/data/models/bill_model.dart';
 import 'package:family_finance_manager/features/bills/presentation/providers/bill_provider.dart';
+import 'package:family_finance_manager/core/widgets/announcement_banner.dart';
 
 const _tabRoutes = ['/dashboard', '/transactions', '/budget', '/profile'];
 const _tabPages = <Widget>[
@@ -124,13 +125,11 @@ class _MainShellState extends ConsumerState<MainShell> {
 
     if (user != null && !_checkedUpdate) {
       _checkedUpdate = true;
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) {
-          _syncDeviceAndCheckUpdate(user.id);
-          _startRecurring(user.id);
-          _startHeartbeat(user.id);
-        },
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _syncDeviceAndCheckUpdate(user.id);
+        _startRecurring(user.id);
+        _startHeartbeat(user.id);
+      });
     }
 
     final location = widget.location;
@@ -207,21 +206,28 @@ class _MainShellState extends ConsumerState<MainShell> {
           ),
           drawer: null,
           body: SafeArea(
-            child: isTab
-                ? PageView(
-                    controller: _pageController,
-                    physics: const BouncingScrollPhysics(),
-                    onPageChanged: _onPageChanged,
-                    children: List.generate(
-                      _tabPages.length,
-                      (i) => _AnimatedPageView(
-                        controller: _pageController,
-                        index: i,
-                        child: _tabPages[i],
-                      ),
-                    ),
-                  )
-                : widget.child,
+            child: Column(
+              children: [
+                const AnnouncementBanner(),
+                Expanded(
+                  child: isTab
+                      ? PageView(
+                          controller: _pageController,
+                          physics: const BouncingScrollPhysics(),
+                          onPageChanged: _onPageChanged,
+                          children: List.generate(
+                            _tabPages.length,
+                            (i) => _AnimatedPageView(
+                              controller: _pageController,
+                              index: i,
+                              child: _tabPages[i],
+                            ),
+                          ),
+                        )
+                      : widget.child,
+                ),
+              ],
+            ),
           ),
           bottomNavigationBar: isTab
               ? _FloatingBottomNav(

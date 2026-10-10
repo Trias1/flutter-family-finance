@@ -6,6 +6,7 @@ import { doc, getDoc } from "firebase/firestore"
 import { BookOpen, ChevronDown, LogOut, Shield, UserRound } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 
+import AnnouncementBanner from "@/components/AnnouncementBanner"
 import LocaleToggle from "@/components/LocaleToggle"
 import Sidebar, { MobileNav } from "@/components/Sidebar"
 import SyncStatus from "@/components/SyncStatus"
@@ -154,7 +155,10 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
           </header>
 
           <main className="flex-1 pb-24 lg:pb-10">
-            <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">{children}</div>
+            <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+              <AnnouncementBanner />
+              {children}
+            </div>
           </main>
         </div>
 
