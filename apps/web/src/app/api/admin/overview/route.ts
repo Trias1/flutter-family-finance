@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
 import { db, errorResponse, requireSuperadmin } from "@/lib/api-auth"
 import { APP_VERSION_CODE, APP_VERSION_NAME } from "@/lib/app-info"
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
     const [usersSnap, profilesSnap, devicesSnap, configSnap, familiesCount] = await Promise.all([
       firestore.collection("user_public").get(),
-      firestore.collection("users").select("email", "role", "systemRole").get(),
+      firestore.collection("users").select("role", "systemRole").get(),
       firestore.collectionGroup("devices").get(),
       firestore.collection("app_config").doc("android").get(),
       firestore.collection("families").count().get(),
@@ -82,7 +82,6 @@ export async function GET(req: NextRequest) {
       return {
         id: doc.id,
         name: data.name ?? "-",
-        email: typeof profile.email === "string" && profile.email ? profile.email : "-",
         role: profile.systemRole === "superadmin" ? "superadmin" : typeof profile.role === "string" ? profile.role : "member",
         devicesCount: devices.length,
         latestSource: platform,
