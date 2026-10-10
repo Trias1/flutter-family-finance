@@ -76,6 +76,24 @@ body {
   overflow-x: hidden;
 }
 
+/* Accent presets, same primaries as the Android app. Light mode only;
+   dark mode has its own lighter variants below. */
+:root:not([data-theme="dark"])[data-color-theme="mochaBrown"] { --primary: #6B3F2A; }
+:root:not([data-theme="dark"])[data-color-theme="softPink"] { --primary: #BE185D; }
+:root:not([data-theme="dark"])[data-color-theme="roseGold"] { --primary: #9F1239; }
+:root:not([data-theme="dark"])[data-color-theme="lavender"] { --primary: #7C3AED; }
+:root:not([data-theme="dark"])[data-color-theme="charcoalGold"] { --primary: #111827; }
+:root:not([data-theme="dark"])[data-color-theme="sage"] { --primary: #475569; }
+
+:root:not([data-theme="dark"])[data-color-theme] {
+  --primary-light: color-mix(in srgb, var(--primary) 85%, white);
+  --primary-bg: color-mix(in srgb, var(--primary) 12%, white);
+}
+
+[data-theme="dark"][data-color-theme="mochaBrown"] {
+  --primary: #D6A77A; --primary-light: #E7C29B; --primary-lighter: #F3DCC2; --primary-bg: rgba(214, 167, 122, 0.16);
+}
+
 [data-theme="dark"][data-color-theme="softPink"] {
   --primary: #F472B6; --primary-light: #FDA4AF; --primary-lighter: #FBCFE8; --primary-bg: rgba(244, 114, 182, 0.16);
 }

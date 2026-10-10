@@ -4,15 +4,15 @@ export type ColorThemeId = "oceanBlue" | "sage" | "lavender" | "charcoalGold" | 
 export const THEME_STORAGE_KEY = "family-finance-theme"
 export const COLOR_THEME_STORAGE_KEY = "family-finance-color-theme"
 
-export const colorThemes: { id: ColorThemeId; name: string }[] = [
-  { id: "oceanBlue", name: "Ocean Blue" },
-  { id: "sage", name: "Sage" },
-  { id: "lavender", name: "Lavender" },
-  { id: "charcoalGold", name: "Charcoal Gold" },
-  { id: "mochaBrown", name: "Mocha Brown" },
-  { id: "softPink", name: "Soft Pink" },
-  { id: "roseGold", name: "Rose Gold" },
-
+// `swatch` is the light-mode primary, matching the Android presets.
+export const colorThemes: { id: ColorThemeId; name: string; swatch: string }[] = [
+  { id: "oceanBlue", name: "Ocean Blue", swatch: "#1D4ED8" },
+  { id: "sage", name: "Sage", swatch: "#475569" },
+  { id: "lavender", name: "Lavender", swatch: "#7C3AED" },
+  { id: "charcoalGold", name: "Charcoal Gold", swatch: "#111827" },
+  { id: "mochaBrown", name: "Mocha Brown", swatch: "#6B3F2A" },
+  { id: "softPink", name: "Soft Pink", swatch: "#BE185D" },
+  { id: "roseGold", name: "Rose Gold", swatch: "#9F1239" },
 ]
 
 export function getPreferredTheme(mode: ThemeMode) {
