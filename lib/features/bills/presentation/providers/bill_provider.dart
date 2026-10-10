@@ -9,6 +9,8 @@ final billRepositoryProvider = Provider<BillRepository>((ref) {
 });
 
 final billStreamProvider = StreamProvider.family<List<BillModel>, String>((ref, familyId) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <BillModel>[]);
   return ref.watch(billRepositoryProvider).streamBills(familyId).map(
     (snapshot) {
       final list = snapshot.docs.map((doc) => BillModel.fromFirestore(doc)).toList();

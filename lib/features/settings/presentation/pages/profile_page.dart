@@ -10,7 +10,10 @@ import 'package:family_finance_manager/core/utils/image_utils.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 
 class ProfilePage extends ConsumerWidget {
-  const ProfilePage({super.key});
+  /// False when shown as a bottom-nav tab: the shell already has an app bar.
+  final bool showAppBar;
+
+  const ProfilePage({super.key, this.showAppBar = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,13 +23,15 @@ class ProfilePage extends ConsumerWidget {
     final strings = AppStrings(locale);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(strings.user),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
+      appBar: showAppBar
+          ? AppBar(
+              title: Text(strings.user),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.pop(),
+              ),
+            )
+          : null,
       body: authState.when(
         data: (user) => SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -46,26 +51,22 @@ class ProfilePage extends ConsumerWidget {
                 label: 'Email',
                 value: user?.email ?? '',
               ),
-              if (user?.familyId != null) ...[
-                const SizedBox(height: 8),
-                familyAsync.when(
-                  data: (family) => _InfoTile(
-                    icon: Icons.family_restroom_rounded,
-                    label: 'Keluarga',
-                    value: family?.name ?? 'Keluarga',
-                  ),
-                  loading: () => _InfoTile(
-                    icon: Icons.family_restroom_rounded,
-                    label: 'Keluarga',
-                    value: 'Memuat...',
-                  ),
-                  error: (_, __) => _InfoTile(
-                    icon: Icons.family_restroom_rounded,
-                    label: 'Keluarga',
-                    value: 'Keluarga',
-                  ),
-                ),
-              ],
+              const SizedBox(height: 8),
+              // Always reachable, so users without a family can create or join one.
+              _InfoTile(
+                icon: Icons.family_restroom_rounded,
+                label: strings.family,
+                value: user?.familyId?.isNotEmpty == true
+                    ? familyAsync.when(
+                        data: (family) => family?.name ?? strings.family,
+                        loading: () => '...',
+                        error: (_, __) => strings.family,
+                      )
+                    : (locale.languageCode == 'id'
+                          ? 'Buat atau gabung keluarga'
+                          : 'Create or join a family'),
+                onTap: () => context.push('/family'),
+              ),
               const SizedBox(height: 24),
               _SectionTitle(title: 'Edit Profil'),
               const SizedBox(height: 8),
@@ -175,8 +176,7 @@ class ProfilePage extends ConsumerWidget {
                   labelText: 'Password Baru',
                   prefixIcon: Icon(Icons.lock),
                 ),
-                validator: (v) =>
-                    Validators.newPassword(v),
+                validator: (v) => Validators.newPassword(v),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -312,15 +312,17 @@ class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
   const _InfoTile({
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final tile = Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -365,7 +367,23 @@ class _InfoTile extends StatelessWidget {
               ),
             ],
           ),
+          if (onTap != null) ...[
+            const Spacer(),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ],
         ],
+      ),
+    );
+    if (onTap == null) return tile;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: tile,
       ),
     );
   }

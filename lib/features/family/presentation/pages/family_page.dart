@@ -50,7 +50,9 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     } else {
-      context.go('/family');
+      // Stay put: the page rebuilds into the family view on its own, and
+      // go() would wipe the back stack.
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
     }
   }
 
@@ -81,7 +83,9 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
     } else {
-      context.go('/family');
+      // Stay put: the page rebuilds into the family view on its own, and
+      // go() would wipe the back stack.
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
     }
   }
 

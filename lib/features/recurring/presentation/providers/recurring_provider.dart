@@ -8,6 +8,8 @@ final recurringRepositoryProvider = Provider<RecurringRepository>((ref) {
 });
 
 final recurringStreamProvider = StreamProvider.family<List<RecurringModel>, String>((ref, familyId) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <RecurringModel>[]);
   return ref.watch(recurringRepositoryProvider).streamRecurrings(familyId).map((snapshot) {
     return snapshot!.docs.map((doc) => RecurringModel.fromFirestore(doc)).toList();
   });

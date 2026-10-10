@@ -8,6 +8,8 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
 });
 
 final incomeStreamProvider = StreamProvider.family<List<IncomeModel>, String>((ref, familyId) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <IncomeModel>[]);
   return ref.watch(transactionRepositoryProvider).streamIncomes(familyId).map(
     (snapshot) {
       final list = snapshot.docs.map((doc) => IncomeModel.fromFirestore(doc)).toList();

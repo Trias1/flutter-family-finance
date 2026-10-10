@@ -5,6 +5,8 @@ import 'package:family_finance_manager/data/models/category_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 
 final categoryStreamProvider = StreamProvider.family<List<CategoryModel>, String>((ref, familyId) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <CategoryModel>[]);
   return ref.watch(firestoreDataSourceProvider).streamCategories(familyId).map(
     (snapshot) => snapshot.docs.map((doc) => CategoryModel.fromFirestore(doc)).toList(),
   );

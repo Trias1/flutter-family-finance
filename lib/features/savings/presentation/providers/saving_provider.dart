@@ -9,6 +9,8 @@ final savingRepositoryProvider = Provider<SavingRepository>((ref) {
 });
 
 final savingStreamProvider = StreamProvider.family<List<SavingModel>, String>((ref, familyId) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <SavingModel>[]);
   return ref.watch(savingRepositoryProvider).streamSavings(familyId).map(
     (snapshot) {
       final list = snapshot.docs.map((doc) => SavingModel.fromFirestore(doc)).toList();

@@ -250,6 +250,7 @@ class BudgetPage extends ConsumerWidget {
             bottom: 16,
             child: FloatingActionButton(
               backgroundColor: AppTheme.warningColor,
+              foregroundColor: Colors.white,
               onPressed: () => _showBudgetForm(context, ref),
               child: const Icon(Icons.add),
             ),

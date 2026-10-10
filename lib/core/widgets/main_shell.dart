@@ -20,7 +20,7 @@ const _tabPages = <Widget>[
   DashboardPage(),
   TransactionsPage(),
   BudgetPage(),
-  ProfilePage(),
+  ProfilePage(showAppBar: false),
 ];
 
 int _tabIndex(String loc) {
@@ -107,6 +107,13 @@ class _MainShellState extends ConsumerState<MainShell> {
     final targetIndex = _tabIndex(location);
 
     if (location != _lastLocation) {
+      // Coming back from a sub-page (e.g. /family) rebuilds the PageView;
+      // start it on the current tab instead of the controller's first page.
+      if (isTab && !_isTabRoute(_lastLocation)) {
+        _pageController.dispose();
+        _currentPage = targetIndex;
+        _pageController = PageController(initialPage: targetIndex);
+      }
       _lastLocation = location;
       if (isTab &&
           _pageController.hasClients &&
@@ -133,61 +140,79 @@ class _MainShellState extends ConsumerState<MainShell> {
 
     final strings = AppStrings(ref.watch(localeProvider));
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: !isTab && context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: () => context.pop(),
-              )
-            : null,
-        title: Text(
-          isTab
-              ? _tabTitle(strings, _currentPage)
-              : strings.titleForRoute(location),
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-        actions: [_ProfilePopup(user: user)],
-      ),
-      drawer: null,
-      body: SafeArea(
-        child: isTab
-            ? PageView(
-                controller: _pageController,
-                physics: const BouncingScrollPhysics(),
-                onPageChanged: _onPageChanged,
-                children: List.generate(
-                  _tabPages.length,
-                  (i) => _AnimatedPageView(
+    // Back on any tab other than Dashboard returns to Dashboard first,
+    // like most phone apps; only Back on Dashboard leaves the app.
+    // PopScope tells Android (predictive back) that Flutter handles Back;
+    // BackButtonListener does the work, since tabs sit outside GoRouter's
+    // navigator and a PopScope callback alone is never reached.
+    return PopScope(
+      canPop: !(isTab && _currentPage != 0),
+      child: BackButtonListener(
+        onBackButtonPressed: () async {
+          if (!(isTab && _currentPage != 0)) return false;
+          context.go(_tabRoutes[0]);
+          return true;
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            leading: !isTab
+                // Sub-pages always get a way back, even when opened directly.
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go(_tabRoutes[0]),
+                  )
+                : null,
+            title: Text(
+              isTab
+                  ? _tabTitle(strings, _currentPage)
+                  : strings.titleForRoute(location),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            elevation: 0,
+            scrolledUnderElevation: 0.5,
+            actions: [_ProfilePopup(user: user)],
+          ),
+          drawer: null,
+          body: SafeArea(
+            child: isTab
+                ? PageView(
                     controller: _pageController,
-                    index: i,
-                    child: _tabPages[i],
-                  ),
-                ),
-              )
-            : widget.child,
+                    physics: const BouncingScrollPhysics(),
+                    onPageChanged: _onPageChanged,
+                    children: List.generate(
+                      _tabPages.length,
+                      (i) => _AnimatedPageView(
+                        controller: _pageController,
+                        index: i,
+                        child: _tabPages[i],
+                      ),
+                    ),
+                  )
+                : widget.child,
+          ),
+          bottomNavigationBar: isTab
+              ? _FloatingBottomNav(
+                  currentIndex: _currentPage,
+                  onTabChanged: (i) async {
+                    if (i == _currentPage) return;
+                    _isProgrammaticUpdate = true;
+                    await _pageController.animateToPage(
+                      i,
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeOutCubic,
+                    );
+                    if (mounted) {
+                      context.go(_tabRoutes[i]);
+                      _isProgrammaticUpdate = false;
+                    }
+                  },
+                  onFabTap: () => _showAddSheet(context, strings),
+                )
+              : null,
+        ),
       ),
-      bottomNavigationBar: isTab
-          ? _FloatingBottomNav(
-              currentIndex: _currentPage,
-              onTabChanged: (i) async {
-                if (i == _currentPage) return;
-                _isProgrammaticUpdate = true;
-                await _pageController.animateToPage(
-                  i,
-                  duration: const Duration(milliseconds: 320),
-                  curve: Curves.easeOutCubic,
-                );
-                if (mounted) {
-                  context.go(_tabRoutes[i]);
-                  _isProgrammaticUpdate = false;
-                }
-              },
-              onFabTap: () => _showAddSheet(context, strings),
-            )
-          : null,
     );
   }
 
@@ -352,7 +377,11 @@ class _FloatingBottomNav extends ConsumerWidget {
                     backgroundColor: AppTheme.primaryColor,
                     shape: const CircleBorder(),
                     elevation: 6,
-                    child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
                 ),
               ),
@@ -386,7 +415,7 @@ class _NavItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         // Keeps icon + label inside the 56px bar.
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
         decoration: BoxDecoration(
           color: selected
               ? AppTheme.primaryColor.withValues(alpha: 0.1)
@@ -399,19 +428,27 @@ class _NavItem extends StatelessWidget {
           children: [
             Icon(
               selected ? selectedIcon : icon,
-              color: selected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurfaceVariant,
+              color: selected
+                  ? AppTheme.primaryColor
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               size: 24,
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                color: selected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurfaceVariant,
+            // Long labels ("Dashboard", "Transaksi") shrink slightly
+            // instead of being cut off.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  color: selected
+                      ? AppTheme.primaryColor
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

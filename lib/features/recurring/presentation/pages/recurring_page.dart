@@ -58,6 +58,7 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
           bottom: 16,
           child: FloatingActionButton(
             backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
             onPressed: () => _showAddSheet(context),
             child: const Icon(Icons.add),
           ),

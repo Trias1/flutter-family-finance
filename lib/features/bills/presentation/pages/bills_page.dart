@@ -99,6 +99,7 @@ class _BillsPageState extends ConsumerState<BillsPage> {
           bottom: 16,
           child: FloatingActionButton(
             backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
             onPressed: () => _showBillForm(context),
             child: const Icon(Icons.add),
           ),

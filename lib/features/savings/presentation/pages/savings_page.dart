@@ -253,6 +253,7 @@ class SavingsPage extends ConsumerWidget {
             bottom: 16,
             child: FloatingActionButton(
               backgroundColor: AppTheme.savingsColor,
+              foregroundColor: Colors.white,
               onPressed: () => _showSavingForm(context, ref),
               child: const Icon(Icons.add),
             ),

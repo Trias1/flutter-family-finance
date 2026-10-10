@@ -106,6 +106,7 @@ class _DebtsPageState extends ConsumerState<DebtsPage>
           bottom: 16,
           child: FloatingActionButton(
             backgroundColor: AppTheme.expenseColor,
+            foregroundColor: Colors.white,
             onPressed: () => _showAddDebtSheet(context),
             child: const Icon(Icons.add),
           ),

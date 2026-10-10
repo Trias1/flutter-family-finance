@@ -161,6 +161,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               bottom: 16,
               child: FloatingActionButton(
                 backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
                 onPressed: () => _showAddCategoryChoice(context, ref),
                 child: const Icon(Icons.add),
               ),

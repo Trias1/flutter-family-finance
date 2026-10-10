@@ -58,6 +58,7 @@ class ExpensePage extends ConsumerWidget {
                 bottom: 16,
                 child: FloatingActionButton(
                   backgroundColor: AppTheme.expenseColor,
+                  foregroundColor: Colors.white,
                   onPressed: () => _showExpenseForm(context, ref),
                   child: const Icon(Icons.add),
                 ),
@@ -209,6 +210,7 @@ class ExpensePage extends ConsumerWidget {
               bottom: 16,
               child: FloatingActionButton(
                 backgroundColor: AppTheme.expenseColor,
+                foregroundColor: Colors.white,
                 onPressed: () => _showExpenseForm(context, ref),
                 child: const Icon(Icons.add),
               ),

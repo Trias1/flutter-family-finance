@@ -57,6 +57,7 @@ class IncomePage extends ConsumerWidget {
                 bottom: 16,
                 child: FloatingActionButton(
                   backgroundColor: AppTheme.incomeColor,
+                  foregroundColor: Colors.white,
                   onPressed: () => _showIncomeForm(context, ref),
                   child: const Icon(Icons.add),
                 ),
@@ -208,6 +209,7 @@ class IncomePage extends ConsumerWidget {
               bottom: 16,
               child: FloatingActionButton(
                 backgroundColor: AppTheme.incomeColor,
+                foregroundColor: Colors.white,
                 onPressed: () => _showIncomeForm(context, ref),
                 child: const Icon(Icons.add),
               ),

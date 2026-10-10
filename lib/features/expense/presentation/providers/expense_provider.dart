@@ -9,6 +9,8 @@ import 'package:family_finance_manager/features/auth/presentation/providers/auth
 import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
 
 final expenseStreamProvider = StreamProvider.family<List<ExpenseModel>, String>((ref, familyId) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <ExpenseModel>[]);
   return ref.watch(transactionRepositoryProvider).streamExpenses(familyId).map(
     (snapshot) {
       final list = snapshot.docs.map((doc) => ExpenseModel.fromFirestore(doc)).toList();

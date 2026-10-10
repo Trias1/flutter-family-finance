@@ -10,6 +10,8 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
 });
 
 final budgetStreamProvider = StreamProvider.family<List<BudgetModel>, String>((ref, familyId) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <BudgetModel>[]);
   return ref.watch(budgetRepositoryProvider).streamBudgets(familyId).map(
     (snapshot) => snapshot.docs.map((doc) => BudgetModel.fromFirestore(doc)).toList(),
   );
