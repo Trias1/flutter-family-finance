@@ -1,11 +1,11 @@
 {
   "name": "Family Finance",
-  "short_name": "FF",
-  "description": "Kelola keuangan keluarga jadi lebih mudah",
+  "short_name": "Family Finance",
+  "description": "Catat keuangan keluarga di Android, pantau bersama dari web.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAF7F2",
-  "theme_color": "#6B3F2A",
+  "background_color": "#F6F6F4",
+  "theme_color": "#2B4C6F",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
   ]

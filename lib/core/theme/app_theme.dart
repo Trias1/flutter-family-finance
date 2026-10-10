@@ -26,57 +26,57 @@ class AppTheme {
       id: 'mochaBrown',
       name: 'Mocha Brown',
       vibe: 'Hangat, keluarga, premium',
-      primary: Color(0xFF6B3F2A),
-      background: Color(0xFFFAF7F2),
-      accent: Color(0xFFD97706),
+      primary: Color(0xFF6B4430),
+      background: Color(0xFFF8F5F0),
+      accent: Color(0xFFA0763F),
     ),
     AppThemePreset(
       id: 'softPink',
       name: 'Soft Pink',
       vibe: 'Friendly, modern, nggak pinjol',
-      primary: Color(0xFFBE185D),
-      background: Color(0xFFFFF1F5),
-      accent: Color(0xFFF59E0B),
+      primary: Color(0xFF9C4F63),
+      background: Color(0xFFF9F5F5),
+      accent: Color(0xFFA3855A),
     ),
     AppThemePreset(
       id: 'roseGold',
       name: 'Rose Gold',
       vibe: 'Elegan, feminine, premium',
-      primary: Color(0xFF9F1239),
-      background: Color(0xFFFFF7ED),
-      accent: Color(0xFFD97706),
+      primary: Color(0xFF8A4B45),
+      background: Color(0xFFF9F5F2),
+      accent: Color(0xFFAC8556),
     ),
     AppThemePreset(
       id: 'oceanBlue',
       name: 'Ocean Blue',
       vibe: 'Trust, finance, bank-like',
-      primary: Color(0xFF1D4ED8),
-      background: Color(0xFFF8FAFC),
-      accent: Color(0xFF06B6D4),
+      primary: Color(0xFF2B4C6F),
+      background: Color(0xFFF6F6F4),
+      accent: Color(0xFF8A7552),
     ),
     AppThemePreset(
       id: 'lavender',
       name: 'Lavender',
       vibe: 'Soft, clean, lifestyle app',
-      primary: Color(0xFF7C3AED),
-      background: Color(0xFFF5F3FF),
-      accent: Color(0xFFEC4899),
+      primary: Color(0xFF5E5288),
+      background: Color(0xFFF7F6F8),
+      accent: Color(0xFF978157),
     ),
     AppThemePreset(
       id: 'charcoalGold',
       name: 'Charcoal Gold',
       vibe: 'Premium/dark, classy',
-      primary: Color(0xFF111827),
-      background: Color(0xFFF9FAFB),
-      accent: Color(0xFFD97706),
+      primary: Color(0xFF2A2D33),
+      background: Color(0xFFF6F6F4),
+      accent: Color(0xFF9A7E4C),
     ),
     AppThemePreset(
       id: 'sage',
       name: 'Sage',
       vibe: 'Calm/natural, bukan hijau pinjol terang',
-      primary: Color(0xFF64748B),
-      background: Color(0xFFF8FAF5),
-      accent: Color(0xFFA16207),
+      primary: Color(0xFF55704E),
+      background: Color(0xFFF5F6F2),
+      accent: Color(0xFF9C8253),
     ),
   ];
 
@@ -84,9 +84,9 @@ class AppTheme {
     id: 'mochaBrown',
     name: 'Mocha Brown',
     vibe: 'Hangat, keluarga, premium',
-    primary: Color(0xFF6B3F2A),
-    background: Color(0xFFFAF7F2),
-    accent: Color(0xFFD97706),
+    primary: Color(0xFF6B4430),
+    background: Color(0xFFF8F5F0),
+    accent: Color(0xFFA0763F),
   );
 
   static AppThemePreset presetById(String? id) {
@@ -101,11 +101,11 @@ class AppTheme {
   static Color get primaryColor => _activePreset.primary;
   static Color get secondaryColor => _activePreset.accent;
   static Color get accentColor => _activePreset.accent;
-  static const Color errorColor = Color(0xFFDC2626);
-  static const Color warningColor = Color(0xFFF59E0B);
-  static const Color incomeColor = Color(0xFF059669);
-  static const Color expenseColor = Color(0xFFDC2626);
-  static const Color savingsColor = Color(0xFF2563EB);
+  static const Color errorColor = Color(0xFFA8443A);
+  static const Color warningColor = Color(0xFF9A6417);
+  static const Color incomeColor = Color(0xFF2F7354);
+  static const Color expenseColor = Color(0xFFA8443A);
+  static const Color savingsColor = Color(0xFF3D6189);
 
   static const TextTheme _textTheme = TextTheme(
     displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w700),
