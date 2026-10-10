@@ -1,4 +1,5 @@
 import "./globals.css"
+import { headers } from "next/headers"
 import { getLocale } from "next-intl/server"
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google"
 
@@ -17,10 +18,11 @@ const geistMono = Geist_Mono({
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale()
+  const nonce = (await headers()).get("x-nonce") ?? undefined
   return (
     <html lang={locale} suppressHydrationWarning className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col" style={{ backgroundColor: "var(--bg)", color: "var(--text-primary)" }}>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
         {children}
       </body>
     </html>
