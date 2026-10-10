@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { onAuthStateChanged, signOut, type User } from "firebase/auth"
+import { onAuthStateChanged, type User } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
 import { BookOpen, ChevronDown, LogOut, Shield } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 
 import LocaleToggle from "@/components/LocaleToggle"
 import Sidebar, { MobileNav } from "@/components/Sidebar"
@@ -12,12 +12,13 @@ import SyncStatus from "@/components/SyncStatus"
 import ThemeToggle from "@/components/ThemeToggle"
 import { Skeleton } from "@/components/ui"
 import { FamilyDataProvider } from "@/lib/family-data"
-import { auth, db } from "@/lib/firebase"
+import { auth, db, signOutAndClear } from "@/lib/firebase"
 import { Link, useRouter } from "@/lib/i18n"
 import { startWebPresence } from "@/lib/web-presence"
 
 export default function DashboardShell({ children }: { children: ReactNode }) {
   const t = useTranslations("dash")
+  const locale = useLocale()
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [isSuperadmin, setIsSuperadmin] = useState(false)
@@ -64,8 +65,9 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
 
   const handleSignOut = async () => {
     setMenuOpen(false)
-    await signOut(auth)
-    router.replace("/login")
+    await signOutAndClear()
+    // Full page load: the Firestore instance is terminated after clearing its cache.
+    window.location.replace(`/${locale}/login`)
   }
 
   if (!user) {

@@ -1,16 +1,16 @@
 "use client"
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { signOut, type User } from "firebase/auth"
+import { type User } from "firebase/auth"
 import { ChevronDown, LayoutGrid, LogOut, PackageCheck, Users, type LucideIcon } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 
 import LocaleToggle from "@/components/LocaleToggle"
 import BrandMark from "@/components/public/BrandMark"
 import ThemeToggle from "@/components/ThemeToggle"
 import { APP_NAME, APP_VERSION_LABEL } from "@/lib/app-info"
-import { auth } from "@/lib/firebase"
-import { Link, usePathname, useRouter } from "@/lib/i18n"
+import { signOutAndClear } from "@/lib/firebase"
+import { Link, usePathname } from "@/lib/i18n"
 
 type Item = { href: string; key: string; icon: LucideIcon }
 
@@ -21,9 +21,9 @@ const items: Item[] = [
 ]
 
 export default function AdminShell({ user, children }: { user: User | null; children: ReactNode }) {
-  const router = useRouter()
   const pathname = usePathname()
   const t = useTranslations()
+  const locale = useLocale()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -38,8 +38,9 @@ export default function AdminShell({ user, children }: { user: User | null; chil
 
   const handleSignOut = async () => {
     setMenuOpen(false)
-    await signOut(auth)
-    router.replace("/login")
+    await signOutAndClear()
+    // Full page load: the Firestore instance is terminated after clearing its cache.
+    window.location.replace(`/${locale}/login`)
   }
 
   const isActive = (href: string) => href === "/admin" && pathname === "/admin"

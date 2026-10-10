@@ -1,11 +1,13 @@
 import { initializeApp, getApps } from "firebase/app"
-import { getAuth } from "firebase/auth"
+import { getAuth, signOut } from "firebase/auth"
 import {
+  clearIndexedDbPersistence,
   getFirestore,
   initializeFirestore,
   memoryLocalCache,
   persistentLocalCache,
   persistentMultipleTabManager,
+  terminate,
   type Firestore,
 } from "firebase/firestore"
 
@@ -40,4 +42,19 @@ function createDb(): Firestore {
 
 const db = createDb()
 
-export { app, auth, db }
+/**
+ * Signs out and wipes the on-device Firestore cache, so finance data is not
+ * left behind on a shared computer. The Firestore instance is unusable
+ * afterwards, so callers must do a full page load (not a client navigation).
+ */
+async function signOutAndClear() {
+  await signOut(auth)
+  try {
+    await terminate(db)
+    await clearIndexedDbPersistence(db)
+  } catch {
+    // Another tab may still hold the cache open; it is cleared on its next sign-out.
+  }
+}
+
+export { app, auth, db, signOutAndClear }
