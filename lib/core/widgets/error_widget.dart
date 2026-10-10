@@ -22,7 +22,11 @@ class AppErrorWidget extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Coba Lagi'),
+                label: Text(
+                  Localizations.localeOf(context).languageCode == 'id'
+                      ? 'Coba lagi'
+                      : 'Try again',
+                ),
               ),
             ],
           ],

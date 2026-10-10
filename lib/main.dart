@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/biometric/app_lock.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
+import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/services/firebase_service.dart';
 import 'package:family_finance_manager/core/services/currency_provider.dart';
 import 'package:family_finance_manager/core/services/fcm_service.dart';
@@ -63,6 +64,7 @@ class FamilyFinanceApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final themePreset = ref.watch(themePresetProvider);
     final locale = ref.watch(localeProvider);
+    DateFormatter.languageCode = locale.languageCode;
 
     return MaterialApp.router(
       title: 'Family Finance',
