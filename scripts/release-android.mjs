@@ -67,7 +67,9 @@ if (current && Number(current[1]) >= versionCode && !flag("--skip-build")) {
 // 2. Build and signature check
 if (!flag("--skip-build")) {
   step("Building the release APK")
-  run("flutter", ["build", "apk", "--release"])
+  // Phones are all ARM; leaving out x86 (emulator-only) keeps the APK under
+  // Vercel's 100 MB per-file limit now that on-device OCR ships native libs.
+  run("flutter", ["build", "apk", "--release", "--target-platform", "android-arm,android-arm64"])
 }
 if (!existsSync(BUILT_APK)) fail(`no APK at ${BUILT_APK}`)
 
@@ -98,8 +100,15 @@ if (existsSync(PUBLIC_APK)) {
   console.log("No published APK to compare with (first release).")
 }
 
+// Vercel refuses any single file over 100 MB.
+const builtSize = statSync(BUILT_APK).size
+if (builtSize > 95 * 1048576) {
+  fail(`the APK is ${(builtSize / 1048576).toFixed(1)} MB; Vercel refuses files over 100 MB`)
+}
+
 // 3. Publish into the web app
 step("Copying the APK and writing the web's version info")
+const previousAppInfo = readFileSync(APP_INFO, "utf8")
 copyFileSync(BUILT_APK, PUBLIC_APK)
 const size = statSync(PUBLIC_APK).size
 writeFileSync(
@@ -117,7 +126,13 @@ if (flag("--dry-run")) {
 
 // 4. Deploy the web app (Root Directory apps/web; .vercelignore limits the upload)
 step("Deploying the web app to production")
-run("vercel", ["deploy", "--prod", "--yes", "--scope", VERCEL_SCOPE])
+try {
+  run("vercel", ["deploy", "--prod", "--yes", "--scope", VERCEL_SCOPE])
+} catch {
+  // Nothing went live: put the version back so the next run is not refused.
+  writeFileSync(APP_INFO, previousAppInfo)
+  fail("deploy failed; app-info.ts restored, nothing was published")
+}
 
 step("Waiting until the new APK is served")
 let live = false
