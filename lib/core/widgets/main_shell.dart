@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,8 @@ import 'package:family_finance_manager/core/widgets/announcement_banner.dart';
 import 'package:family_finance_manager/core/services/receipt_parser.dart';
 import 'package:family_finance_manager/core/services/receipt_scanner.dart';
 import 'package:family_finance_manager/core/services/sheet_recap_service.dart';
+import 'package:family_finance_manager/core/services/share_intake.dart';
+import 'package:family_finance_manager/core/biometric/app_lock.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/statement_import_page.dart';
 import 'package:family_finance_manager/core/services/own_accounts.dart';
 
@@ -64,6 +67,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   bool _checkedUpdate = false;
   Timer? _recurringTimer;
   Timer? _heartbeatTimer;
+  StreamSubscription<void>? _shareSub;
   late PageController _pageController;
   bool _isProgrammaticUpdate = false;
   bool _syncScheduled = false;
@@ -82,6 +86,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   void dispose() {
     _recurringTimer?.cancel();
     _heartbeatTimer?.cancel();
+    _shareSub?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -134,6 +139,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         _syncDeviceAndCheckUpdate(user.id);
         _startRecurring(user.id);
         _startHeartbeat(user.id);
+        _listenForShares();
       });
     }
 
@@ -302,41 +308,73 @@ class _MainShellState extends ConsumerState<MainShell> {
     action?.call();
   }
 
+  /// Images shared into the app: read now, and whenever another arrives.
+  void _listenForShares() {
+    _shareSub?.cancel();
+    _shareSub = ShareIntake.onShared.listen((_) => _takeShared());
+    _takeShared();
+  }
+
+  Future<void> _takeShared() async {
+    final path = await ShareIntake.take();
+    if (path == null || !mounted) return;
+    // A share can open the app while it is locked: wait for the fingerprint
+    // so the result shows on screen, not under the lock.
+    if (ref.read(appLockProvider)) {
+      final unlocked = Completer<void>();
+      final sub = ref.listenManual<bool>(appLockProvider, (_, locked) {
+        if (!locked && !unlocked.isCompleted) unlocked.complete();
+      });
+      await unlocked.future;
+      sub.close();
+      if (!mounted) return;
+    }
+    try {
+      await _scanReceipt(false, sharedPath: path);
+    } finally {
+      // The copy was only for reading; do not keep the screenshot around.
+      unawaited(File(path).delete().then((_) {}, onError: (_) {}));
+    }
+  }
+
   /// Photo or screenshot -> on-device text reading -> a filled expense form
-  /// the user checks before saving.
-  Future<void> _scanReceipt(bool fromCamera) async {
+  /// the user checks before saving. [sharedPath] is an image shared into the
+  /// app instead of one picked here.
+  Future<void> _scanReceipt(bool fromCamera, {String? sharedPath}) async {
     final isId = ref.read(localeProvider).languageCode == 'id';
     var showingProgress = false;
     ScanResult? scan;
     try {
-      scan = await ReceiptScanner.pickAndRead(
-        fromCamera: fromCamera,
-        onReading: () {
-          if (!mounted) return;
-          showingProgress = true;
-          showDialog<void>(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => AlertDialog(
-              content: Row(
-                children: [
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      isId ? 'Membaca struk…' : 'Reading the receipt…',
-                    ),
-                  ),
-                ],
-              ),
+      void showReading() {
+        if (!mounted) return;
+        showingProgress = true;
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(isId ? 'Membaca struk…' : 'Reading the receipt…'),
+                ),
+              ],
             ),
-          );
-        },
-      );
+          ),
+        );
+      }
+
+      scan = sharedPath != null
+          ? await ReceiptScanner.readFile(sharedPath, onReading: showReading)
+          : await ReceiptScanner.pickAndRead(
+              fromCamera: fromCamera,
+              onReading: showReading,
+            );
     } catch (_) {
       scan = const ScanResult(draft: ReceiptDraft(), items: []);
     } finally {

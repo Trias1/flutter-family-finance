@@ -29,11 +29,19 @@ class ReceiptScanner {
       maxHeight: 2000,
     );
     if (picked == null) return null;
+    return readFile(picked.path, onReading: onReading);
+  }
+
+  /// Reads an image already on the phone, such as one shared into the app.
+  static Future<ScanResult> readFile(
+    String path, {
+    void Function()? onReading,
+  }) async {
     onReading?.call();
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
     try {
       final result = await recognizer.processImage(
-        InputImage.fromFilePath(picked.path),
+        InputImage.fromFilePath(path),
       );
       final text = rowsText(result.blocks.expand((b) => b.lines));
       return ScanResult(
