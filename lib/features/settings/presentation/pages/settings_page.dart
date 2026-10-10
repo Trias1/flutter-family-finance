@@ -231,30 +231,24 @@ class _DarkModeToggle extends ConsumerWidget {
   }
 }
 
+/// One row showing the current colour theme; tapping opens a sheet with all
+/// presets instead of listing seven tiles on the Settings page.
 class _ThemePresetPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(themePresetProvider);
+    final strings = AppStrings(ref.watch(localeProvider));
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
+    return Material(
+      color: colorScheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        onTap: () => _openSheet(context, strings),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
@@ -270,26 +264,87 @@ class _ThemePresetPicker extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  AppStrings(ref.watch(localeProvider)).themeColor,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.themeColor,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      selected.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              _ThemeDot(color: selected.primary),
+              const SizedBox(width: 4),
+              _ThemeDot(color: selected.accent),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: colorScheme.onSurfaceVariant,
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          ...AppTheme.presets.map(
-            (preset) => _ThemePresetTile(
-              preset: preset,
-              selected: preset.id == selected.id,
-              onTap: () =>
-                  ref.read(themePresetProvider.notifier).setPreset(preset),
-            ),
+        ),
+      ),
+    );
+  }
+
+  void _openSheet(BuildContext context, AppStrings strings) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.75,
           ),
-        ],
+          child: Consumer(
+            builder: (context, ref, _) {
+              final current = ref.watch(themePresetProvider);
+              return ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 12),
+                    child: Text(
+                      strings.themeColor,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  for (final preset in AppTheme.presets)
+                    _ThemePresetTile(
+                      preset: preset,
+                      selected: preset.id == current.id,
+                      onTap: () {
+                        ref.read(themePresetProvider.notifier).setPreset(preset);
+                        Navigator.pop(sheetContext);
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }

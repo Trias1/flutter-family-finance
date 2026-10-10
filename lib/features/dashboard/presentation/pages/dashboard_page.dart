@@ -735,24 +735,25 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
+  // How many shortcuts sit on the dashboard; the rest live under "More".
+  static const _visibleMenuItems = 5;
+
+  void _openMenuItem(_MenuItemData item) {
+    if (item.route != null) context.push(item.route!);
+  }
+
   Widget _buildMenuGrid(bool isId) {
     final items = isId ? _menuItemsId : _menuItemsEn;
+    final shown = items.take(_visibleMenuItems).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 12),
-          child: Row(
-            children: [
-              Text(
-                isId ? 'Menu Utama' : 'Main Menu',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          child: Text(
+            isId ? 'Menu Utama' : 'Main Menu',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ),
         GridView.builder(
@@ -764,27 +765,74 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
-          itemCount: items.length,
-          itemBuilder: (_, i) => _MenuButton(
-            icon: items[i].icon,
-            label: items[i].label,
-            color: items[i].color,
-            onTap: () {
-              if (items[i].route != null) {
-                context.push(items[i].route!);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      isId ? 'Fitur akan segera hadir!' : 'Coming soon!',
-                    ),
-                  ),
-                );
-              }
-            },
-          ),
+          itemCount: shown.length + 1,
+          itemBuilder: (_, i) {
+            if (i == shown.length) {
+              return _MenuButton(
+                icon: Icons.apps_rounded,
+                label: isId ? 'Lainnya' : 'More',
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                onTap: () => _showAllMenu(items, isId),
+              );
+            }
+            return _MenuButton(
+              icon: shown[i].icon,
+              label: shown[i].label,
+              color: shown[i].color,
+              onTap: () => _openMenuItem(shown[i]),
+            );
+          },
         ),
       ],
+    );
+  }
+
+  /// Every shortcut in one sheet, like the "More" grid in Grab or Gojek.
+  void _showAllMenu(List<_MenuItemData> items, bool isId) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isId ? 'Semua menu' : 'All features',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 4,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.82,
+                children: [
+                  for (final item in items)
+                    _SheetMenuItem(
+                      item: item,
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _openMenuItem(item);
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1474,6 +1522,43 @@ class _MiniTransactionRow extends StatelessWidget {
   }
 }
 
+class _SheetMenuItem extends StatelessWidget {
+  final _MenuItemData item;
+  final VoidCallback onTap;
+
+  const _SheetMenuItem({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(item.icon, color: item.color, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item.label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, height: 1.2),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MenuItemData {
   final IconData icon;
   final String label;
@@ -1484,6 +1569,12 @@ class _MenuItemData {
 
 final _menuItemsEn = [
   _MenuItemData(Icons.flag_rounded, 'Goals', AppTheme.primaryColor, '/savings'),
+  _MenuItemData(
+    Icons.receipt_long_rounded,
+    'Bills',
+    AppTheme.expenseColor,
+    '/bills',
+  ),
   _MenuItemData(
     Icons.assessment_rounded,
     'Reports',
@@ -1507,12 +1598,6 @@ final _menuItemsEn = [
     'Categories',
     AppTheme.savingsColor,
     '/categories',
-  ),
-  _MenuItemData(
-    Icons.receipt_long_rounded,
-    'Bills',
-    AppTheme.expenseColor,
-    '/bills',
   ),
   _MenuItemData(
     Icons.autorenew_rounded,
@@ -1542,6 +1627,12 @@ final _menuItemsId = [
     '/savings',
   ),
   _MenuItemData(
+    Icons.receipt_long_rounded,
+    'Tagihan',
+    AppTheme.expenseColor,
+    '/bills',
+  ),
+  _MenuItemData(
     Icons.assessment_rounded,
     'Laporan',
     AppTheme.warningColor,
@@ -1564,12 +1655,6 @@ final _menuItemsId = [
     'Kategori',
     AppTheme.savingsColor,
     '/categories',
-  ),
-  _MenuItemData(
-    Icons.receipt_long_rounded,
-    'Tagihan',
-    AppTheme.expenseColor,
-    '/bills',
   ),
   _MenuItemData(
     Icons.autorenew_rounded,
