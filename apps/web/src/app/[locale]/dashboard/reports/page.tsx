@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl"
 import CashflowChart from "@/components/CashflowChart"
 import { EmptyState, Money, PageHeader, Section, Skeleton } from "@/components/ui"
 import { useFamilyData } from "@/lib/family-data"
-import { byCategory, cashflowSeries, change, monthTotals } from "@/lib/finance"
+import { byCategory, cashflowSeries, change, monthTotals, spending } from "@/lib/finance"
 
 const ranges = [6, 12] as const
 
@@ -21,8 +21,8 @@ export default function ReportsPage() {
   const view = useMemo(() => {
     const current = monthTotals(data.incomes, data.expenses, now, offset)
     const previous = monthTotals(data.incomes, data.expenses, now, offset - 1)
-    const categories = byCategory(data.expenses, current.from, current.to)
-    const prevCategories = new Map(byCategory(data.expenses, previous.from, previous.to).map((c) => [c.category, c.amount]))
+    const categories = byCategory(spending(data.expenses), current.from, current.to)
+    const prevCategories = new Map(byCategory(spending(data.expenses), previous.from, previous.to).map((c) => [c.category, c.amount]))
     const series = cashflowSeries(data.incomes, data.expenses, now, range, locale)
     const months = Array.from({ length: range }, (_, i) => monthTotals(data.incomes, data.expenses, now, -i))
     return { current, previous, categories, prevCategories, series, months }

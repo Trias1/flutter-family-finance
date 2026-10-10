@@ -19,6 +19,13 @@ import 'package:family_finance_manager/features/transactions/presentation/provid
 class ExpensePage extends ConsumerWidget {
   const ExpensePage({super.key});
 
+  /// Opens the edit form (with delete) from other screens, e.g. History.
+  static Future<void> openEditor(
+    BuildContext context,
+    WidgetRef ref,
+    ExpenseModel expense,
+  ) => const ExpensePage()._showExpenseForm(context, ref, expense: expense);
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final familyId = ref.watch(financeScopeIdProvider);
@@ -246,7 +253,7 @@ class ExpensePage extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(

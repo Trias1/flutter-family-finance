@@ -10,7 +10,6 @@ import 'package:family_finance_manager/core/services/firebase_service.dart';
 import 'package:family_finance_manager/core/services/currency_provider.dart';
 import 'package:family_finance_manager/core/services/fcm_service.dart';
 import 'package:family_finance_manager/core/services/notification_service.dart';
-import 'package:family_finance_manager/core/services/recurring_service.dart';
 import 'package:family_finance_manager/core/services/widget_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
@@ -35,8 +34,6 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await FcmService().init();
 
-  await RecurringService().checkAndGenerate();
-  Timer.periodic(const Duration(hours: 1), (_) => RecurringService().checkAndGenerate());
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

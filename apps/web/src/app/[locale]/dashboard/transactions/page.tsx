@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl"
 
 import { EmptyState, Money, PageHeader, Section, Skeleton } from "@/components/ui"
 import { useFamilyData, type Tx } from "@/lib/family-data"
+import { isSavingsTransfer } from "@/lib/finance"
 import { monthKey } from "@/lib/money"
 
 type Kind = "all" | "income" | "expense"
@@ -50,7 +51,8 @@ export default function TransactionsPage() {
     let expense = 0
     for (const tx of rows) {
       if (tx.kind === "income") income += tx.amount
-      else expense += tx.amount
+      // Savings transfers stay in the list but are not counted as spending.
+      else if (!isSavingsTransfer(tx.category)) expense += tx.amount
     }
     return { income, expense }
   }, [rows])

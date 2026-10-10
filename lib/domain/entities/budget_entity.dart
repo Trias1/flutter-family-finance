@@ -17,8 +17,9 @@ class BudgetEntity {
     this.rolloverAmount = 0,
   });
 
-  double get remaining => budgetAmount - usedAmount;
-  double get effectiveBudget => budgetAmount;
+  /// This month's limit plus whatever was left over from last month.
+  double get effectiveBudget => budgetAmount + rolloverAmount;
+  double get remaining => effectiveBudget - usedAmount;
   double get percentage => effectiveBudget > 0 ? (usedAmount / effectiveBudget) * 100 : 0;
   bool get isExceeded => usedAmount > effectiveBudget;
   bool get isAlmostExceeded => percentage >= 80;

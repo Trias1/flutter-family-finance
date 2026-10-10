@@ -64,6 +64,9 @@ class AppStrings {
     if (loc.startsWith('/budget')) return budget;
     if (loc.startsWith('/reports')) return reports;
     if (loc.startsWith('/recurring')) return recurring;
+    if (loc.startsWith('/dashboard-settings')) {
+      return _id ? 'Atur Dashboard' : 'Customize Dashboard';
+    }
     if (loc.startsWith('/categories')) return categories;
     if (loc.startsWith('/privacy-security')) return privacySecurity;
     if (loc.startsWith('/backup')) return backupRestore;

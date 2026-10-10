@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl"
 
 import { EmptyState, Money, PageHeader, ProgressBar, Section, Skeleton } from "@/components/ui"
 import { useFamilyData } from "@/lib/family-data"
+import { isSavingsTransfer } from "@/lib/finance"
 import { formatRupiah, monthKey } from "@/lib/money"
 
 export default function BudgetSavingsPage() {
@@ -20,7 +21,7 @@ export default function BudgetSavingsPage() {
   }, [data.budgets])
 
   const budgets = useMemo(
-    () => data.budgets.filter((b) => b.month === month && b.budgetAmount > 0).sort((a, b) => b.usedAmount / b.budgetAmount - a.usedAmount / a.budgetAmount),
+    () => data.budgets.filter((b) => b.month === month && b.budgetAmount > 0 && !isSavingsTransfer(b.category)).sort((a, b) => b.usedAmount / b.budgetAmount - a.usedAmount / a.budgetAmount),
     [data.budgets, month],
   )
   const totals = budgets.reduce((acc, b) => ({ limit: acc.limit + b.budgetAmount, used: acc.used + b.usedAmount }), { limit: 0, used: 0 })

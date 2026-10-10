@@ -18,6 +18,13 @@ import 'package:family_finance_manager/features/transactions/presentation/provid
 class IncomePage extends ConsumerWidget {
   const IncomePage({super.key});
 
+  /// Opens the edit form (with delete) from other screens, e.g. History.
+  static Future<void> openEditor(
+    BuildContext context,
+    WidgetRef ref,
+    IncomeModel income,
+  ) => const IncomePage()._showIncomeForm(context, ref, income: income);
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final familyId = ref.watch(financeScopeIdProvider);
@@ -220,11 +227,11 @@ class IncomePage extends ConsumerWidget {
     );
   }
 
-  void _showIncomeForm(
+  Future<void> _showIncomeForm(
     BuildContext context,
     WidgetRef ref, {
     IncomeModel? income,
-  }) {
+  }) async {
     final formKey = GlobalKey<FormState>();
     final amountController = TextEditingController(
       text: income != null ? income.amount.toString() : '',
@@ -240,7 +247,7 @@ class IncomePage extends ConsumerWidget {
     DateTime selectedDate = income?.date ?? DateTime.now();
     bool isSaving = false;
 
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/app_update_service.dart';
+import 'package:family_finance_manager/core/services/currency_provider.dart';
+import 'package:family_finance_manager/core/services/recurring_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
 import 'package:family_finance_manager/core/utils/image_utils.dart';
@@ -46,6 +50,7 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   bool _checkedUpdate = false;
+  Timer? _recurringTimer;
   late PageController _pageController;
   bool _isProgrammaticUpdate = false;
   bool _syncScheduled = false;
@@ -62,6 +67,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   void dispose() {
+    _recurringTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -94,11 +100,17 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authNotifierProvider).valueOrNull;
+    // Load the family/personal currency as soon as the app opens, not only
+    // when Settings is visited.
+    ref.watch(currencyProvider);
 
     if (user != null && !_checkedUpdate) {
       _checkedUpdate = true;
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _syncDeviceAndCheckUpdate(user.id),
+        (_) {
+          _syncDeviceAndCheckUpdate(user.id);
+          _startRecurring(user.id);
+        },
       );
     }
 
@@ -224,6 +236,18 @@ class _MainShellState extends ConsumerState<MainShell> {
       ),
       builder: (_) => _AddBottomSheet(strings: strings),
     );
+  }
+
+  /// Creates due recurring income/expenses now and then hourly, for the
+  /// signed-in user's own entries in the current scope.
+  void _startRecurring(String uid) {
+    void run() => RecurringService().checkAndGenerate(
+      scopeId: ref.read(financeScopeIdProvider),
+      uid: uid,
+    );
+    run();
+    _recurringTimer?.cancel();
+    _recurringTimer = Timer.periodic(const Duration(hours: 1), (_) => run());
   }
 
   Future<void> _syncDeviceAndCheckUpdate(String uid) async {

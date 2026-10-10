@@ -176,6 +176,11 @@ class FirestoreDataSource {
     return _incomes.add(income.toFirestore());
   }
 
+  /// Fixed-id write: writing the same id twice cannot create a duplicate.
+  Future<void> setIncomeWithId(String id, IncomeModel income) {
+    return _incomes.doc(id).set(income.toFirestore());
+  }
+
   Future<List<IncomeModel>> getIncomes(String familyId) async {
     final snapshot = await _incomes
         .where('familyId', isEqualTo: familyId)
@@ -207,6 +212,11 @@ class FirestoreDataSource {
 
   Future<void> createExpense(ExpenseModel expense) {
     return _expenses.add(expense.toFirestore());
+  }
+
+  /// Fixed-id write: writing the same id twice cannot create a duplicate.
+  Future<void> setExpenseWithId(String id, ExpenseModel expense) {
+    return _expenses.doc(id).set(expense.toFirestore());
   }
 
   Future<List<ExpenseModel>> getExpenses(String familyId) async {
@@ -313,6 +323,11 @@ class FirestoreDataSource {
 
   Future<void> updateBudget(BudgetModel budget) {
     return _budgets.doc(budget.id).update(budget.toFirestore());
+  }
+
+  /// Atomic, so two family members saving expenses at once both count.
+  Future<void> incrementBudgetUsed(String id, double delta) {
+    return _budgets.doc(id).update({'usedAmount': FieldValue.increment(delta)});
   }
 
   Future<void> deleteBudget(String id) {

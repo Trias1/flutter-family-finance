@@ -48,7 +48,7 @@ export function buildDemoData() {
   const key = monthKey(now)
   const thisMonth = expenses.filter((e) => monthKey(e.date) === key)
   const budgets: Budget[] = expenseCats.slice(0, 5).map(([category, amount], i) => ({
-    id: `b${i}`, month: key, category, budgetAmount: amount,
+    id: `b${i}`, month: key, category, budgetAmount: amount, rolloverAmount: 0,
     usedAmount: thisMonth.filter((e) => e.category === category).reduce((s, e) => s + e.amount, 0),
   }))
   const savings: Saving[] = [

@@ -8,6 +8,7 @@ import 'package:family_finance_manager/core/widgets/empty_widget.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
+import 'package:family_finance_manager/data/repositories/budget_repository.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/budget/presentation/providers/budget_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
@@ -230,7 +231,9 @@ class BudgetPage extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Anggaran: ${CurrencyFormatter.format(budget.budgetAmount)}',
+                              budget.rolloverAmount > 0
+                                  ? 'Anggaran: ${CurrencyFormatter.format(budget.effectiveBudget)} (+${CurrencyFormatter.format(budget.rolloverAmount)} sisa bulan lalu)'
+                                  : 'Anggaran: ${CurrencyFormatter.format(budget.budgetAmount)}',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Theme.of(
@@ -342,13 +345,20 @@ class BudgetPage extends ConsumerWidget {
                     final month =
                         '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
                     final fId = ref.read(financeScopeIdProvider);
+                    // A new budget starts from what was already spent this
+                    // month; an edited one keeps its usage and rollover.
+                    final used = budget?.usedAmount ??
+                        await BudgetRepository(
+                          dataSource: ref.read(firestoreDataSourceProvider),
+                        ).spentInMonth(fId, selectedCategory, month);
                     final model = BudgetModel(
                       id: budget?.id ?? '',
                       familyId: fId,
                       month: month,
                       category: selectedCategory,
                       budgetAmount: double.parse(amountController.text),
-                      usedAmount: budget?.usedAmount ?? 0,
+                      usedAmount: used,
+                      rolloverAmount: budget?.rolloverAmount ?? 0,
                     );
                     if (budget == null)
                       await ref

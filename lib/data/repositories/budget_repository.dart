@@ -32,6 +32,41 @@ class BudgetRepository {
     return _dataSource.deleteBudget(id);
   }
 
+  static bool isSavingsCategory(String category) =>
+      category == 'Tabungan' || category == 'Savings';
+
+  static String monthKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}';
+
+  /// Adds [delta] to the "used" amount of the budget for [category] in the
+  /// month of [date]. Savings transfers are not spending, so they are skipped.
+  Future<void> applyExpense(
+    String familyId,
+    String category,
+    double delta,
+    DateTime date,
+  ) async {
+    if (delta == 0 || isSavingsCategory(category)) return;
+    final budgets = await getBudgetsByMonth(familyId, monthKey(date));
+    final match = budgets.where((b) => b.category == category).firstOrNull;
+    if (match == null) return;
+    await _dataSource.incrementBudgetUsed(match.id, delta);
+  }
+
+  /// What was already spent in [category] during [month], for a budget
+  /// created mid-month.
+  Future<double> spentInMonth(
+    String familyId,
+    String category,
+    String month,
+  ) async {
+    if (isSavingsCategory(category)) return 0;
+    final expenses = await _dataSource.getExpenses(familyId);
+    return expenses
+        .where((e) => e.category == category && monthKey(e.date) == month)
+        .fold<double>(0, (sum, e) => sum + e.amount);
+  }
+
   Future<void> rolloverIfNeeded(String familyId) async {
     final now = DateTime.now();
     final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
@@ -45,8 +80,11 @@ class BudgetRepository {
     if (prevBudgets.isEmpty) return;
 
     for (final b in prevBudgets) {
+      // A fixed id per family/month/category: if two devices roll over at
+      // the same time they write the same document instead of duplicates.
+      final safeCategory = b.category.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
       await setBudget(BudgetModel(
-        id: '',
+        id: 'rollover_${familyId}_${currentMonth}_$safeCategory',
         familyId: familyId,
         month: currentMonth,
         category: b.category,

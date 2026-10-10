@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore"
 
 import { db } from "@/lib/firebase"
+import { setDisplayCurrency } from "@/lib/money"
 
 export type Tx = {
   id: string
@@ -28,8 +29,10 @@ export type Budget = {
   id: string
   month: string
   category: string
+  /** Effective limit: the month's budget plus last month's rollover. */
   budgetAmount: number
   usedAmount: number
+  rolloverAmount: number
 }
 
 export type Saving = {
@@ -82,6 +85,8 @@ export type FamilyData = Collections & {
   ready: boolean
   scope: "family" | "personal"
   familyName: string | null
+  /** ISO code shown for amounts, e.g. "IDR". */
+  currency: string
   sync: SyncState
   lastSyncedAt: Date | null
   failed: CollectionKey[]
@@ -104,7 +109,7 @@ const parsers: { [K in CollectionKey]: (d: Doc) => Collections[K][number] } = {
   expenses: (d) => parseTx(d, "expense"),
   budgets: (d) => {
     const x = d.data()
-    return { id: d.id, month: str(x.month), category: str(x.category), budgetAmount: num(x.budgetAmount), usedAmount: num(x.usedAmount) }
+    return { id: d.id, month: str(x.month), category: str(x.category), budgetAmount: num(x.budgetAmount) + num(x.rolloverAmount), usedAmount: num(x.usedAmount), rolloverAmount: num(x.rolloverAmount) }
   },
   savings: (d) => {
     const x = d.data()
@@ -173,6 +178,8 @@ type Scope = { id: string; kind: "family" | "personal" } | null
 export function FamilyDataProvider({ uid, children }: { uid: string; children: ReactNode }) {
   const [scope, setScope] = useState<Scope>(null)
   const [familyName, setFamilyName] = useState<string | null>(null)
+  const [userCurrency, setUserCurrency] = useState<string | null>(null)
+  const [familyCurrency, setFamilyCurrency] = useState<string | null>(null)
   const [data, setData] = useState<Collections>(empty)
   const [loaded, setLoaded] = useState<Set<CollectionKey>>(new Set())
   const [cached, setCached] = useState<Set<CollectionKey>>(new Set())
@@ -200,6 +207,7 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
       doc(db, "users", uid),
       (snap) => {
         const familyId = str(snap.data()?.familyId)
+        setUserCurrency(str(snap.data()?.currency) || null)
         setScope((prev) => {
           const next: Scope = familyId ? { id: familyId, kind: "family" } : { id: uid, kind: "personal" }
           return prev && prev.id === next.id && prev.kind === next.kind ? prev : next
@@ -260,7 +268,10 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
       scope.kind === "family"
         ? onSnapshot(
             doc(db, "families", scope.id),
-            (snap) => setFamilyName(str(snap.data()?.name) || null),
+            (snap) => {
+              setFamilyName(str(snap.data()?.name) || null)
+              setFamilyCurrency(str(snap.data()?.currency) || null)
+            },
             () => setFamilyName(null),
           )
         : () => {}
@@ -273,6 +284,7 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
       setCached(new Set())
       setFailed([])
       setFamilyName(null)
+      setFamilyCurrency(null)
     }
   }, [scope])
 
@@ -280,6 +292,9 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
     const kind = isDemo ? "family" : scope?.kind ?? "personal"
     const expected = scope?.kind === "family" || isDemo ? 7 : 6
     const names = new Map(data.members.map((m) => [m.id, m.name]))
+    // Set before children render so every amount uses the same currency.
+    const currency = (kind === "family" ? familyCurrency : userCurrency) ?? "IDR"
+    setDisplayCurrency(currency)
     return {
       ...data,
       ready: scope !== null && loaded.size >= expected,
@@ -289,8 +304,9 @@ export function FamilyDataProvider({ uid, children }: { uid: string; children: R
       lastSyncedAt,
       failed,
       memberName: (userId) => names.get(userId) ?? "",
+      currency,
     }
-  }, [data, scope, loaded, cached, failed, familyName, lastSyncedAt, online, isDemo])
+  }, [data, scope, loaded, cached, failed, familyName, lastSyncedAt, online, isDemo, userCurrency, familyCurrency])
 
   return <FamilyDataContext.Provider value={value}>{children}</FamilyDataContext.Provider>
 }

@@ -699,8 +699,19 @@ class _CurrencyPicker extends ConsumerWidget {
             ),
           ),
           trailing: PopupMenuButton<CurrencyModel>(
-            onSelected: (c) =>
-                ref.read(currencyProvider.notifier).setCurrency(c),
+            onSelected: (c) async {
+              final err = await ref
+                  .read(currencyProvider.notifier)
+                  .setCurrency(
+                    c,
+                    isId: ref.read(localeProvider).languageCode == 'id',
+                  );
+              if (err != null && context.mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(err)));
+              }
+            },
             itemBuilder: (_) => CurrencyModel.supported
                 .map(
                   (c) => PopupMenuItem(

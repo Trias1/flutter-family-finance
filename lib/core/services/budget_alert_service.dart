@@ -12,14 +12,14 @@ class BudgetAlertService {
 
   void checkBudgets(List<BudgetModel> budgets, {bool isIndonesian = true}) {
     for (final budget in budgets) {
-      if (budget.budgetAmount <= 0) continue;
+      if (budget.effectiveBudget <= 0) continue;
       if (budget.isExceeded && _notifiedExceeded.add(budget.id)) {
         NotificationService().show(
           id: budget.id.hashCode,
           title: isIndonesian ? 'Anggaran Terlampaui!' : 'Budget Exceeded!',
           body: isIndonesian
-              ? 'Kategori ${budget.category} sudah melebihi anggaran ${CurrencyFormatter.formatWithoutSymbol(budget.budgetAmount)}'
-              : 'Category ${budget.category} has exceeded the budget of ${CurrencyFormatter.formatWithoutSymbol(budget.budgetAmount)}',
+              ? 'Kategori ${budget.category} sudah melebihi anggaran ${CurrencyFormatter.formatWithoutSymbol(budget.effectiveBudget)}'
+              : 'Category ${budget.category} has exceeded the budget of ${CurrencyFormatter.formatWithoutSymbol(budget.effectiveBudget)}',
         );
       } else if (budget.isAlmostExceeded &&
           _notifiedAlmostExceeded.add(budget.id)) {

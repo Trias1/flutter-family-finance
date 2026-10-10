@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
 import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/data/repositories/budget_repository.dart';
@@ -20,25 +19,10 @@ final expenseStreamProvider = StreamProvider.family<List<ExpenseModel>, String>(
   );
 });
 
-String _monthKey(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}';
-
-Future<void> _updateBudgetForExpense(BudgetRepository budgetRepo, String familyId, String category, double amount, DateTime date) async {
-  // Skip budget update for savings-related transactions
-  if (category == 'Tabungan' || category == 'Savings') return;
-  
-  final month = _monthKey(date);
-  final budgets = await budgetRepo.getBudgetsByMonth(familyId, month);
-  final match = budgets.where((b) => b.category == category).firstOrNull;
-  if (match == null) return;
-  final updated = BudgetModel(
-    id: match.id,
-    familyId: match.familyId,
-    month: match.month,
-    category: match.category,
-    budgetAmount: match.budgetAmount,
-    usedAmount: match.usedAmount + amount,
-  );
-  await budgetRepo.updateBudget(updated);
+// Increments atomically and keeps rolloverAmount (rebuilding the model here
+// used to reset it to 0 on the first expense of the month).
+Future<void> _updateBudgetForExpense(BudgetRepository budgetRepo, String familyId, String category, double amount, DateTime date) {
+  return budgetRepo.applyExpense(familyId, category, amount, date);
 }
 
 Future<void> _updateGoalsForExpense(SavingRepository savingRepo, String familyId, String note, double amount) async {

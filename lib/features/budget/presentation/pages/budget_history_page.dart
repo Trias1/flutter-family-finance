@@ -44,10 +44,10 @@ class BudgetHistoryPage extends ConsumerWidget {
             grouped.putIfAbsent(month, () => []);
             grouped[month]!.add({
               'category': b.category,
-              'budgetAmount': b.budgetAmount,
+              'budgetAmount': b.effectiveBudget,
               'usedAmount': b.usedAmount,
               'rolloverAmount': b.rolloverAmount,
-              'remaining': b.budgetAmount - b.usedAmount,
+              'remaining': b.remaining,
             });
           }
 

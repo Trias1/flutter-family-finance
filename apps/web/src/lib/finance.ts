@@ -1,6 +1,16 @@
 import type { Budget, Tx } from "@/lib/family-data"
 import { monthKey, startOfMonth } from "@/lib/money"
 
+// Moving money into savings is not spending; the Android app counts it the
+// same way, so both show the same totals.
+export function isSavingsTransfer(category: string) {
+  return category === "Tabungan" || category === "Savings"
+}
+
+export function spending(expenses: Tx[]) {
+  return expenses.filter((e) => !isSavingsTransfer(e.category))
+}
+
 export function sumInRange(items: Tx[], from: Date, to: Date) {
   let total = 0
   for (const item of items) if (item.date >= from && item.date < to) total += item.amount
@@ -11,7 +21,7 @@ export function monthTotals(incomes: Tx[], expenses: Tx[], ref: Date, offset = 0
   const from = startOfMonth(ref, offset)
   const to = startOfMonth(ref, offset + 1)
   const income = sumInRange(incomes, from, to)
-  const expense = sumInRange(expenses, from, to)
+  const expense = sumInRange(spending(expenses), from, to)
   return { income, expense, net: income - expense, from, to }
 }
 
@@ -26,7 +36,7 @@ export function cashflowSeries(incomes: Tx[], expenses: Tx[], ref: Date, months:
 
 export function budgetsForMonth(budgets: Budget[], ref: Date) {
   const key = monthKey(ref)
-  return budgets.filter((b) => b.month === key && b.budgetAmount > 0)
+  return budgets.filter((b) => b.month === key && b.budgetAmount > 0 && !isSavingsTransfer(b.category))
 }
 
 export function byCategory(items: Tx[], from: Date, to: Date) {

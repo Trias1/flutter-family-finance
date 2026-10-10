@@ -59,6 +59,26 @@ class DashboardData {
   });
 
   double get totalBalance => totalIncome - totalExpense;
+
+  bool _thisMonth(DateTime d) {
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month;
+  }
+
+  /// This month only. Moving money into savings is not spending, matching
+  /// the rest of the dashboard and the web.
+  double get monthIncome => allIncomes
+      .where((e) => _thisMonth(e.date))
+      .fold<double>(0, (sum, e) => sum + e.amount);
+
+  double get monthExpense => allExpenses
+      .where(
+        (e) =>
+            _thisMonth(e.date) &&
+            e.category != 'Tabungan' &&
+            e.category != 'Savings',
+      )
+      .fold<double>(0, (sum, e) => sum + e.amount);
 }
 
 Map<DateTime, DailySummary> _buildDailySummary(
