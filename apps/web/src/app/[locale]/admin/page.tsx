@@ -15,6 +15,7 @@ import type { AdminFilter, AdminOverview, AdminUser, OverviewQuery } from "@/lib
 import { auth, db } from "@/lib/firebase"
 import { useRouter } from "@/lib/i18n"
 import { startWebPresence, writeWebPresence } from "@/lib/web-presence"
+import { APP_VERSION_CODE, APP_VERSION_NAME } from "@/lib/app-info"
 
 type AuditEntry = {
   id: string
@@ -223,8 +224,17 @@ export default function AdminPage() {
             <button type="button" onClick={() => run("invites")} disabled={busy !== ""} className="auth-btn-secondary !h-9 !w-auto px-3">
               {busy === "invites" ? t("processing") : t("syncInvites")}
             </button>
-            <button type="button" onClick={() => setDialog({ kind: "config" })} disabled={busy !== "" || !stats} className="auth-btn-secondary !h-9 !w-auto px-3">
-              {t("publishAndroid")}
+            {/* The APK on this site is APP_VERSION; publishing is one click and
+                disabled once phones already get that version. */}
+            <button
+              type="button"
+              onClick={() => setDialog({ kind: "config" })}
+              disabled={busy !== "" || !stats || stats.latestVersionCode >= APP_VERSION_CODE}
+              className="auth-btn-secondary !h-9 !w-auto px-3"
+            >
+              {stats && stats.latestVersionCode >= APP_VERSION_CODE
+                ? t("upToDate", { version: `${stats.latestVersionName}+${stats.latestVersionCode}` })
+                : t("publishVersion", { version: `${APP_VERSION_NAME}+${APP_VERSION_CODE}` })}
             </button>
             <button type="button" onClick={() => run("backfill")} disabled={busy !== ""} className="auth-btn-primary !h-9 !w-auto px-3">
               {busy === "backfill" ? t("processing") : t("syncLegacyUsers")}
@@ -485,8 +495,8 @@ export default function AdminPage() {
         <AndroidConfigDialog
           current={{ name: stats.latestVersionName, code: stats.latestVersionCode }}
           onClose={() => setDialog(null)}
-          onSubmit={async (versionName, versionCode) => {
-            const payload = await adminFetch<{ latestVersionName: string; latestVersionCode: number }>(user, "/api/admin/update-android-config", { versionName, versionCode })
+          onSubmit={async () => {
+            const payload = await adminFetch<{ latestVersionName: string; latestVersionCode: number }>(user, "/api/admin/update-android-config", {})
             setNotice({ tone: "ok", text: t("androidConfigSynced", { versionName: payload.latestVersionName, versionCode: String(payload.latestVersionCode) }) })
             refresh()
           }}
@@ -589,39 +599,23 @@ function StatusDialog({ target, onSubmit, onClose, apiError }: DialogProps & { t
   )
 }
 
-function AndroidConfigDialog({ current, onSubmit, onClose, apiError }: DialogProps & { current: { name: string; code: number }; onSubmit: (name: string, code: number) => Promise<void> }) {
+function AndroidConfigDialog({ current, onSubmit, onClose, apiError }: DialogProps & { current: { name: string; code: number }; onSubmit: () => Promise<void> }) {
   const t = useTranslations("admin")
-  const tApi = useTranslations("apiErrors")
-  const [name, setName] = useState("")
-  const [code, setCode] = useState("")
-  const { busy, error, setError, submit } = useDialogSubmit(onClose, apiError)
+  const { busy, error, submit } = useDialogSubmit(onClose, apiError)
 
   const onForm = (e: FormEvent) => {
     e.preventDefault()
-    const versionCode = Number(code)
-    // Same checks as the server, so typos are caught before the request.
-    if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(name.trim())) return setError(tApi("invalidVersionName"))
-    if (!/^\d+$/.test(code.trim()) || versionCode < 1) return setError(tApi("invalidVersionCode"))
-    if (versionCode < current.code) return setError(tApi("versionCodeLower"))
-    void submit(() => onSubmit(name.trim(), versionCode))
+    void submit(onSubmit)
   }
 
   return (
     <AdminDialog title={t("publishAndroid")} onClose={onClose} busy={busy}>
       <form onSubmit={onForm} className="space-y-4">
-        <p className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{t("publishExplain", { current: `v${current.name}+${current.code}` })}</p>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="android-version-name" className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{t("versionName")}</label>
-            <input id="android-version-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="1.2.3" autoComplete="off" spellCheck={false} className="field w-full tabular-nums" />
-          </div>
-          <div>
-            <label htmlFor="android-version-code" className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{t("versionCode")}</label>
-            <input id="android-version-code" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" placeholder={String(current.code + 1)} autoComplete="off" className="field w-full tabular-nums" />
-          </div>
-        </div>
+        <p className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
+          {t("publishExplain", { next: `v${APP_VERSION_NAME}+${APP_VERSION_CODE}`, current: `v${current.name}+${current.code}` })}
+        </p>
         {error && <p role="alert" className="auth-notice auth-notice-error">{error}</p>}
-        <DialogActions busy={busy} confirmLabel={t("publish")} disabled={!name || !code} onClose={onClose} />
+        <DialogActions busy={busy} confirmLabel={t("publish")} onClose={onClose} />
       </form>
     </AdminDialog>
   )

@@ -22,12 +22,6 @@ service cloud.firestore {
       return /databases/$(database)/documents/families/$(fid);
     }
 
-    function isAdmin() {
-      return isAuth()
-        && exists(userPath(request.auth.uid))
-        && get(userPath(request.auth.uid)).data.get('systemRole', '') == 'superadmin';
-    }
-
     // The caller's family, or null when they have none.
     function userFamilyId() {
       return isAuth() && exists(userPath(request.auth.uid))
@@ -180,7 +174,8 @@ service cloud.firestore {
       allow delete: if false;
 
       match /devices/{deviceId} {
-        allow read: if isAuth() && (request.auth.uid == uid || isAdmin());
+        // The admin panel reads devices through the server (Admin SDK).
+        allow read: if isAuth() && request.auth.uid == uid;
         allow create, update: if isAuth()
           && request.auth.uid == uid
           && deviceId.size() <= 80
@@ -194,8 +189,9 @@ service cloud.firestore {
 
     // ============ PUBLIC USER MONITORING DATA ============
 
+    // Read only by the server for the admin panel; clients just write their own.
     match /user_public/{uid} {
-      allow get, list: if isAdmin();
+      allow get, list: if false;
       allow create, update: if isAuth()
         && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['name', 'createdAt'])
@@ -207,7 +203,7 @@ service cloud.firestore {
     // ============ DEVICES (collectionGroup) — admin dashboard ============
 
     match /{path=**}/devices/{deviceId} {
-      allow read: if isAdmin();
+      allow read: if false;
       allow create: if false;
       allow update: if isAuth() && resource.data.uid == request.auth.uid;
       allow delete: if isAuth() && resource.data.uid == request.auth.uid;
@@ -347,7 +343,7 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == resource.data.uid
         && unchanged(['uid', 'createdAt', 'createdBy', 'familyId', 'userId', 'systemRole']);
-      allow delete: if isAuth() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
     }
 
     // ============ APP CONFIG ============
@@ -355,7 +351,8 @@ service cloud.firestore {
 
     match /app_config/{docId} {
       allow read: if true;
-      allow write: if isAdmin();
+      // Written by the server and the release script, never from a browser.
+      allow write: if false;
     }
 
     // ============ DEFAULT: DENY ALL ============

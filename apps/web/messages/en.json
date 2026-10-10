@@ -340,7 +340,7 @@
     "auditLog": "Audit log",
     "familiesCount": "{count, plural, one {# family} other {# families}}",
     "publishAndroid": "Publish Android version",
-    "publishExplain": "Phones with an older versionCode are asked to update. Enter the values from the APK you uploaded (currently {current}); the code cannot go down.",
+    "publishExplain": "Phones on {current} or older will be asked to update to {next}, the APK hosted on this site. The release script normally does this for you after a deploy.",
     "versionName": "versionName",
     "versionCode": "versionCode",
     "publish": "Publish",
@@ -386,7 +386,9 @@
         "android_config": "Android version published",
         "account_deleted": "Account deleted"
       }
-    }
+    },
+    "publishVersion": "Publish v{version}",
+    "upToDate": "Up to date · v{version}"
   },
   "home": {
     "eyebrow": "Family finance",
@@ -716,6 +718,7 @@
     "cannotChangeSuperadmin": "A superadmin can't be disabled here.",
     "invalidVersionName": "versionName must look like 1.2.3.",
     "invalidVersionCode": "versionCode must be a positive whole number.",
-    "versionCodeLower": "versionCode can't be lower than the published one."
+    "versionCodeLower": "versionCode can't be lower than the published one.",
+    "alreadyLatest": "Phones already get this version."
   }
 }

@@ -58,6 +58,23 @@ beforeEach(async () => {
 const as = (uid) => env.authenticatedContext(uid, { email_verified: true }).firestore()
 const asUnverified = (uid) => env.authenticatedContext(uid, { email_verified: false }).firestore()
 
+describe("admin data is server-only", () => {
+  test("a superadmin browser cannot list users, devices or write app config", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, "users", "root"), { name: "root", email: "r@x.test", familyId: null, role: "member", systemRole: "superadmin", createdAt: now })
+      await setDoc(doc(db, "user_public", "bob"), { name: "bob", createdAt: now })
+      await setDoc(doc(db, "users", "bob", "devices", "d1"), { deviceId: "d1", platform: "android" })
+    })
+    const admin = as("root")
+    await assertFails(getDocs(collection(admin, "user_public")))
+    await assertFails(getDoc(doc(admin, "users", "bob", "devices", "d1")))
+    await assertFails(setDoc(doc(admin, "app_config", "android"), { latestVersionCode: 99 }))
+    await assertSucceeds(getDoc(doc(as("bob"), "users", "bob", "devices", "d1")))
+    await assertSucceeds(getDoc(doc(as("carol"), "app_config", "android")))
+  })
+})
+
 describe("unverified email accounts", () => {
   test("can create and read their own profile", async () => {
     const db = asUnverified("erin")

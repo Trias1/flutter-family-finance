@@ -1,32 +1,25 @@
 import { FieldValue } from "firebase-admin/firestore"
 import { NextRequest, NextResponse } from "next/server"
 
-import { db, errorResponse, HttpError, rateLimit, readJson, requireSuperadmin } from "@/lib/api-auth"
+import { db, errorResponse, HttpError, rateLimit, requireSuperadmin } from "@/lib/api-auth"
+import { APP_VERSION_CODE, APP_VERSION_NAME } from "@/lib/app-info"
 
 export const runtime = "nodejs"
 
 const APK_URL = "https://family-finance.tzm.web.id/FamilyFinance.apk"
-const VERSION_NAME = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/
-// Android's own ceiling for versionCode.
-const MAX_VERSION_CODE = 2_100_000_000
-
 /**
- * Publishes the latest Android release that the app's update check compares
- * against. The admin types the APK's versionName and versionCode; the web
- * build's version is unrelated and is no longer used here.
+ * Publishes the APK hosted with this deployment as the latest Android
+ * release. scripts/release-android.mjs writes app-info.ts and copies the
+ * APK in the same step, so this build's version is the APK's version; the
+ * release script already publishes it, this button is the manual fallback.
  */
 export async function POST(req: NextRequest) {
   try {
     const caller = await requireSuperadmin(req)
     await rateLimit(`admin_config_${caller.uid}`, 10, 3_600_000)
 
-    const body = await readJson(req, 1024)
-    const versionName = typeof body.versionName === "string" ? body.versionName.trim() : ""
-    const versionCode = body.versionCode
-    if (!VERSION_NAME.test(versionName)) throw new HttpError(400, "invalidVersionName")
-    if (typeof versionCode !== "number" || !Number.isInteger(versionCode) || versionCode < 1 || versionCode > MAX_VERSION_CODE) {
-      throw new HttpError(400, "invalidVersionCode")
-    }
+    const versionName = APP_VERSION_NAME
+    const versionCode = APP_VERSION_CODE
 
     const store = db()
     const ref = store.collection("app_config").doc("android")
@@ -35,6 +28,7 @@ export async function POST(req: NextRequest) {
       const current = typeof existing.latestVersionCode === "number" ? existing.latestVersionCode : 0
       // Going backwards would tell up-to-date phones they are fine on an old APK.
       if (versionCode < current) throw new HttpError(409, "versionCodeLower")
+      if (versionCode === current) throw new HttpError(409, "alreadyLatest")
       tx.set(
         ref,
         {

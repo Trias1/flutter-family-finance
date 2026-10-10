@@ -340,7 +340,7 @@
     "auditLog": "Log audit",
     "familiesCount": "{count} keluarga",
     "publishAndroid": "Terbitkan versi Android",
-    "publishExplain": "Ponsel dengan versionCode lebih lama akan diminta update. Isi sesuai APK yang sudah diunggah (saat ini {current}); kode tidak boleh turun.",
+    "publishExplain": "HP dengan {current} atau lebih lama akan diminta update ke {next}, yaitu APK yang ada di situs ini. Biasanya skrip rilis sudah melakukan ini otomatis setelah deploy.",
     "versionName": "versionName",
     "versionCode": "versionCode",
     "publish": "Terbitkan",
@@ -386,7 +386,9 @@
         "android_config": "Versi Android diterbitkan",
         "account_deleted": "Akun dihapus"
       }
-    }
+    },
+    "publishVersion": "Terbitkan v{version}",
+    "upToDate": "Sudah terbaru · v{version}"
   },
   "home": {
     "eyebrow": "Keuangan keluarga",
@@ -716,6 +718,7 @@
     "cannotChangeSuperadmin": "Superadmin tidak bisa dinonaktifkan dari sini.",
     "invalidVersionName": "versionName harus berformat seperti 1.2.3.",
     "invalidVersionCode": "versionCode harus bilangan bulat positif.",
-    "versionCodeLower": "versionCode tidak boleh lebih kecil dari yang sudah diterbitkan."
+    "versionCodeLower": "versionCode tidak boleh lebih kecil dari yang sudah diterbitkan.",
+    "alreadyLatest": "HP sudah mendapat versi ini."
   }
 }
