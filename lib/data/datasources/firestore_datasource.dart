@@ -54,9 +54,14 @@ class FirestoreDataSource {
     return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
   }
 
-  Future<void> updateUser(UserModel user) async {
+  /// [joinCode] must accompany any change of `familyId` to a family the user
+  /// does not own; Firestore rules check it against `family_invites`.
+  Future<void> updateUser(UserModel user, {String? joinCode}) async {
     final batch = _firestore.batch();
-    batch.update(_users.doc(user.id), user.toFirestore());
+    batch.update(_users.doc(user.id), {
+      ...user.toFirestore(),
+      if (joinCode != null) 'joinCode': joinCode,
+    });
     batch.set(_userPublic.doc(user.id), {
       'name': user.name,
       'createdAt': Timestamp.fromDate(user.createdAt),
@@ -64,17 +69,39 @@ class FirestoreDataSource {
     await batch.commit();
   }
 
-  Future<FamilyModel> createFamily(FamilyModel family) {
-    return _families.add(family.toFirestore()).then((doc) {
-      return FamilyModel(
-        id: doc.id,
-        name: family.name,
-        photoUrl: family.photoUrl,
-        inviteCode: family.inviteCode,
-        createdBy: family.createdBy,
-        createdAt: family.createdAt,
-      );
-    });
+  CollectionReference<Map<String, dynamic>> get _familyInvites =>
+      _firestore.collection('family_invites');
+
+  Map<String, dynamic> _inviteData(FamilyModel family) => {
+    'familyId': family.id,
+    'familyName': family.name,
+    'createdBy': family.createdBy,
+  };
+
+  /// Creates the family and its invite lookup doc in one batch. Invite codes
+  /// live in `family_invites/{code}`, readable one code at a time, so codes
+  /// cannot be listed by other users.
+  Future<FamilyModel> createFamily(FamilyModel family) async {
+    final ref = _families.doc();
+    final created = FamilyModel(
+      id: ref.id,
+      name: family.name,
+      photoUrl: family.photoUrl,
+      inviteCode: family.inviteCode,
+      createdBy: family.createdBy,
+      createdAt: family.createdAt,
+    );
+    final batch = _firestore.batch();
+    batch.set(ref, created.toFirestore());
+    batch.set(_familyInvites.doc(created.inviteCode), _inviteData(created));
+    await batch.commit();
+    return created;
+  }
+
+  /// Used by the family owner. Touches only the two fields rules let an
+  /// owner change on another member's profile.
+  Future<void> removeFamilyMember(String uid) {
+    return _users.doc(uid).update({'familyId': null, 'role': 'member'});
   }
 
   Future<FamilyModel?> getFamily(String id) async {
@@ -83,13 +110,28 @@ class FirestoreDataSource {
     return FamilyModel.fromFirestore(doc);
   }
 
+  /// Looks up an invite code. Returns a partial family (id, name, owner)
+  /// because non-members cannot read the family doc itself.
   Future<FamilyModel?> getFamilyByInviteCode(String code) async {
-    final snapshot = await _families
-        .where('inviteCode', isEqualTo: code)
-        .limit(1)
-        .get();
-    if (snapshot.docs.isEmpty) return null;
-    return FamilyModel.fromFirestore(snapshot.docs.first);
+    final doc = await _familyInvites.doc(code.trim().toUpperCase()).get();
+    final data = doc.data();
+    if (!doc.exists || data == null) return null;
+    return FamilyModel(
+      id: data['familyId'] as String? ?? '',
+      name: data['familyName'] as String? ?? '',
+      inviteCode: doc.id,
+      createdBy: data['createdBy'] as String? ?? '',
+    );
+  }
+
+  /// Families created before invite docs existed get one the first time
+  /// their owner opens the app.
+  Future<void> ensureFamilyInvite(FamilyModel family) async {
+    if (family.inviteCode.isEmpty) return;
+    final ref = _familyInvites.doc(family.inviteCode);
+    final existing = await ref.get();
+    if (existing.exists) return;
+    await ref.set(_inviteData(family));
   }
 
   Future<void> updateFamily(FamilyModel family) {
@@ -115,6 +157,12 @@ class FirestoreDataSource {
 
       transaction.update(newOwnerRef, {'role': 'admin'});
       transaction.update(familyRef, {'createdBy': newOwnerId});
+      final inviteCode = familyDoc.data()?['inviteCode'] as String?;
+      if (inviteCode != null && inviteCode.isNotEmpty) {
+        transaction.set(_familyInvites.doc(inviteCode), {
+          'createdBy': newOwnerId,
+        }, SetOptions(merge: true));
+      }
     });
   }
 

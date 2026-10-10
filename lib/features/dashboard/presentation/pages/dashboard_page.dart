@@ -1478,12 +1478,6 @@ final _menuItemsEn = [
     '/categories',
   ),
   _MenuItemData(
-    Icons.psychology_rounded,
-    'AI Advisor',
-    AppTheme.secondaryColor,
-    '/ai-advisor',
-  ),
-  _MenuItemData(
     Icons.receipt_long_rounded,
     'Bills',
     AppTheme.expenseColor,
@@ -1521,12 +1515,6 @@ final _menuItemsId = [
     'Kategori',
     AppTheme.savingsColor,
     '/categories',
-  ),
-  _MenuItemData(
-    Icons.psychology_rounded,
-    'AI Advisor',
-    AppTheme.secondaryColor,
-    '/ai-advisor',
   ),
   _MenuItemData(
     Icons.receipt_long_rounded,

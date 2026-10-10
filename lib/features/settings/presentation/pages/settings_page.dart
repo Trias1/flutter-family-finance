@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/biometric/biometric_provider.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -220,7 +221,7 @@ class SettingsPage extends ConsumerWidget {
                   prefixIcon: Icon(Icons.lock),
                 ),
                 validator: (v) =>
-                    v == null || v.length < 6 ? 'Minimal 6 karakter' : null,
+                    Validators.newPassword(v),
               ),
               const SizedBox(height: 12),
               TextFormField(

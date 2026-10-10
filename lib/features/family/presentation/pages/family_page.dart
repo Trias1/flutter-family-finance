@@ -54,8 +54,29 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
     }
   }
 
+  /// Owners can switch back to their own family directly. Anyone else needs a
+  /// fresh invite code, since membership is only granted through a code.
   Future<void> _rejoinFamily(String familyId) async {
-    final err = await ref.read(authNotifierProvider.notifier).joinFamily(familyId, familyName: null);
+    final userId = _getUserId();
+    final family = await ref
+        .read(familyRepositoryProvider)
+        .getFamily(familyId)
+        .catchError((_) => null);
+    if (!mounted) return;
+    if (family == null || family.createdBy != userId) {
+      setState(() => _isCreating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Minta kode undangan ke pemilik keluarga, lalu masukkan di kolom kode.',
+          ),
+        ),
+      );
+      return;
+    }
+    final err = await ref
+        .read(authNotifierProvider.notifier)
+        .joinFamily(familyId, familyName: family.name, role: 'admin');
     if (!mounted) return;
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));

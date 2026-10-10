@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:family_finance_manager/core/widgets/main_shell.dart';
-import 'package:family_finance_manager/features/ai_advisor/presentation/pages/ai_advisor_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/login_page.dart';
 import 'package:family_finance_manager/features/auth/presentation/pages/register_page.dart';
@@ -25,19 +24,26 @@ import 'package:family_finance_manager/features/categories/presentation/pages/ca
 import 'package:family_finance_manager/features/debts/presentation/pages/debts_page.dart';
 import 'package:family_finance_manager/features/bills/presentation/pages/bills_page.dart';
 import 'package:family_finance_manager/features/recurring/presentation/pages/recurring_page.dart';
-import 'package:family_finance_manager/features/receipt_scanner/presentation/pages/receipt_scanner_page.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
 );
 
+// One router for the app's lifetime; auth changes only re-run redirects, so
+// the navigation stack is not thrown away on every token refresh.
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final authChanges = ValueNotifier<int>(0);
+  ref.listen(authStateProvider, (_, _) => authChanges.value++);
+  ref.onDispose(authChanges.dispose);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/login',
+    refreshListenable: authChanges,
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+      // Wait for Firebase to restore the session before deciding.
+      if (authState.isLoading) return null;
       final firebaseUser = authState.valueOrNull;
       final isLoggedIn = firebaseUser != null;
       final isAuthRoute =
@@ -111,19 +117,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ReportsPage(),
           ),
           GoRoute(
-            path: '/ai-advisor',
-            name: 'aiAdvisor',
-            builder: (context, state) => const AiAdvisorPage(),
-          ),
-          GoRoute(
             path: '/dashboard-settings',
             name: 'dashboardSettings',
             builder: (context, state) => const DashboardSettingsPage(),
-          ),
-          GoRoute(
-            path: '/scan-receipt',
-            name: 'scanReceipt',
-            builder: (context, state) => const ReceiptScannerPage(),
           ),
           GoRoute(
             path: '/settings',

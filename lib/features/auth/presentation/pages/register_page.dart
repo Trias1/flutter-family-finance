@@ -214,7 +214,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage>
                               icon: Icons.lock_outlined,
                               obscure: _obscurePassword,
                               onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-                              validator: Validators.password,
+                              validator: Validators.newPassword,
                             ),
                             const SizedBox(height: 14),
                             _buildField(

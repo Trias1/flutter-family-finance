@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:family_finance_manager/core/biometric/biometric_provider.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
@@ -23,6 +22,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _biometricBusy = false;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -47,6 +47,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   Future<void> _checkBiometricAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
+    // Older versions kept the password in plain text for biometric re-login.
+    await prefs.remove('last_password');
     final skipAuto = prefs.getBool('biometric_skip_auto_login') ?? false;
     await prefs.setBool('biometric_skip_auto_login', false);
     if (skipAuto) return;
@@ -58,10 +60,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
     try {
       final authenticated = await localAuth.authenticate(localizedReason: 'Scan sidik jari untuk masuk');
       if (authenticated) {
-        final repo = ref.read(authRepositoryProvider);
-        final user = await repo.getUser(firebaseUser.uid);
         if (mounted) {
-          ref.read(authNotifierProvider.notifier).state = AsyncValue.data(user);
+          await ref.read(authNotifierProvider.notifier).restoreSession(firebaseUser.uid);
         }
       }
     } catch (_) {}
@@ -110,90 +110,67 @@ class _LoginPageState extends ConsumerState<LoginPage>
         await prefs.setString('biometric_last_uid', firebaseUser.uid);
       }
       await prefs.setString('last_login_method', 'email');
-      await prefs.setString('last_password', _passwordController.text);
-      final key = firebaseUser != null ? 'biometric_enabled_${firebaseUser.uid}' : 'biometric_enabled';
-      final biometricEnabled = prefs.getBool(key) ?? false;
-      if (biometricEnabled) {
-        final localAuth = LocalAuthentication();
-        try {
-          await localAuth.authenticate(localizedReason: 'Verifikasi fingerprint untuk masuk');
-        } catch (_) {}
-      }
     }
   }
 
+  void _showSnack(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      ),
+    );
+  }
+
+  /// Biometrics unlock an existing session; they never replace the password.
+  /// After an explicit logout, email accounts must type their password again.
+  /// Google accounts can be restored silently because no secret is stored.
   Future<void> _loginWithBiometric() async {
-    final localAuth = LocalAuthentication();
+    if (_biometricBusy) return;
+    setState(() => _biometricBusy = true);
     try {
-      final authenticated = await localAuth.authenticate(localizedReason: 'Scan sidik jari untuk masuk');
-      if (!authenticated) return;
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Verifikasi fingerprint gagal'),
-            backgroundColor: AppTheme.errorColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          ),
-        );
-      }
-      return;
-    }
+      final authenticated = await LocalAuthentication().authenticate(
+        localizedReason: 'Scan sidik jari untuk masuk',
+      );
+      if (!authenticated || !mounted) return;
 
-    if (!mounted) return;
-    var firebaseUser = ref.read(firebaseAuthDataSourceProvider).currentUser;
-
-    if (firebaseUser == null) {
-      final prefs = await SharedPreferences.getInstance();
-      final method = prefs.getString('last_login_method') ?? '';
-
-      if (method == 'email') {
-        final email = prefs.getString('last_email') ?? '';
-        final password = prefs.getString('last_password') ?? '';
-        if (email.isNotEmpty && password.isNotEmpty) {
-          await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
-          firebaseUser = FirebaseAuth.instance.currentUser;
-        }
-      } else if (method == 'google') {
-        final googleSignIn = GoogleSignIn();
-        final account = await googleSignIn.signInSilently();
-        if (account != null) {
-          final auth = await account.authentication;
-          final credential = GoogleAuthProvider.credential(
-            accessToken: auth.accessToken,
-            idToken: auth.idToken,
-          );
-          await FirebaseAuth.instance.signInWithCredential(credential);
-          firebaseUser = FirebaseAuth.instance.currentUser;
-          if (firebaseUser != null) {
-            await prefs.setString('biometric_last_uid', firebaseUser.uid);
+      var firebaseUser = ref.read(firebaseAuthDataSourceProvider).currentUser;
+      if (firebaseUser == null) {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getString('last_login_method') == 'google') {
+          final account = await GoogleSignIn().signInSilently();
+          if (account != null) {
+            final auth = await account.authentication;
+            await FirebaseAuth.instance.signInWithCredential(
+              GoogleAuthProvider.credential(
+                accessToken: auth.accessToken,
+                idToken: auth.idToken,
+              ),
+            );
+            firebaseUser = FirebaseAuth.instance.currentUser;
+            if (firebaseUser != null) {
+              await prefs.setString('biometric_last_uid', firebaseUser.uid);
+            }
           }
         }
       }
 
+      if (!mounted) return;
       if (firebaseUser == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Sesi habis. Login dulu sekali dengan email atau Google'),
-              backgroundColor: AppTheme.warningColor,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            ),
-          );
-        }
+        _showSnack(
+          'Sesi sudah berakhir. Masuk sekali lagi dengan email dan kata sandi atau Google.',
+          AppTheme.warningColor,
+        );
         return;
       }
-    }
-
-    if (!mounted) return;
-    final repo = ref.read(authRepositoryProvider);
-    final user = await repo.getUser(firebaseUser.uid);
-    if (mounted) {
-      ref.read(authNotifierProvider.notifier).state = AsyncValue.data(user);
+      await ref.read(authNotifierProvider.notifier).restoreSession(firebaseUser.uid);
+    } catch (_) {
+      if (mounted) _showSnack('Masuk dengan sidik jari gagal. Coba lagi.', AppTheme.errorColor);
+    } finally {
+      if (mounted) setState(() => _biometricBusy = false);
     }
   }
 

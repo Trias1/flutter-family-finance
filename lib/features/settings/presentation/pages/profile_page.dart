@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/image_utils.dart';
@@ -175,7 +176,7 @@ class ProfilePage extends ConsumerWidget {
                   prefixIcon: Icon(Icons.lock),
                 ),
                 validator: (v) =>
-                    v == null || v.length < 6 ? 'Minimal 6 karakter' : null,
+                    Validators.newPassword(v),
               ),
               const SizedBox(height: 12),
               TextFormField(

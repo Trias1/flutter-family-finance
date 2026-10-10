@@ -43,6 +43,8 @@ class AuthRepository {
     final user = credential.user;
     if (user == null) throw Exception('Failed to create user');
     await user.updateDisplayName(name);
+    // Best effort: a failed send must not undo a successful sign-up.
+    await user.sendEmailVerification().catchError((_) {});
     final userModel = UserModel(
       id: user.uid,
       name: name,
@@ -110,6 +112,7 @@ class AuthRepository {
     String familyId, {
     String? familyName,
     String role = 'member',
+    String? joinCode,
   }) async {
     final uid = _authDataSource.currentUser?.uid;
     if (uid == null) throw Exception('No user logged in');
@@ -130,7 +133,7 @@ class AuthRepository {
       role: role,
       createdAt: user.createdAt,
     );
-    await _firestoreDataSource.updateUser(updated);
+    await _firestoreDataSource.updateUser(updated, joinCode: joinCode);
   }
 
   Future<void> leaveFamily() async {
@@ -168,19 +171,10 @@ class AuthRepository {
   Future<void> kickMember(String targetUid, {String? fromFamilyId}) async {
     final user = await _firestoreDataSource.getUser(targetUid);
     if (user == null) throw Exception('User not found');
-    if (fromFamilyId != null && user.familyId != fromFamilyId)
+    if (fromFamilyId != null && user.familyId != fromFamilyId) {
       throw Exception('User tidak dalam keluarga ini');
-    final updated = UserModel(
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      photoUrl: user.photoUrl,
-      familyId: null,
-      familyHistory: user.familyHistory,
-      role: 'member',
-      createdAt: user.createdAt,
-    );
-    await _firestoreDataSource.updateUser(updated);
+    }
+    await _firestoreDataSource.removeFamilyMember(targetUid);
   }
 
   Future<void> signOut({bool keepGoogleSession = false}) =>

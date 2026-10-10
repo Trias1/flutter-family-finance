@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/data/datasources/firebase_auth_datasource.dart';
 import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
@@ -36,10 +38,17 @@ final financeScopeIdProvider = Provider<String>((ref) {
   return user.familyId?.isNotEmpty == true ? user.familyId! : user.id;
 });
 
-final familyProvider = FutureProvider<FamilyModel?>((ref) {
+final familyProvider = FutureProvider<FamilyModel?>((ref) async {
   final familyId = ref.watch(familyIdProvider);
-  if (familyId.isEmpty) return Future.value(null);
-  return ref.watch(firestoreDataSourceProvider).getFamily(familyId);
+  if (familyId.isEmpty) return null;
+  final dataSource = ref.watch(firestoreDataSourceProvider);
+  final family = await dataSource.getFamily(familyId);
+  final uid = ref.watch(authNotifierProvider).valueOrNull?.id;
+  if (family != null && family.createdBy == uid) {
+    // Older families have no invite doc yet; without it nobody can join.
+    unawaited(dataSource.ensureFamilyInvite(family).catchError((_) {}));
+  }
+  return family;
 });
 
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
@@ -58,6 +67,27 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   final AuthRepository _authRepository;
 
   AuthNotifier(this._authRepository) : super(const AsyncValue.data(null));
+
+  /// Loads the profile for an already signed-in Firebase user, e.g. after an
+  /// app restart or a biometric unlock.
+  Future<void> restoreSession(String uid) async {
+    try {
+      final user = await _authRepository.getUser(uid);
+      if (mounted) state = AsyncValue.data(user);
+    } catch (e, st) {
+      if (mounted) state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Keeps the profile in step with Firebase Auth: cleared on sign-out,
+  /// reloaded when a different (or restored) user is signed in.
+  void syncWithFirebase(String? uid) {
+    if (uid == null) {
+      state = const AsyncValue.data(null);
+    } else if (state.valueOrNull?.id != uid && !state.isLoading) {
+      restoreSession(uid);
+    }
+  }
 
   Future<String?> signInWithEmail(String email, String password) async {
     state = const AsyncValue.loading();
@@ -133,12 +163,14 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     String familyId, {
     String? familyName,
     String role = 'member',
+    String? joinCode,
   }) async {
     try {
       await _authRepository.updateFamilyId(
         familyId,
         familyName: familyName,
         role: role,
+        joinCode: joinCode,
       );
       final uid = _authRepository.currentUser?.uid;
       if (uid != null) {
@@ -191,29 +223,26 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   String _getAuthErrorMessage(Object error) {
     if (error is FirebaseAuthException) {
       switch (error.code) {
+        // One message for every credential failure, so the app never
+        // reveals whether an email is registered.
         case 'user-not-found':
-          return 'Email tidak terdaftar';
         case 'wrong-password':
-          return 'Password salah';
         case 'invalid-credential':
+        case 'invalid-login-credentials':
           return 'Email atau password salah';
         case 'email-already-in-use':
-          return 'Email sudah digunakan';
+          return 'Akun tidak bisa dibuat dengan email ini. Jika sudah punya akun, silakan masuk atau reset password';
         case 'too-many-requests':
           return 'Terlalu banyak percobaan. Coba lagi nanti';
         case 'network-request-failed':
           return 'Tidak ada koneksi internet';
         case 'weak-password':
-          return 'Password minimal 6 karakter';
+          return 'Password minimal 8 karakter, berisi huruf dan angka';
         case 'invalid-email':
           return 'Email tidak valid';
         default:
           return 'Terjadi kesalahan. Silakan coba lagi';
       }
-    }
-    final message = error.toString();
-    if (message.contains('User not found')) {
-      return 'Akun tidak ditemukan. Silakan daftar dulu';
     }
     return 'Terjadi kesalahan. Silakan coba lagi';
   }
@@ -221,5 +250,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
 
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<UserModel?>>((ref) {
-      return AuthNotifier(ref.watch(authRepositoryProvider));
+      final notifier = AuthNotifier(ref.watch(authRepositoryProvider));
+      ref.listen<AsyncValue<User?>>(
+        authStateProvider,
+        (_, next) => notifier.syncWithFirebase(next.valueOrNull?.uid),
+        fireImmediately: true,
+      );
+      return notifier;
     });

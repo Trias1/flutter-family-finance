@@ -581,16 +581,6 @@ class _AddBottomSheet extends ConsumerWidget {
               context.push('/expense');
             },
           ),
-          const SizedBox(height: 12),
-          _AddOption(
-            icon: Icons.camera_alt_rounded,
-            color: AppTheme.savingsColor,
-            label: isId ? 'Pindai Struk' : 'Scan Receipt',
-            onTap: () {
-              Navigator.pop(context);
-              context.push('/scan-receipt');
-            },
-          ),
         ],
       ),
     );
