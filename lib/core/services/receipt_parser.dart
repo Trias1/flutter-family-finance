@@ -9,6 +9,12 @@ class ReceiptDraft {
   final String? merchant;
   final String? paidWith;
 
+  /// Money came in (salary, a transfer received): it belongs in Income.
+  final bool isIncoming;
+
+  /// For money received: who sent it.
+  final String? sender;
+
   /// For transfers: who received the money and at which bank.
   final String? recipient;
   final String? recipientBank;
@@ -21,6 +27,8 @@ class ReceiptDraft {
     this.amount,
     this.merchant,
     this.paidWith,
+    this.isIncoming = false,
+    this.sender,
     this.recipient,
     this.recipientBank,
     this.kind = ReceiptKind.other,
@@ -38,7 +46,15 @@ class ReceiptDraft {
         ? (isQris ? 'QRIS' : null)
         : (isQris ? 'QRIS $paidWith' : paidWith);
     String? what = merchant;
-    if (kind == ReceiptKind.transfer && recipient != null) {
+    if (isIncoming) {
+      // e.g. "Gaji dari PT MAJU JAYA · BCA" / "Transfer masuk dari BUDI · BRI".
+      final label = categoryHint == 'salary'
+          ? (isId ? 'Gaji' : 'Salary')
+          : (isId ? 'Transfer masuk' : 'Money received');
+      what = sender == null
+          ? label
+          : '$label ${isId ? 'dari' : 'from'} $sender';
+    } else if (kind == ReceiptKind.transfer && recipient != null) {
       final bank = recipientBank == null ? '' : ' ($recipientBank)';
       what = '${isId ? 'Transfer ke' : 'Transfer to'} $recipient$bank';
     }
@@ -176,6 +192,16 @@ class ReceiptParser {
         lower.contains('qris') ||
         lower.contains('qr code') ||
         lower.contains('scan qr');
+    // Money coming in. "Kartu kredit" is a card, not an incoming credit.
+    final noCard = lower
+        .replaceAll('kartu kredit', '')
+        .replaceAll('credit card', '');
+    final isSalary = RegExp(r'\b(gaji|payroll|salary|thr)\b').hasMatch(lower);
+    final isIncoming =
+        isSalary ||
+        RegExp(
+          r'(dana masuk|transfer masuk|uang masuk|kamu menerima|anda menerima|telah menerima|you received|money received|incoming transfer|penerimaan dana|\bkredit\b|\bcr\b)',
+        ).hasMatch(noCard);
     final isTransfer =
         !isQris &&
         RegExp(
@@ -222,8 +248,32 @@ class ReceiptParser {
         .map((m) => m.name)
         .firstOrNull;
 
+    // For money received: the sender is labelled "Dari", "From", "Pengirim".
+    String? sender;
+    if (isIncoming) {
+      final from = RegExp(
+        r'^(dari|from|pengirim|sender|nama pengirim)\s*:?\s*(.*)$',
+        caseSensitive: false,
+      );
+      for (var i = 0; i < lines.length && sender == null; i++) {
+        final m = from.firstMatch(lines[i]);
+        if (m == null) continue;
+        final same = m.group(2)?.trim() ?? '';
+        final candidate = same.isNotEmpty
+            ? same
+            : (i + 1 < lines.length ? lines[i + 1] : '');
+        if (candidate.isNotEmpty &&
+            !RegExp(r'\d{4,}').hasMatch(candidate) &&
+            candidate.length <= 60) {
+          sender = candidate;
+        }
+      }
+    }
+
     return ReceiptDraft(
       amount: _findAmount(lines),
+      isIncoming: isIncoming,
+      sender: sender,
       merchant: store ?? (isTransfer ? null : _findMerchantLine(lines)),
       paidWith: payer,
       recipient: recipient,
@@ -237,7 +287,11 @@ class ReceiptParser {
           : ReceiptKind.other,
       isQris: isQris,
       date: _findDate(lines),
-      categoryHint: store != null
+      categoryHint: isSalary
+          ? 'salary'
+          : isIncoming
+          ? 'transfer_in'
+          : store != null
           ? 'groceries'
           : (isTransfer ? 'transfer' : null),
     );

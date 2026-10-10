@@ -95,4 +95,56 @@ Rp25.000
     final d = ReceiptParser.parse('Bank Danamon\nTotal Rp 50.000');
     expect(d.paidWith, 'Danamon');
   });
+
+  group('money coming in goes to Income', () {
+    test('salary credited (BCA)', () {
+      const text = '''
+BCA
+Transfer Masuk
+Dari
+PT MAJU JAYA SENTOSA
+Keterangan
+GAJI OKTOBER 2026
+Rp 7.500.000,00
+01 Okt 2026
+''';
+      final d = ReceiptParser.parse(text);
+      expect(d.isIncoming, isTrue);
+      expect(d.amount, 7500000);
+      expect(d.categoryHint, 'salary');
+      expect(d.sender, 'PT MAJU JAYA SENTOSA');
+      expect(d.noteFor(isId: true), 'Gaji dari PT MAJU JAYA SENTOSA · BCA');
+    });
+
+    test('transfer received in DANA', () {
+      const text = '''
+DANA
+Kamu menerima
+Rp50.000
+Dari
+BUDI SANTOSO
+05 Okt 2026
+''';
+      final d = ReceiptParser.parse(text);
+      expect(d.isIncoming, isTrue);
+      expect(d.amount, 50000);
+      expect(d.categoryHint, 'transfer_in');
+      expect(d.noteFor(isId: false), 'Money received from BUDI SANTOSO · DANA');
+    });
+
+    test('paying with a credit card is still spending', () {
+      final d = ReceiptParser.parse(
+        'ALFAMART\nTOTAL 45.000\nKARTU KREDIT BNI 45.000',
+      );
+      expect(d.isIncoming, isFalse);
+      expect(d.amount, 45000);
+    });
+
+    test('an outgoing transfer is not income', () {
+      final d = ReceiptParser.parse(
+        'OCBC\nTransfer\nASTI NURHAYATI\nBANK DIGITAL BCA\nIDR 35,000',
+      );
+      expect(d.isIncoming, isFalse);
+    });
+  });
 }

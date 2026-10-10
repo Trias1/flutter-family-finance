@@ -324,7 +324,12 @@ class _MainShellState extends ConsumerState<MainShell> {
         ),
       );
     }
-    await ExpensePage.openFromReceipt(context, ref, draft);
+    // Salary or a transfer received is income; everything else is spending.
+    if (draft.isIncoming) {
+      await IncomePage.openFromReceipt(context, ref, draft);
+    } else {
+      await ExpensePage.openFromReceipt(context, ref, draft);
+    }
   }
 
   /// "Active now" for the admin panel, like the web: every 60 seconds while
@@ -777,8 +782,8 @@ class _AddBottomSheet extends ConsumerWidget {
                   icon: Icons.document_scanner_outlined,
                   color: AppTheme.expenseColor,
                   label: isId
-                      ? 'Bukti bayar dari galeri'
-                      : 'Payment screenshot',
+                      ? 'Scan bukti transfer/bayar'
+                      : 'Scan a transfer/payment',
                   onTap: () {
                     Navigator.pop(context);
                     onScan(false);

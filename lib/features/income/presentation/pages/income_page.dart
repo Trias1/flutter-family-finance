@@ -17,9 +17,31 @@ import 'package:family_finance_manager/features/reports/presentation/providers/r
 import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
 import 'package:family_finance_manager/core/utils/duplicate_check.dart';
 import 'package:family_finance_manager/features/family/presentation/providers/family_provider.dart';
+import 'package:family_finance_manager/core/services/receipt_parser.dart';
 
 class IncomePage extends ConsumerWidget {
   const IncomePage({super.key});
+
+  /// Opens the form filled from a scanned "money received" screenshot.
+  static Future<void> openFromReceipt(
+    BuildContext context,
+    WidgetRef ref,
+    ReceiptDraft draft,
+  ) => const IncomePage()._showIncomeForm(context, ref, draft: draft);
+
+  /// Picks one of the user's income categories for a scan, if any fits.
+  static String? _categoryFor(String? hint, List<String> categories) {
+    const wanted = {
+      'salary': ['gaji', 'salary', 'upah'],
+      'transfer_in': ['transfer', 'lain', 'other'],
+    };
+    for (final word in wanted[hint] ?? const <String>[]) {
+      for (final c in categories) {
+        if (c.toLowerCase().contains(word)) return c;
+      }
+    }
+    return null;
+  }
 
   /// Opens an empty form from other screens, e.g. the + button.
   static Future<void> openNew(BuildContext context, WidgetRef ref) =>
@@ -246,20 +268,33 @@ class IncomePage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     IncomeModel? income,
+    ReceiptDraft? draft,
   }) async {
     final formKey = GlobalKey<FormState>();
+    final scanned = draft?.amount;
     final amountController = TextEditingController(
-      text: income != null ? income.amount.toString() : '',
+      text: income != null
+          ? income.amount.toString()
+          : scanned == null
+          ? ''
+          : (scanned == scanned.roundToDouble()
+                ? scanned.toStringAsFixed(0)
+                : scanned.toString()),
     );
     final familyId = ref.read(financeScopeIdProvider);
     final categories = ref.read(effectiveIncomeCategoriesProvider(familyId));
     String selectedCategory =
         income?.category ??
+        _categoryFor(draft?.categoryHint, categories) ??
         (categories.isNotEmpty
             ? categories.first
             : AppConstants.incomeCategories.first);
-    final noteController = TextEditingController(text: income?.note ?? '');
-    DateTime selectedDate = income?.date ?? DateTime.now();
+    final draftIsId =
+        context.mounted && Localizations.localeOf(context).languageCode == 'id';
+    final noteController = TextEditingController(
+      text: income?.note ?? draft?.noteFor(isId: draftIsId) ?? '',
+    );
+    DateTime selectedDate = income?.date ?? draft?.date ?? DateTime.now();
     bool isSaving = false;
     final isId = Localizations.localeOf(context).languageCode == 'id';
     final s = AppStrings(Localizations.localeOf(context));
