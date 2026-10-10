@@ -27,6 +27,7 @@ import 'package:family_finance_manager/features/bills/presentation/providers/bil
 import 'package:family_finance_manager/core/widgets/announcement_banner.dart';
 import 'package:family_finance_manager/core/services/receipt_parser.dart';
 import 'package:family_finance_manager/core/services/receipt_scanner.dart';
+import 'package:family_finance_manager/core/services/sheet_recap_service.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/statement_import_page.dart';
 import 'package:family_finance_manager/core/services/own_accounts.dart';
 
@@ -179,11 +180,33 @@ class _MainShellState extends ConsumerState<MainShell> {
     // PopScope tells Android (predictive back) that Flutter handles Back;
     // BackButtonListener does the work, since tabs sit outside GoRouter's
     // navigator and a PopScope callback alone is never reached.
+    // Only Dashboard may let Android close the app. With predictive back
+    // (Android 14+), a PopScope that allows popping makes Android finish
+    // the app itself without asking Flutter, which is how sub-pages such as
+    // Bills closed the app on Back.
     return PopScope(
-      canPop: !(isTab && _currentPage != 0),
+      canPop: isTab && _currentPage == 0,
       child: BackButtonListener(
         onBackButtonPressed: () async {
-          if (!(isTab && _currentPage != 0)) return false;
+          // Pages pushed on top of the tabs (e.g. Import transactions) live
+          // outside GoRouter's navigators, so GoRouter would close the app;
+          // close the top page first.
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) {
+            await navigator.maybePop();
+            return true;
+          }
+          if (!isTab) {
+            // Sub-pages (Bills, Debts, Goals...) go back to where they were
+            // opened from, or to Dashboard when opened directly.
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(_tabRoutes[0]);
+            }
+            return true;
+          }
+          if (_currentPage == 0) return false;
           context.go(_tabRoutes[0]);
           return true;
         },
@@ -257,8 +280,11 @@ class _MainShellState extends ConsumerState<MainShell> {
     );
   }
 
-  void _showAddSheet(BuildContext context, AppStrings strings) {
-    showModalBottomSheet(
+  /// The sheet closes first and hands back what to do; opening a page in the
+  /// same frame as closing the sheet left GoRouter with a stack that Back
+  /// could not pop (it closed the app).
+  Future<void> _showAddSheet(BuildContext context, AppStrings strings) async {
+    final action = await showModalBottomSheet<VoidCallback>(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -272,6 +298,8 @@ class _MainShellState extends ConsumerState<MainShell> {
         onScan: _scanReceipt,
       ),
     );
+    if (!mounted) return;
+    action?.call();
   }
 
   /// Photo or screenshot -> on-device text reading -> a filled expense form
@@ -361,12 +389,21 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 
   /// Creates due recurring income/expenses now and then hourly, for the
-  /// signed-in user's own entries in the current scope.
+  /// signed-in user's own entries in the current scope, then refreshes the
+  /// Google Sheets recap when one is connected.
   void _startRecurring(String uid) {
-    void run() => RecurringService().checkAndGenerate(
-      scopeId: ref.read(financeScopeIdProvider),
-      uid: uid,
-    );
+    Future<void> run() async {
+      try {
+        await RecurringService().checkAndGenerate(
+          scopeId: ref.read(financeScopeIdProvider),
+          uid: uid,
+        );
+      } catch (_) {}
+      // After recurring entries exist, so the recap includes them. Writes
+      // at most once a day, and only if the user connected a spreadsheet.
+      if (mounted) await ref.read(sheetRecapServiceProvider).autoSync();
+    }
+
     run();
     _recurringTimer?.cancel();
     _recurringTimer = Timer.periodic(const Duration(hours: 1), (_) => run());
@@ -764,8 +801,7 @@ class _AddBottomSheet extends ConsumerWidget {
             color: AppTheme.incomeColor,
             label: strings.income,
             onTap: () {
-              Navigator.pop(context);
-              onIncome();
+              Navigator.pop(context, () => onIncome());
             },
           ),
           const SizedBox(height: 12),
@@ -774,8 +810,7 @@ class _AddBottomSheet extends ConsumerWidget {
             color: AppTheme.expenseColor,
             label: strings.expense,
             onTap: () {
-              Navigator.pop(context);
-              onExpense();
+              Navigator.pop(context, () => onExpense());
             },
           ),
           const SizedBox(height: 12),
@@ -788,8 +823,7 @@ class _AddBottomSheet extends ConsumerWidget {
                   color: AppTheme.expenseColor,
                   label: isId ? 'Foto struk' : 'Photo a receipt',
                   onTap: () {
-                    Navigator.pop(context);
-                    onScan(true);
+                    Navigator.pop(context, () => onScan(true));
                   },
                 ),
               ),
@@ -802,8 +836,7 @@ class _AddBottomSheet extends ConsumerWidget {
                       ? 'Scan bukti transfer/bayar'
                       : 'Scan a transfer/payment',
                   onTap: () {
-                    Navigator.pop(context);
-                    onScan(false);
+                    Navigator.pop(context, () => onScan(false));
                   },
                 ),
               ),
@@ -819,8 +852,7 @@ class _AddBottomSheet extends ConsumerWidget {
                   color: AppTheme.savingsColor,
                   label: isId ? 'Setor tabungan' : 'Add to savings',
                   onTap: () {
-                    Navigator.pop(context);
-                    shellContext.push('/savings');
+                    Navigator.pop(context, () => shellContext.push('/savings'));
                   },
                 ),
               ),
@@ -831,8 +863,7 @@ class _AddBottomSheet extends ConsumerWidget {
                   color: AppTheme.warningColor,
                   label: isId ? 'Bayar tagihan' : 'Pay a bill',
                   onTap: () {
-                    Navigator.pop(context);
-                    shellContext.push('/bills');
+                    Navigator.pop(context, () => shellContext.push('/bills'));
                   },
                 ),
               ),
@@ -843,8 +874,7 @@ class _AddBottomSheet extends ConsumerWidget {
                   color: AppTheme.primaryColor,
                   label: isId ? 'Hutang' : 'Debts',
                   onTap: () {
-                    Navigator.pop(context);
-                    shellContext.push('/debts');
+                    Navigator.pop(context, () => shellContext.push('/debts'));
                   },
                 ),
               ),

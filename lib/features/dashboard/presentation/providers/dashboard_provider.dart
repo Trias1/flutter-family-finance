@@ -139,18 +139,21 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
   final budgetRepo = BudgetRepository(dataSource: dataSource);
 
   final failed = <String>[];
+  // Profile still loading (no scope yet): skip queries the rules would deny.
+  Future<List<T>> q<T>(String name, Future<List<T>> Function() query) =>
+      familyId.isEmpty ? Future.value(<T>[]) : _safeQuery(name, failed, query);
   final results = await Future.wait([
-    _safeQuery('incomes', failed, () => dataSource.getIncomes(familyId)),
-    _safeQuery('expenses', failed, () => dataSource.getExpenses(familyId)),
-    _safeQuery('savings', failed, () => dataSource.getSavings(familyId)),
-    _safeQuery('budgets', failed, () async {
+    q('incomes', () => dataSource.getIncomes(familyId)),
+    q('expenses', () => dataSource.getExpenses(familyId)),
+    q('savings', () => dataSource.getSavings(familyId)),
+    q('budgets', () async {
       await budgetRepo.rolloverIfNeeded(familyId);
       final month =
           '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
       return budgetRepo.getBudgetsByMonth(familyId, month);
     }),
-    _safeQuery('bills', failed, () => dataSource.getBills(familyId)),
-    _safeQuery('debts', failed, () => dataSource.getDebts(familyId)),
+    q('bills', () => dataSource.getBills(familyId)),
+    q('debts', () => dataSource.getDebts(familyId)),
   ]);
 
   final incomes = results[0] as List<IncomeModel>;

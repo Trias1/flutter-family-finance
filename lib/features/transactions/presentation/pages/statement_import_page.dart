@@ -401,7 +401,7 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
                                   : 'Saving $_done/${chosen.length}…')
                             : (isId
                                   ? 'Simpan ${chosen.length} transaksi'
-                                  : 'Save ${chosen.length} transactions'),
+                                  : 'Save ${chosen.length} ${chosen.length == 1 ? 'transaction' : 'transactions'}'),
                       ),
                     ),
                   ),
