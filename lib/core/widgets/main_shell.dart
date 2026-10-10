@@ -18,6 +18,12 @@ import 'package:family_finance_manager/features/budget/presentation/pages/budget
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/transactions_page.dart';
 import 'package:family_finance_manager/features/settings/presentation/pages/profile_page.dart';
+import 'package:family_finance_manager/features/expense/presentation/pages/expense_page.dart';
+import 'package:family_finance_manager/features/income/presentation/pages/income_page.dart';
+import 'package:family_finance_manager/core/services/bill_reminder_service.dart';
+import 'package:family_finance_manager/core/services/notification_service.dart';
+import 'package:family_finance_manager/data/models/bill_model.dart';
+import 'package:family_finance_manager/features/bills/presentation/providers/bill_provider.dart';
 
 const _tabRoutes = ['/dashboard', '/transactions', '/budget', '/profile'];
 const _tabPages = <Widget>[
@@ -103,6 +109,16 @@ class _MainShellState extends ConsumerState<MainShell> {
     // Load the family/personal currency as soon as the app opens, not only
     // when Settings is visited.
     ref.watch(currencyProvider);
+    // Keep bill reminders in step with the bill list.
+    ref.listen<AsyncValue<List<BillModel>>>(
+      billStreamProvider(ref.watch(financeScopeIdProvider)),
+      (_, next) => next.whenData(
+        (bills) => BillReminderService.sync(
+          bills,
+          isId: ref.read(localeProvider).languageCode == 'id',
+        ),
+      ),
+    );
 
     if (user != null && !_checkedUpdate) {
       _checkedUpdate = true;
@@ -234,7 +250,13 @@ class _MainShellState extends ConsumerState<MainShell> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _AddBottomSheet(strings: strings),
+      builder: (_) => _AddBottomSheet(
+        strings: strings,
+        shellContext: context,
+        // The shell's ref outlives the sheet; the forms save through it.
+        onIncome: () => IncomePage.openNew(context, ref),
+        onExpense: () => ExpensePage.openNew(context, ref),
+      ),
     );
   }
 
@@ -253,6 +275,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   Future<void> _syncDeviceAndCheckUpdate(String uid) async {
     final service = AppUpdateService();
     try {
+      await NotificationService().requestPermission();
       await service.registerDevice(uid);
       final update = await service.checkForUpdate();
       if (update != null && mounted) _showUpdateDialog(update);
@@ -600,7 +623,17 @@ class _ProfilePopup extends ConsumerWidget {
 class _AddBottomSheet extends ConsumerWidget {
   final AppStrings strings;
 
-  const _AddBottomSheet({required this.strings});
+  /// The sheet closes before a form opens, so forms use the shell's context.
+  final BuildContext shellContext;
+  final VoidCallback onIncome;
+  final VoidCallback onExpense;
+
+  const _AddBottomSheet({
+    required this.strings,
+    required this.shellContext,
+    required this.onIncome,
+    required this.onExpense,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -630,7 +663,7 @@ class _AddBottomSheet extends ConsumerWidget {
             label: strings.income,
             onTap: () {
               Navigator.pop(context);
-              context.push('/income');
+              onIncome();
             },
           ),
           const SizedBox(height: 12),
@@ -640,10 +673,92 @@ class _AddBottomSheet extends ConsumerWidget {
             label: strings.expense,
             onTap: () {
               Navigator.pop(context);
-              context.push('/expense');
+              onExpense();
             },
           ),
+          const SizedBox(height: 12),
+          // Less frequent actions open their own pages, which hold the forms.
+          Row(
+            children: [
+              Expanded(
+                child: _SmallAddOption(
+                  icon: Icons.savings_rounded,
+                  color: AppTheme.savingsColor,
+                  label: isId ? 'Setor tabungan' : 'Add to savings',
+                  onTap: () {
+                    Navigator.pop(context);
+                    shellContext.push('/savings');
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SmallAddOption(
+                  icon: Icons.receipt_long_rounded,
+                  color: AppTheme.warningColor,
+                  label: isId ? 'Bayar tagihan' : 'Pay a bill',
+                  onTap: () {
+                    Navigator.pop(context);
+                    shellContext.push('/bills');
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SmallAddOption(
+                  icon: Icons.swap_horiz_rounded,
+                  color: AppTheme.primaryColor,
+                  label: isId ? 'Hutang' : 'Debts',
+                  onTap: () {
+                    Navigator.pop(context);
+                    shellContext.push('/debts');
+                  },
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _SmallAddOption extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SmallAddOption({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: const TextStyle(fontSize: 12, height: 1.2),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -19,6 +19,10 @@ import 'package:family_finance_manager/features/transactions/presentation/provid
 class ExpensePage extends ConsumerWidget {
   const ExpensePage({super.key});
 
+  /// Opens an empty form from other screens, e.g. the + button.
+  static Future<void> openNew(BuildContext context, WidgetRef ref) =>
+      const ExpensePage()._showExpenseForm(context, ref);
+
   /// Opens the edit form (with delete) from other screens, e.g. History.
   static Future<void> openEditor(
     BuildContext context,
