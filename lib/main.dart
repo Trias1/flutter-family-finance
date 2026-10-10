@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:family_finance_manager/core/biometric/app_lock.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/firebase_service.dart';
 import 'package:family_finance_manager/core/services/currency_provider.dart';
@@ -42,9 +43,15 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  // Decided before the first frame so finance data never shows behind the lock.
+  final startLocked = await fingerprintLockEnabled();
+
   runApp(
-    const ProviderScope(
-      child: FamilyFinanceApp(),
+    ProviderScope(
+      overrides: [
+        appLockProvider.overrideWith((ref) => AppLockNotifier(startLocked)),
+      ],
+      child: const FamilyFinanceApp(),
     ),
   );
 }
@@ -74,6 +81,7 @@ class FamilyFinanceApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme(themePreset),
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) => AppLockGate(child: child!),
     );
   }
 }

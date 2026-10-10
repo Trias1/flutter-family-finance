@@ -303,13 +303,12 @@ class FirestoreDataSource {
   }
 
   Future<List<BudgetModel>> getAllBudgets(String familyId) async {
+    // Sorted here: familyId + orderBy(month) would need a composite index.
     final snapshot = await _budgets
         .where('familyId', isEqualTo: familyId)
-        .orderBy('month', descending: true)
         .get();
-    return snapshot.docs
-        .map((doc) => BudgetModel.fromFirestore(doc))
-        .toList();
+    return snapshot.docs.map((doc) => BudgetModel.fromFirestore(doc)).toList()
+      ..sort((a, b) => b.month.compareTo(a.month));
   }
 
   Future<void> updateBudget(BudgetModel budget) {

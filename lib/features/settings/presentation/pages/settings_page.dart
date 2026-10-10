@@ -1,10 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/biometric/biometric_provider.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -13,10 +11,8 @@ import 'package:family_finance_manager/core/services/currency_provider.dart';
 import 'package:family_finance_manager/core/services/notification_provider.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
-import 'package:family_finance_manager/core/utils/image_utils.dart';
 import 'package:family_finance_manager/data/models/currency_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
-import 'package:image_picker/image_picker.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -33,37 +29,35 @@ class SettingsPage extends ConsumerWidget {
         child: Column(
           children: [
             const SizedBox(height: 8),
-            _SectionTitle(title: strings.settings),
-            const SizedBox(height: 16),
             _SectionTitle(title: 'Bahasa / Language'),
             const SizedBox(height: 8),
             _LanguagePicker(),
             const SizedBox(height: 12),
             _CurrencyPicker(),
             const SizedBox(height: 16),
-            _SectionTitle(title: 'Keamanan'),
+            _SectionTitle(title: strings.security),
             const SizedBox(height: 8),
             _BiometricToggle(),
             const SizedBox(height: 16),
             _ActionButton(
               icon: Icons.category_rounded,
-              label: 'Kelola Kategori',
-              color: Colors.purple,
+              label: strings.manageCategories,
+              color: AppTheme.primaryColor,
               onTap: () => context.push('/categories'),
             ),
             const SizedBox(height: 8),
             _ActionButton(
               icon: Icons.backup_rounded,
-              label: 'Backup & Restore',
+              label: strings.backupRestore,
               color: AppTheme.savingsColor,
               onTap: () => context.push('/backup'),
             ),
             const SizedBox(height: 16),
-            _SectionTitle(title: 'Notifikasi'),
+            _SectionTitle(title: strings.notifications),
             const SizedBox(height: 8),
             const _NotificationToggle(),
             const SizedBox(height: 16),
-            _SectionTitle(title: 'Tampilan'),
+            _SectionTitle(title: strings.appearance),
             const SizedBox(height: 8),
             _DarkModeToggle(),
             const SizedBox(height: 12),
@@ -79,14 +73,25 @@ class SettingsPage extends ConsumerWidget {
             _ActionButton(
               icon: Icons.menu_book_rounded,
               label: strings.completeGuide,
-              color: Colors.teal,
+              color: AppTheme.savingsColor,
               onTap: () async {
                 final lang = locale.languageCode == 'id' ? 'id' : 'en';
                 final uri = Uri.parse(
                   'https://family-finance.tzm.web.id/$lang/guide',
                 );
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                // canLaunchUrl needs a <queries> entry on Android 11+ and
+                // silently said "no"; just try and report a failure.
+                var opened = false;
+                try {
+                  opened = await launchUrl(
+                    uri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                } catch (_) {}
+                if (!opened && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(strings.guideOpenFailed)),
+                  );
                 }
               },
             ),
@@ -113,9 +118,9 @@ class SettingsPage extends ConsumerWidget {
                   Icons.logout_rounded,
                   color: AppTheme.errorColor,
                 ),
-                label: const Text(
-                  'Keluar',
-                  style: TextStyle(color: AppTheme.errorColor),
+                label: Text(
+                  strings.logout,
+                  style: const TextStyle(color: AppTheme.errorColor),
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppTheme.errorColor),
@@ -133,214 +138,6 @@ class SettingsPage extends ConsumerWidget {
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
-    );
-  }
-
-  void _showEditProfileDialog(
-    BuildContext context,
-    WidgetRef ref,
-    dynamic user,
-  ) {
-    final nameController = TextEditingController(text: user?.name ?? '');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit Profil'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Nama',
-            prefixIcon: Icon(Icons.person),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) return;
-              final err = await ref
-                  .read(authNotifierProvider.notifier)
-                  .updateProfile(name: nameController.text.trim());
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                if (err != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(err),
-                      backgroundColor: AppTheme.errorColor,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
-    final formKey = GlobalKey<FormState>();
-    final currentController = TextEditingController();
-    final newController = TextEditingController();
-    final confirmController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Ubah Password'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: currentController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password Saat Ini',
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                validator: (v) => v == null || v.isEmpty
-                    ? 'Masukkan password saat ini'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: newController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password Baru',
-                  prefixIcon: Icon(Icons.lock),
-                ),
-                validator: (v) =>
-                    Validators.newPassword(v),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: confirmController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Konfirmasi Password Baru',
-                  prefixIcon: Icon(Icons.lock),
-                ),
-                validator: (v) =>
-                    v != newController.text ? 'Password tidak cocok' : null,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              final err = await ref
-                  .read(authNotifierProvider.notifier)
-                  .changePassword(newController.text);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(err ?? 'Password berhasil diubah'),
-                    backgroundColor: err != null
-                        ? AppTheme.errorColor
-                        : AppTheme.incomeColor,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.warningColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Ubah Password'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DevicePrivacyInfo extends StatelessWidget {
-  const _DevicePrivacyInfo();
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<AppDeviceInfo>(
-      future: AppUpdateService().getCurrentDeviceInfo(),
-      builder: (context, snapshot) {
-        final info = snapshot.data;
-        final value = info == null
-            ? 'Memuat info aplikasi...'
-            : '${info.brand} ${info.model} • Android ${info.androidVersion} • v${info.appVersionName}+${info.appVersionCode}';
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.verified_user_outlined,
-                      color: AppTheme.primaryColor,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Info dasar ini dipakai untuk cek kompatibilitas dan pemberitahuan update. Aplikasi tidak mengambil kontak, lokasi, foto, file, nomor HP, atau IMEI.',
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.4,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
@@ -388,150 +185,6 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _ProfilePhoto extends ConsumerWidget {
-  final dynamic user;
-  const _ProfilePhoto({required this.user});
-
-  Future<void> _pickAndUploadPhoto(BuildContext context, WidgetRef ref) async {
-    try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-      );
-      if (picked == null) return;
-      final bytes = await picked.readAsBytes();
-      final base64Str = base64Encode(bytes);
-      final photoUrl = 'data:image/jpeg;base64,$base64Str';
-      final err = await ref
-          .read(authNotifierProvider.notifier)
-          .updateProfile(photoUrl: photoUrl);
-      if (context.mounted && err != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal upload foto: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () => _pickAndUploadPhoto(context, ref),
-      child: Stack(
-        children: [
-          CircleAvatar(
-            radius: 56,
-            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-            backgroundImage: getAvatarProvider(user?.photoUrl),
-            child: user?.photoUrl == null
-                ? Text(
-                    user?.name.isNotEmpty == true
-                        ? user.name[0].toUpperCase()
-                        : '?',
-                    style: TextStyle(
-                      fontSize: 36,
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
-          ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.camera_alt,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DarkModeToggle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -564,9 +217,9 @@ class _DarkModeToggle extends ConsumerWidget {
             size: 22,
           ),
         ),
-        title: const Text(
-          'Mode Gelap',
-          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+        title: Text(
+          AppStrings(ref.watch(localeProvider)).darkMode,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
         ),
         trailing: Switch(
           value: isDark,
@@ -616,10 +269,13 @@ class _ThemePresetPicker extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Tema Warna',
-                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                  AppStrings(ref.watch(localeProvider)).themeColor,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ],
@@ -629,9 +285,8 @@ class _ThemePresetPicker extends ConsumerWidget {
             (preset) => _ThemePresetTile(
               preset: preset,
               selected: preset.id == selected.id,
-              onTap: () => ref
-                  .read(themePresetProvider.notifier)
-                  .setPreset(preset),
+              onTap: () =>
+                  ref.read(themePresetProvider.notifier).setPreset(preset),
             ),
           ),
         ],
@@ -667,7 +322,9 @@ class _ThemePresetTile extends StatelessWidget {
                 : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+              color: selected
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant,
             ),
           ),
           child: Row(
@@ -693,7 +350,9 @@ class _ThemePresetTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      preset.vibe,
+                      Localizations.localeOf(context).languageCode == 'id'
+                          ? preset.vibe
+                          : preset.vibeEn,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -769,12 +428,14 @@ class _BiometricToggle extends ConsumerWidget {
             size: 22,
           ),
         ),
-        title: const Text(
-          'Fingerprint',
-          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+        title: Text(
+          AppStrings(ref.watch(localeProvider)).fingerprint,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
         ),
         subtitle: Text(
-          isEnabled ? 'Aktif' : 'Nonaktif',
+          isEnabled
+              ? AppStrings(ref.watch(localeProvider)).on
+              : AppStrings(ref.watch(localeProvider)).off,
           style: TextStyle(
             fontSize: 11,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -889,15 +550,11 @@ class _LanguagePicker extends ConsumerWidget {
             color: AppTheme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            Icons.language,
-            color: AppTheme.primaryColor,
-            size: 22,
-          ),
+          child: Icon(Icons.language, color: AppTheme.primaryColor, size: 22),
         ),
         title: const Text(
           'Bahasa / Language',
-          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
         ),
         subtitle: Text(
           isEnglish ? 'English' : 'Indonesia',
@@ -966,12 +623,14 @@ class _NotificationToggle extends ConsumerWidget {
             size: 22,
           ),
         ),
-        title: const Text(
-          'Notifikasi',
-          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+        title: Text(
+          AppStrings(ref.watch(localeProvider)).notifications,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
         ),
         subtitle: Text(
-          isEnabled ? 'Aktif' : 'Nonaktif',
+          isEnabled
+              ? AppStrings(ref.watch(localeProvider)).on
+              : AppStrings(ref.watch(localeProvider)).off,
           style: TextStyle(
             fontSize: 11,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1028,9 +687,9 @@ class _CurrencyPicker extends ConsumerWidget {
               size: 22,
             ),
           ),
-          title: const Text(
-            'Mata Uang',
-            style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+          title: Text(
+            AppStrings(ref.watch(localeProvider)).currency,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
           ),
           subtitle: Text(
             '${current.symbol} - ${current.code}',

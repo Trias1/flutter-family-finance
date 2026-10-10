@@ -43,7 +43,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return dashboardAsync.when(
       loading: () => const LoadingWidget(message: 'Memuat dashboard...'),
       error: (e, _) => Scaffold(
-        appBar: AppBar(title: const Text('Dashboard')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

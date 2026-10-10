@@ -100,8 +100,11 @@ class AuthRepository {
     }
   }
 
-  Future<void> changePassword(String newPassword) {
-    return _authDataSource.changePassword(newPassword);
+  Future<void> changePassword(String newPassword, {String? currentPassword}) {
+    return _authDataSource.changePassword(
+      newPassword,
+      currentPassword: currentPassword,
+    );
   }
 
   Future<void> sendPasswordResetEmail(String email) {

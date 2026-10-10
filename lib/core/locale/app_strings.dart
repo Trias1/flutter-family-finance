@@ -26,6 +26,20 @@ class AppStrings {
   String get completeGuide => _id ? 'Panduan Lengkap' : 'Complete Guide';
   String get user => _id ? 'Pengguna' : 'User';
   String get logout => _id ? 'Keluar' : 'Sign Out';
+  String get security => _id ? 'Keamanan' : 'Security';
+  String get fingerprint => _id ? 'Sidik jari' : 'Fingerprint';
+  String get manageCategories => _id ? 'Kelola Kategori' : 'Manage Categories';
+  String get backupRestore => _id ? 'Cadangan Data' : 'Backup';
+  String get notifications => _id ? 'Notifikasi' : 'Notifications';
+  String get appearance => _id ? 'Tampilan' : 'Appearance';
+  String get darkMode => _id ? 'Mode Gelap' : 'Dark Mode';
+  String get themeColor => _id ? 'Tema Warna' : 'Colour Theme';
+  String get currency => _id ? 'Mata Uang' : 'Currency';
+  String get on => _id ? 'Aktif' : 'On';
+  String get off => _id ? 'Nonaktif' : 'Off';
+  String get guideOpenFailed => _id
+      ? 'Panduan tidak bisa dibuka. Cek koneksi atau browser di HP kamu.'
+      : "Couldn't open the guide. Check your connection or browser.";
   String get later => _id ? 'Nanti' : 'Later';
   String get updateNow => _id ? 'Update Sekarang' : 'Update Now';
   String get requiredUpdateAvailable =>
@@ -44,11 +58,15 @@ class AppStrings {
     if (loc.startsWith('/debts')) return debts;
     if (loc.startsWith('/wallets')) return wallets;
     if (loc.startsWith('/savings')) return savings;
+    if (loc.startsWith('/budget/history')) {
+      return _id ? 'Riwayat Anggaran' : 'Budget History';
+    }
     if (loc.startsWith('/budget')) return budget;
     if (loc.startsWith('/reports')) return reports;
     if (loc.startsWith('/recurring')) return recurring;
     if (loc.startsWith('/categories')) return categories;
     if (loc.startsWith('/privacy-security')) return privacySecurity;
+    if (loc.startsWith('/backup')) return backupRestore;
     if (loc.startsWith('/settings')) return settings;
     if (loc.startsWith('/family')) return family;
     return dashboard;

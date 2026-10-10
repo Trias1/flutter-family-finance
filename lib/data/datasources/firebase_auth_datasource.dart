@@ -10,7 +10,10 @@ class FirebaseAuthDataSource {
   }
 
   Future<UserCredential> signUpWithEmail(String email, String password) {
-    return _auth.createUserWithEmailAndPassword(email: email, password: password);
+    return _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
   }
 
   Future<UserCredential> signInWithGoogle() async {
@@ -35,9 +38,23 @@ class FirebaseAuthDataSource {
     if (photoUrl != null) await user.updatePhotoURL(photoUrl);
   }
 
-  Future<void> changePassword(String newPassword) async {
+  /// With [currentPassword], proves the user knows it before changing it
+  /// (also satisfies Firebase's "recent login" requirement).
+  Future<void> changePassword(
+    String newPassword, {
+    String? currentPassword,
+  }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('No user logged in');
+    if (currentPassword != null) {
+      final email = user.email;
+      if (email == null) {
+        throw FirebaseAuthException(code: 'no-password-account');
+      }
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: email, password: currentPassword),
+      );
+    }
     await user.updatePassword(newPassword);
   }
 

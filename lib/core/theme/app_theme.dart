@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 class AppThemePreset {
   final String id;
   final String name;
+  /// Short description shown under the preset name (Indonesian / English).
   final String vibe;
+  final String vibeEn;
   final Color primary;
   final Color background;
   final Color accent;
@@ -12,6 +14,7 @@ class AppThemePreset {
     required this.id,
     required this.name,
     required this.vibe,
+    required this.vibeEn,
     required this.primary,
     required this.background,
     required this.accent,
@@ -25,7 +28,8 @@ class AppTheme {
     AppThemePreset(
       id: 'mochaBrown',
       name: 'Mocha Brown',
-      vibe: 'Hangat, keluarga, premium',
+      vibe: 'Cokelat hangat, nyaman di mata',
+      vibeEn: 'Warm brown, easy on the eyes',
       primary: Color(0xFF6B4430),
       background: Color(0xFFF8F5F0),
       accent: Color(0xFFA0763F),
@@ -33,7 +37,8 @@ class AppTheme {
     AppThemePreset(
       id: 'softPink',
       name: 'Soft Pink',
-      vibe: 'Friendly, modern, nggak pinjol',
+      vibe: 'Merah muda kalem',
+      vibeEn: 'Muted pink',
       primary: Color(0xFF9C4F63),
       background: Color(0xFFF9F5F5),
       accent: Color(0xFFA3855A),
@@ -41,7 +46,8 @@ class AppTheme {
     AppThemePreset(
       id: 'roseGold',
       name: 'Rose Gold',
-      vibe: 'Elegan, feminine, premium',
+      vibe: 'Merah bata lembut',
+      vibeEn: 'Soft brick red',
       primary: Color(0xFF8A4B45),
       background: Color(0xFFF9F5F2),
       accent: Color(0xFFAC8556),
@@ -49,7 +55,8 @@ class AppTheme {
     AppThemePreset(
       id: 'oceanBlue',
       name: 'Ocean Blue',
-      vibe: 'Trust, finance, bank-like',
+      vibe: 'Biru tenang, kesan rapi',
+      vibeEn: 'Calm blue, tidy and clear',
       primary: Color(0xFF2B4C6F),
       background: Color(0xFFF6F6F4),
       accent: Color(0xFF8A7552),
@@ -57,7 +64,8 @@ class AppTheme {
     AppThemePreset(
       id: 'lavender',
       name: 'Lavender',
-      vibe: 'Soft, clean, lifestyle app',
+      vibe: 'Ungu redup',
+      vibeEn: 'Dusky violet',
       primary: Color(0xFF5E5288),
       background: Color(0xFFF7F6F8),
       accent: Color(0xFF978157),
@@ -65,7 +73,8 @@ class AppTheme {
     AppThemePreset(
       id: 'charcoalGold',
       name: 'Charcoal Gold',
-      vibe: 'Premium/dark, classy',
+      vibe: 'Arang gelap dengan aksen emas',
+      vibeEn: 'Charcoal with a brass accent',
       primary: Color(0xFF2A2D33),
       background: Color(0xFFF6F6F4),
       accent: Color(0xFF9A7E4C),
@@ -73,7 +82,8 @@ class AppTheme {
     AppThemePreset(
       id: 'sage',
       name: 'Sage',
-      vibe: 'Calm/natural, bukan hijau pinjol terang',
+      vibe: 'Hijau daun yang teduh',
+      vibeEn: 'Soft leaf green',
       primary: Color(0xFF55704E),
       background: Color(0xFFF5F6F2),
       accent: Color(0xFF9C8253),
@@ -83,7 +93,8 @@ class AppTheme {
   static const AppThemePreset defaultPreset = AppThemePreset(
     id: 'mochaBrown',
     name: 'Mocha Brown',
-    vibe: 'Hangat, keluarga, premium',
+    vibe: 'Cokelat hangat, nyaman di mata',
+      vibeEn: 'Warm brown, easy on the eyes',
     primary: Color(0xFF6B4430),
     background: Color(0xFFF8F5F0),
     accent: Color(0xFFA0763F),

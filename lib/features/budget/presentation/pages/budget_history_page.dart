@@ -16,8 +16,8 @@ class BudgetHistoryPage extends ConsumerWidget {
     final historyAsync = ref.watch(budgetHistoryProvider(familyId));
     final isId = Localizations.localeOf(context).languageCode == 'id';
 
+    // The app shell already shows the title and back arrow.
     return Scaffold(
-      appBar: AppBar(title: Text(isId ? 'Riwayat Anggaran' : 'Budget History')),
       body: historyAsync.when(
         loading: () => const LoadingWidget(message: 'Memuat riwayat...'),
         error: (e, _) => AppErrorWidget(

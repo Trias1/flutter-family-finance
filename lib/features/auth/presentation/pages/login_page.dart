@@ -45,26 +45,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
     _checkBiometricAutoLogin();
   }
 
+  /// The fingerprint prompt on app start now lives in AppLockGate; this page
+  /// only clears leftovers from older versions.
   Future<void> _checkBiometricAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
     // Older versions kept the password in plain text for biometric re-login.
     await prefs.remove('last_password');
-    final skipAuto = prefs.getBool('biometric_skip_auto_login') ?? false;
     await prefs.setBool('biometric_skip_auto_login', false);
-    if (skipAuto) return;
-    final firebaseUser = ref.read(firebaseAuthDataSourceProvider).currentUser;
-    if (firebaseUser == null) return;
-    final biometricEnabled = prefs.getBool('biometric_enabled_${firebaseUser.uid}') ?? false;
-    if (!biometricEnabled) return;
-    final localAuth = LocalAuthentication();
-    try {
-      final authenticated = await localAuth.authenticate(localizedReason: 'Scan sidik jari untuk masuk');
-      if (authenticated) {
-        if (mounted) {
-          await ref.read(authNotifierProvider.notifier).restoreSession(firebaseUser.uid);
-        }
-      }
-    } catch (_) {}
   }
 
   @override

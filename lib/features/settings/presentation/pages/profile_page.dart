@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
+import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/image_utils.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
@@ -21,6 +23,7 @@ class ProfilePage extends ConsumerWidget {
     final familyAsync = ref.watch(familyProvider);
     final locale = Localizations.localeOf(context);
     final strings = AppStrings(locale);
+    final id = locale.languageCode == 'id';
 
     return Scaffold(
       appBar: showAppBar
@@ -42,7 +45,7 @@ class ProfilePage extends ConsumerWidget {
               const SizedBox(height: 24),
               _InfoTile(
                 icon: Icons.person_outline,
-                label: 'Nama',
+                label: id ? 'Nama' : 'Name',
                 value: user?.name ?? '',
               ),
               const SizedBox(height: 8),
@@ -68,18 +71,18 @@ class ProfilePage extends ConsumerWidget {
                 onTap: () => context.push('/family'),
               ),
               const SizedBox(height: 24),
-              _SectionTitle(title: 'Edit Profil'),
+              _SectionTitle(title: id ? 'Edit profil' : 'Edit profile'),
               const SizedBox(height: 8),
               _ActionButton(
                 icon: Icons.edit_rounded,
-                label: 'Ubah Nama',
+                label: id ? 'Ubah nama' : 'Change name',
                 color: AppTheme.primaryColor,
                 onTap: () => _showEditProfileDialog(context, ref, user),
               ),
               const SizedBox(height: 8),
               _ActionButton(
                 icon: Icons.lock_outline_rounded,
-                label: 'Ubah Password',
+                label: id ? 'Ubah password' : 'Change password',
                 color: AppTheme.warningColor,
                 onTap: () => _showChangePasswordDialog(context, ref),
               ),
@@ -97,24 +100,26 @@ class ProfilePage extends ConsumerWidget {
     WidgetRef ref,
     dynamic user,
   ) {
+    final id = ref.read(localeProvider).languageCode == 'id';
     final nameController = TextEditingController(text: user?.name ?? '');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Profil'),
+        title: Text(id ? 'Ubah nama' : 'Change name'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Nama',
-            prefixIcon: Icon(Icons.person),
+          maxLength: 60,
+          decoration: InputDecoration(
+            labelText: id ? 'Nama' : 'Name',
+            prefixIcon: const Icon(Icons.person),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: Text(id ? 'Batal' : 'Cancel'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               if (nameController.text.trim().isEmpty) return;
               final err = await ref
@@ -132,11 +137,7 @@ class ProfilePage extends ConsumerWidget {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Simpan'),
+            child: Text(id ? 'Simpan' : 'Save'),
           ),
         ],
       ),
@@ -144,84 +145,151 @@ class ProfilePage extends ConsumerWidget {
   }
 
   void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
+    final id = ref.read(localeProvider).languageCode == 'id';
+    final hasPassword =
+        FirebaseAuth.instance.currentUser?.providerData.any(
+          (p) => p.providerId == 'password',
+        ) ??
+        false;
+    if (!hasPassword) {
+      // Google-only accounts have no app password to change.
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(id ? 'Akun Google' : 'Google account'),
+          content: Text(
+            id
+                ? 'Kamu masuk dengan Google, jadi tidak ada password khusus untuk aplikasi ini. Keamanan akunmu diatur di akun Google.'
+                : 'You sign in with Google, so this app has no separate password. Your account security is managed in your Google account.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final formKey = GlobalKey<FormState>();
     final currentController = TextEditingController();
     final newController = TextEditingController();
     final confirmController = TextEditingController();
+    String? error;
+    var busy = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Ubah Password'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: currentController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password Saat Ini',
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                validator: (v) => v == null || v.isEmpty
-                    ? 'Masukkan password saat ini'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: newController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password Baru',
-                  prefixIcon: Icon(Icons.lock),
-                ),
-                validator: (v) => Validators.newPassword(v),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: confirmController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Konfirmasi Password Baru',
-                  prefixIcon: Icon(Icons.lock),
-                ),
-                validator: (v) =>
-                    v != newController.text ? 'Password tidak cocok' : null,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              final err = await ref
-                  .read(authNotifierProvider.notifier)
-                  .changePassword(newController.text);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(err ?? 'Password berhasil diubah'),
-                    backgroundColor: err != null
-                        ? AppTheme.errorColor
-                        : AppTheme.incomeColor,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(id ? 'Ubah password' : 'Change password'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: currentController,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.password],
+                  decoration: InputDecoration(
+                    labelText: id ? 'Password saat ini' : 'Current password',
+                    prefixIcon: const Icon(Icons.lock_outline),
                   ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.warningColor,
-              foregroundColor: Colors.white,
+                  validator: (v) => v == null || v.isEmpty
+                      ? (id
+                            ? 'Masukkan password saat ini'
+                            : 'Enter your current password')
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: newController,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: InputDecoration(
+                    labelText: id ? 'Password baru' : 'New password',
+                    prefixIcon: const Icon(Icons.lock),
+                  ),
+                  validator: (v) {
+                    if (v != null && v == currentController.text) {
+                      return id
+                          ? 'Password baru harus beda'
+                          : 'Choose a different password';
+                    }
+                    return Validators.newPassword(v);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: confirmController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: id
+                        ? 'Ulangi password baru'
+                        : 'Repeat new password',
+                    prefixIcon: const Icon(Icons.lock),
+                  ),
+                  validator: (v) => v != newController.text
+                      ? (id ? 'Password tidak sama' : 'Passwords do not match')
+                      : null,
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    error!,
+                    style: const TextStyle(color: AppTheme.errorColor),
+                  ),
+                ],
+              ],
             ),
-            child: const Text('Ubah Password'),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(ctx),
+              child: Text(id ? 'Batal' : 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setState(() {
+                        busy = true;
+                        error = null;
+                      });
+                      final err = await ref
+                          .read(authNotifierProvider.notifier)
+                          .changePassword(
+                            newController.text,
+                            currentPassword: currentController.text,
+                          );
+                      if (!ctx.mounted) return;
+                      if (err != null) {
+                        // Stay open so the user can correct and retry.
+                        setState(() {
+                          busy = false;
+                          error = err;
+                        });
+                        return;
+                      }
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            id
+                                ? 'Password berhasil diubah'
+                                : 'Password changed',
+                          ),
+                          backgroundColor: AppTheme.incomeColor,
+                        ),
+                      );
+                    },
+              child: Text(id ? 'Simpan' : 'Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -255,7 +323,11 @@ class _ProfilePhoto extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal upload foto: $e'),
+            content: Text(
+              Localizations.localeOf(context).languageCode == 'id'
+                  ? 'Foto gagal diunggah. Coba foto lain.'
+                  : "Couldn't upload the photo. Try another one.",
+            ),
             backgroundColor: AppTheme.errorColor,
           ),
         );

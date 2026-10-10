@@ -206,10 +206,27 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     }
   }
 
-  Future<String?> changePassword(String newPassword) async {
+  Future<String?> changePassword(
+    String newPassword, {
+    String? currentPassword,
+  }) async {
     try {
-      await _authRepository.changePassword(newPassword);
+      await _authRepository.changePassword(
+        newPassword,
+        currentPassword: currentPassword,
+      );
       return null;
+    } on FirebaseAuthException catch (e) {
+      // Here the user is already signed in, so naming the wrong field is safe.
+      if (e.code == 'wrong-password' ||
+          e.code == 'invalid-credential' ||
+          e.code == 'invalid-login-credentials') {
+        return 'Password saat ini salah';
+      }
+      if (e.code == 'requires-recent-login') {
+        return 'Demi keamanan, keluar lalu masuk lagi sebelum mengganti password';
+      }
+      return _getAuthErrorMessage(e);
     } catch (e) {
       return _getAuthErrorMessage(e);
     }
