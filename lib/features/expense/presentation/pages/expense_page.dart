@@ -383,7 +383,7 @@ class ExpensePage extends ConsumerWidget {
                       try {
                         final fId = ref.read(financeScopeIdProvider);
                         final uid =
-                            ref.read(currentUserProvider).valueOrNull?.id ?? '';
+                            ref.read(firebaseAuthDataSourceProvider).currentUser?.uid ?? '';
                         final model = ExpenseModel(
                           id: expense?.id ?? '',
                           familyId: fId,

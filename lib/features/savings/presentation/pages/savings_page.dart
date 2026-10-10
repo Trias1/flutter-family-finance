@@ -626,7 +626,7 @@ class SavingsPage extends ConsumerWidget {
                     .read(savingNotifierProvider.notifier)
                     .withdrawFromSaving(saving.id, amount);
                 final fId = ref.read(financeScopeIdProvider);
-                final uid = ref.read(currentUserProvider).valueOrNull?.id ?? '';
+                final uid = ref.read(firebaseAuthDataSourceProvider).currentUser?.uid ?? '';
                 final expense = ExpenseModel(
                   id: '',
                   familyId: fId,

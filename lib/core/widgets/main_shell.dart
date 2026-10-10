@@ -385,7 +385,8 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        // Keeps icon + label inside the 56px bar.
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
           color: selected
               ? AppTheme.primaryColor.withValues(alpha: 0.1)
@@ -401,7 +402,7 @@ class _NavItem extends StatelessWidget {
               color: selected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurfaceVariant,
               size: 24,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(

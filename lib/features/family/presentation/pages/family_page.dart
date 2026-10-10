@@ -27,7 +27,7 @@ class _FamilyPageState extends ConsumerState<FamilyPage> {
   }
 
   String? _getUserId() {
-    return ref.read(currentUserProvider).valueOrNull?.id;
+    return ref.read(firebaseAuthDataSourceProvider).currentUser?.uid;
   }
 
   Future<void> _onSubmit() async {

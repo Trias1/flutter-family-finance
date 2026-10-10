@@ -347,7 +347,7 @@ class IncomePage extends ConsumerWidget {
                       try {
                         final fId = ref.read(financeScopeIdProvider);
                         final uid =
-                            ref.read(currentUserProvider).valueOrNull?.id ?? '';
+                            ref.read(firebaseAuthDataSourceProvider).currentUser?.uid ?? '';
                         final model = IncomeModel(
                           id: income?.id ?? '',
                           familyId: fId,

@@ -38,7 +38,7 @@ All of this is enforced in `firestore.rules`, not just in the apps.
 
 ## Security notes
 
-- Firestore rules are covered by tests in `firestore-tests/` (39 cases: joining, bans, code rotation, cross-family reads, role escalation, record ownership, size limits).
+- Firestore rules are covered by tests in `firestore-tests/` (40 cases: joining, bans, code rotation, cross-family reads, role escalation, record ownership, size limits).
 - Web API routes (`apps/web/src/app/api/admin/*`) verify the Firebase ID token server-side (revocation included), check the superadmin role on every request, cap request bodies, rate-limit sensitive actions and never return internal errors.
 - The web app sends a per-request nonce Content-Security-Policy (`src/proxy.ts`), HSTS, frame denial and related headers.
 - Sign-in has progressive client-side back-off on failures, generic error messages, password reset and email verification. Signing out clears the browser's Firestore cache.

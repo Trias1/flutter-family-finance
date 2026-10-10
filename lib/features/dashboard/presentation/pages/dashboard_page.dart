@@ -139,9 +139,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ? data.totalBudgetRemaining / daysLeft
         : 0.0;
 
-    final budgetUsage = data.totalBudgetRemaining > 0
-        ? (monthExpense / (monthExpense + data.totalBudgetRemaining)).clamp(0.0, 1.0)
-        : 1.0;
+    // Without any budget this month there is nothing to measure against; show
+    // an empty state instead of a full red bar.
+    final hasBudget = data.budgets.any(
+      (b) => b.category != 'Tabungan' && b.category != 'Savings',
+    );
+    final budgetUsage = !hasBudget
+        ? 0.0
+        : data.totalBudgetRemaining > 0
+            ? (monthExpense / (monthExpense + data.totalBudgetRemaining)).clamp(0.0, 1.0)
+            : 1.0;
 
     return Column(
       children: [
@@ -200,12 +207,25 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
-                  Text(
-                    '${CurrencyFormatter.formatWithoutSymbol(data.totalBudgetRemaining)} ${isId ? 'tersisa' : 'left'}',
-                    style: TextStyle(fontSize: 11, color: AppTheme.warningColor),
-                  ),
+                  if (hasBudget)
+                    Text(
+                      '${CurrencyFormatter.formatWithoutSymbol(data.totalBudgetRemaining)} ${isId ? 'tersisa' : 'left'}',
+                      style: TextStyle(fontSize: 11, color: AppTheme.warningColor),
+                    ),
                 ],
               ),
+              if (!hasBudget) ...[
+                const SizedBox(height: 6),
+                Text(
+                  isId
+                      ? 'Belum ada budget bulan ini. Atur di tab Budget.'
+                      : 'No budget for this month yet. Set one in the Budget tab.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ] else ...[
               const SizedBox(height: 8),
               TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: budgetUsage),
@@ -247,6 +267,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                 ],
               ),
+              ],
               // rollover display removed, shown in budget history page
             ],
           ),

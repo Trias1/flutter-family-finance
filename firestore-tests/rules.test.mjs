@@ -248,6 +248,13 @@ describe("security review fixes", () => {
     await assertSucceeds(updateDoc(doc(as("alice"), "expenses", "e-bob"), { amount: 3000 }))
   })
 
+  test("the Android expense payload (null optional fields) is accepted", async () => {
+    const payload = { familyId: "F1", userId: "bob", amount: 25000.5, category: "Makanan", note: "Tes makan siang", attachment: null, recurringId: null, date: now, createdAt: now }
+    await assertSucceeds(setDoc(doc(as("bob"), "expenses", "android-1"), payload))
+    // An empty userId (the app's old fallback when the profile was still loading) is refused.
+    await assertFails(setDoc(doc(as("bob"), "expenses", "android-2"), { ...payload, userId: "" }))
+  })
+
   test("oversized notes are rejected", async () => {
     await assertFails(setDoc(doc(as("bob"), "expenses", "big"), { familyId: "F1", userId: "bob", amount: 1, note: "x".repeat(501), date: now, createdAt: now }))
     await assertSucceeds(setDoc(doc(as("bob"), "expenses", "ok"), { familyId: "F1", userId: "bob", amount: 1, note: "x".repeat(200), date: now, createdAt: now }))
