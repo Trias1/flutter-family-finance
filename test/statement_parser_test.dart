@@ -69,6 +69,29 @@ TECHNOLOGY JAKARTA B
     expect(items.last.amount, 10500);
   });
 
+  test('a cropped screenshot of one day still works', () {
+    const crop = '''
+15 Sep 2026
+Refund / CashbackBerita : REFUND FEE/Payment & +2.000,00
+Purchase/20260915
+Bill payment Dr customer acctBerita : 3969 220.000,00
+089678400572 VA OVO
+Transfer Masuk BI FastHILMY FAUZAN/Transfer +232.000,00
+Kekayaan
+Refund / CashbackBerita : REFUND FEE/Payment & +2.000,00
+Purchase/20260915
+Bill payment Dr customer acctBerita : 1236 10.000,00
+089678400572 VA OVO
+Transfer Keluar BI FastBerita : ASTI NURHAYATI/- 35.000,00
+''';
+    final items = StatementParser.parse(crop, now: DateTime(2026, 10, 10));
+    expect(items.length, 6);
+    expect(items.every((i) => i.date == DateTime(2026, 9, 15)), isTrue);
+    // Money in that is real income (not a refund): only the transfer.
+    final income = items.where((i) => i.isIncome && i.categoryHint != 'refund');
+    expect(income.map((i) => i.amount), [232000]);
+  });
+
   test('the balance at the top is never a transaction', () {
     final items = StatementParser.parse(ocbc, now: DateTime(2026, 10, 10));
     expect(
