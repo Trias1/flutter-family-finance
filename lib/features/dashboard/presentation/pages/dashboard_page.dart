@@ -492,6 +492,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             ),
           ),
           TableCalendar(
+            // Month and weekday names in the app's language.
+            locale: isId ? 'id_ID' : 'en_US',
             firstDay: DateTime.utc(2024, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
             focusedDay: _focusedDay,

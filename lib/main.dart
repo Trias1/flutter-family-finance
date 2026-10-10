@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/biometric/app_lock.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -28,6 +29,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadInitialLocale();
+  // Month/day names for the calendar and other intl formatting.
+  await initializeDateFormatting();
   await FirebaseService.initialize();
 
   await NotificationService().init();
