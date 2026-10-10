@@ -53,8 +53,8 @@ class PrivacySecurityPage extends ConsumerWidget {
             'Admins cannot see your finances',
           ),
           body: t(
-            'Panel admin hanya menampilkan nama pengguna dan info perangkat (merek, model, versi Android, versi aplikasi, terakhir aktif, dan token notifikasi untuk mengirim pemberitahuan update). Admin tidak bisa membaca data keuangan, email, atau data keluarga.',
-            'The admin panel only shows usernames and device info (brand, model, Android version, app version, last seen, and the notification token used to send update notices). Admins cannot read finance data, emails or family data.',
+            'Panel admin hanya menampilkan nama pengguna dan info perangkat (merek, model, versi Android, versi aplikasi, waktu terakhir aktif yang diperbarui tiap menit selama aplikasi terbuka, dan token notifikasi untuk mengirim pemberitahuan update). Admin tidak bisa membaca data keuangan, email, atau data keluarga.',
+            'The admin panel only shows usernames and device info (brand, model, Android version, app version, when you were last active (updated every minute while the app is open), and the notification token used to send update notices). Admins cannot read finance data, emails or family data.',
           ),
         ),
         _PrivacySection(

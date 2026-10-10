@@ -57,6 +57,7 @@ class MainShell extends ConsumerStatefulWidget {
 class _MainShellState extends ConsumerState<MainShell> {
   bool _checkedUpdate = false;
   Timer? _recurringTimer;
+  Timer? _heartbeatTimer;
   late PageController _pageController;
   bool _isProgrammaticUpdate = false;
   bool _syncScheduled = false;
@@ -74,6 +75,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   void dispose() {
     _recurringTimer?.cancel();
+    _heartbeatTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -126,6 +128,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         (_) {
           _syncDeviceAndCheckUpdate(user.id);
           _startRecurring(user.id);
+          _startHeartbeat(user.id);
         },
       );
     }
@@ -258,6 +261,17 @@ class _MainShellState extends ConsumerState<MainShell> {
         onExpense: () => ExpensePage.openNew(context, ref),
       ),
     );
+  }
+
+  /// "Active now" for the admin panel, like the web: every 60 seconds while
+  /// the app is on screen; nothing is sent while it is in the background.
+  void _startHeartbeat(String uid) {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        AppUpdateService().heartbeat(uid);
+      }
+    });
   }
 
   /// Creates due recurring income/expenses now and then hourly, for the

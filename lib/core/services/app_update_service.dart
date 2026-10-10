@@ -73,6 +73,25 @@ class AppUpdateService {
     }, SetOptions(merge: true));
   }
 
+  /// Marks this phone as active right now for the admin's "online" count.
+  /// Touches only lastSeenAt on the doc registerDevice created.
+  Future<void> heartbeat(String uid) async {
+    if (!Platform.isAndroid) return;
+    final prefs = await SharedPreferences.getInstance();
+    final deviceId = prefs.getString('device_registry_id');
+    if (deviceId == null) return;
+    try {
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('devices')
+          .doc(deviceId)
+          .update({'lastSeenAt': FieldValue.serverTimestamp()});
+    } catch (_) {
+      // Offline or not registered yet; the next beat or app start catches up.
+    }
+  }
+
   Future<AppUpdateInfo?> checkForUpdate() async {
     final packageInfo = await PackageInfo.fromPlatform();
     final currentCode = int.tryParse(packageInfo.buildNumber) ?? 0;
