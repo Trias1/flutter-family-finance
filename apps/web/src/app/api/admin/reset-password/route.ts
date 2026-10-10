@@ -17,12 +17,12 @@ export async function POST(req: NextRequest) {
     const body = await readJson(req, 4 * 1024)
     const uid = typeof body.uid === "string" ? body.uid.trim() : ""
     const newPassword = typeof body.newPassword === "string" ? body.newPassword : ""
-    if (!uid || uid.length > 128) throw new HttpError(400, "User tidak valid.")
-    if (!isStrongPassword(newPassword)) throw new HttpError(400, "Kata sandi minimal 8 karakter dan berisi huruf dan angka.")
-    if (uid === caller.uid) throw new HttpError(400, "Ganti kata sandimu sendiri lewat halaman akun.")
+    if (!uid || uid.length > 128) throw new HttpError(400, "invalidUser")
+    if (!isStrongPassword(newPassword)) throw new HttpError(400, "weakPassword")
+    if (uid === caller.uid) throw new HttpError(400, "cannotResetSelf")
 
     const target = await db().collection("users").doc(uid).get()
-    if (target.data()?.systemRole === "superadmin") throw new HttpError(403, "Kata sandi superadmin tidak bisa direset dari sini.")
+    if (target.data()?.systemRole === "superadmin") throw new HttpError(403, "cannotResetSuperadmin")
 
     await auth().updateUser(uid, { password: newPassword })
     // Sign the user out everywhere so the old password's sessions stop working.

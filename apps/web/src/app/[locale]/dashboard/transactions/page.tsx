@@ -103,7 +103,7 @@ export default function TransactionsPage() {
         <span>{t("transactions.count", { count: rows.length })}</span>
         <span>{t("common.income")} <Money value={totals.income} tone="income" /></span>
         <span>{t("common.expense")} <Money value={totals.expense} tone="expense" /></span>
-        <span>Net <Money value={totals.income - totals.expense} tone="auto" /></span>
+        <span>{t("common.net")} <Money value={totals.income - totals.expense} tone="auto" /></span>
       </div>
 
       <Section flush>

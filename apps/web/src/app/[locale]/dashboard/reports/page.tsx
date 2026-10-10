@@ -57,7 +57,7 @@ export default function ReportsPage() {
       />
 
       <Section title={t("overview.cashflow")} aside={t("reports.months", { count: range })}>
-        <CashflowChart data={view.series} labels={{ income: t("overview.income"), expense: t("overview.expense") }} height={260} emptyLabel={t("overview.noCashflow")} />
+        <CashflowChart data={view.series} labels={{ income: t("overview.income"), expense: t("overview.expense"), net: t("common.net") }} height={260} emptyLabel={t("overview.noCashflow")} />
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-5">
@@ -108,7 +108,7 @@ export default function ReportsPage() {
             <dl className="space-y-3 text-sm">
               <Row label={t("overview.income")}><Money value={view.current.income} tone="income" /></Row>
               <Row label={t("overview.expense")}><Money value={view.current.expense} tone="expense" /></Row>
-              <Row label="Net" strong><Money value={view.current.net} tone="auto" /></Row>
+              <Row label={t("common.net")} strong><Money value={view.current.net} tone="auto" /></Row>
               <Row label={t("reports.savingRate")}>
                 <span className="tabular-nums" style={{ color: "var(--text-primary)" }}>{savingRate === null ? "—" : `${savingRate.toFixed(0)}%`}</span>
               </Row>
@@ -129,7 +129,7 @@ export default function ReportsPage() {
                 <th className="px-5 py-2.5 font-medium">{t("transactions.month")}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("overview.income")}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("overview.expense")}</th>
-                <th className="px-5 py-2.5 text-right font-medium">Net</th>
+                <th className="px-5 py-2.5 text-right font-medium">{t("common.net")}</th>
               </tr>
             </thead>
             <tbody>

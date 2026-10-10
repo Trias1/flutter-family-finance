@@ -97,7 +97,7 @@ export default function OverviewPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Section title={t("overview.cashflow")} aside={t("overview.last6Months")}>
-            <CashflowChart data={view.series} labels={{ income: t("overview.income"), expense: t("overview.expense") }} emptyLabel={t("overview.noCashflow")} />
+            <CashflowChart data={view.series} labels={{ income: t("overview.income"), expense: t("overview.expense"), net: t("common.net") }} emptyLabel={t("overview.noCashflow")} />
             <div className="mt-3 flex gap-4 text-xs" style={{ color: "var(--text-muted)" }}>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "var(--chart-in)" }} />{t("overview.income")}</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "var(--chart-out)" }} />{t("overview.expense")}</span>

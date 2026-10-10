@@ -132,13 +132,18 @@ async function callAdminApi(user: User, path: string) {
   const token = await user.getIdToken()
   const res = await fetch(path, { method: "POST", headers: { authorization: `Bearer ${token}` } })
   const payload = (res.headers.get("content-type") ?? "").includes("application/json") ? await res.json() : {}
-  if (!res.ok) throw new Error(typeof payload.error === "string" ? payload.error : `HTTP ${res.status}`)
+  if (!res.ok) throw new Error(typeof payload.code === "string" ? payload.code : "server")
   return payload as Record<string, unknown>
 }
 
 export default function AdminPage() {
   const t = useTranslations("admin")
+  const tApi = useTranslations("apiErrors")
   const locale = useLocale()
+  const apiError = (err: unknown) => {
+    const code = err instanceof Error ? err.message : "server"
+    return tApi.has(code) ? tApi(code) : tApi("server")
+  }
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [state, setState] = useState<"loading" | "denied" | "ready">("loading")
@@ -173,8 +178,8 @@ export default function AdminPage() {
       stopPresence = startWebPresence(u.uid, u.email)
       try {
         setOverview(await loadOverview())
-      } catch (err) {
-        setNotice({ tone: "error", text: err instanceof Error ? err.message : "Gagal memuat data admin" })
+      } catch {
+        setNotice({ tone: "error", text: t("loadFailed") })
       }
       setState("ready")
     })
@@ -182,7 +187,7 @@ export default function AdminPage() {
       stopPresence?.()
       unsub()
     }
-  }, [router])
+  }, [router, t])
 
   const users = useMemo(() => {
     const keyword = search.trim().toLowerCase()
@@ -212,7 +217,7 @@ export default function AdminPage() {
       }
       setOverview(await loadOverview())
     } catch (err) {
-      setNotice({ tone: "error", text: err instanceof Error ? err.message : "Terjadi kesalahan" })
+      setNotice({ tone: "error", text: apiError(err) })
     } finally {
       setBusy("")
     }

@@ -323,7 +323,8 @@
     "noVersions": "No version data yet",
     "activeDevicesCount": "{count} device sessions",
     "syncInvites": "Sync Invite Codes",
-    "invitesSynced": "{count} invite codes created for older families."
+    "invitesSynced": "{count} invite codes created for older families.",
+    "loadFailed": "Couldn't load admin data. Try reloading the page."
   },
   "home": {
     "eyebrow": "Family finance",
@@ -349,6 +350,27 @@
       "privacy": {
         "title": "Your family's data",
         "desc": "Access is scoped to your family through Firebase Auth and database rules."
+      }
+    },
+    "preview": {
+      "sample": "sample data",
+      "income": "Income",
+      "expense": "Spending",
+      "rows": {
+        "salary": "Salary",
+        "groceries": "Monthly groceries",
+        "electricity": "Electricity bill",
+        "school": "School fees",
+        "gold": "Gold savings"
+      },
+      "categories": {
+        "income": "Income",
+        "household": "Household",
+        "bills": "Bills",
+        "education": "Education",
+        "savings": "Savings",
+        "transport": "Transport",
+        "dining": "Dining out"
       }
     }
   },
@@ -387,7 +409,8 @@
       "seeAll": "See all",
       "income": "Income",
       "expense": "Spending",
-      "all": "All"
+      "all": "All",
+      "net": "Net"
     },
     "overview": {
       "title": "Overview",
@@ -487,5 +510,43 @@
       "vsPrevNote": "Savings rate is net divided by income. The percentage next to each category compares with the previous month.",
       "monthly": "Month by month"
     }
+  },
+  "meta": {
+    "title": "Family Finance - Household money, made simpler",
+    "description": "Record income and spending, track debts, set budgets, and reach savings goals together as a family, in one app.",
+    "keywords": "family finance, household budget, finance app, family budget, money management"
+  },
+  "errorPage": {
+    "label": "Error",
+    "title": "Something went wrong",
+    "desc": "This page failed to load. Try again, or reload the page.",
+    "retry": "Try again"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "desc": "The page you are looking for does not exist or has moved.",
+    "home": "Back to home"
+  },
+  "theme": {
+    "mode": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "color": "Color",
+    "language": "Language"
+  },
+  "apiErrors": {
+    "unavailable": "The server is temporarily unavailable.",
+    "unauthenticated": "Please sign in first.",
+    "sessionInvalid": "Your session is no longer valid. Please sign in again.",
+    "forbidden": "Access denied.",
+    "payloadTooLarge": "The request is too large.",
+    "badRequest": "The request was not valid.",
+    "rateLimited": "Too many requests. Try again later.",
+    "invalidUser": "Invalid user.",
+    "weakPassword": "Password must be at least 8 characters and include letters and numbers.",
+    "cannotResetSelf": "Change your own password from your account page.",
+    "cannotResetSuperadmin": "A superadmin's password cannot be reset here.",
+    "server": "Something went wrong on the server. Try again later."
   }
 }

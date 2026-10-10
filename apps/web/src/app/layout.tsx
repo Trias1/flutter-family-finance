@@ -1,4 +1,5 @@
 import "./globals.css"
+import { getLocale } from "next-intl/server"
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google"
 
 const themeScript = `(() => { try { const key = 'family-finance-theme'; const colorKey = 'family-finance-color-theme'; const stored = localStorage.getItem(key); const mode = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'; const rawColor = localStorage.getItem(colorKey); const allowed = ['oceanBlue','sage','lavender','charcoalGold','mochaBrown','softPink','roseGold']; const color = allowed.includes(rawColor || '') ? rawColor : 'oceanBlue'; const resolved = mode === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode; document.documentElement.dataset.theme = resolved; document.documentElement.dataset.colorTheme = color; document.documentElement.style.colorScheme = resolved; } catch (_) {} })();`
@@ -14,9 +15,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 })
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale()
   return (
-    <html lang="id" suppressHydrationWarning className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang={locale} suppressHydrationWarning className={`${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col" style={{ backgroundColor: "var(--bg)", color: "var(--text-primary)" }}>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {children}

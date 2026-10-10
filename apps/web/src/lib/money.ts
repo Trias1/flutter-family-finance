@@ -6,8 +6,11 @@ export function formatRupiah(value: number) {
   return `${rounded < 0 ? "−" : ""}Rp${full.format(Math.abs(rounded))}`
 }
 
-/** Short form for chart axes: 1,2 jt, 850 rb. */
-export function formatCompact(value: number) {
+/** Short form for chart axes: "1,2 jt" / "850 rb" in Indonesian, "1.2M" / "850K" in English. */
+export function formatCompact(value: number, locale = "id") {
+  if (locale !== "id") {
+    return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+  }
   const abs = Math.abs(value)
   if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} M`
   if (abs >= 1_000_000) return `${(value / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`
