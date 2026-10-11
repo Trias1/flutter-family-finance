@@ -118,4 +118,31 @@ void main() {
     expect(BankNotificationParser.amountOf('25.000,50'), 25000.5);
     expect(BankNotificationParser.amountOf('15000.'), 15000);
   });
+
+  // Real notifications from the user's phone, 11 Oct 2026 (text as far as
+  // the lock screen shows it; the OCBC rest is assumed).
+  test('myBCA Catatan Finansial: Pemasukan is money in', () {
+    final item = BankNotificationParser.parse(
+      n(
+        'Catatan Finansial',
+        'Pemasukan sebesar IDR 10,000.00 dari **IAS **E',
+        app: 'myBCA',
+      ),
+    )!;
+    expect(item.isIncome, isTrue);
+    expect(item.amount, 10000);
+  });
+
+  test('OCBC: "terima kasih" does not make a transfer money in', () {
+    final item = BankNotificationParser.parse(
+      n(
+        'Transfer OCBC',
+        'Nasabah Yth, terima kasih telah melakukan transfer sebesar '
+            'IDR 10,000.00 ke BCA',
+        app: 'OCBC',
+      ),
+    )!;
+    expect(item.isIncome, isFalse);
+    expect(item.amount, 10000);
+  });
 }

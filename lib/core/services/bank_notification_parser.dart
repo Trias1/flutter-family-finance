@@ -50,13 +50,14 @@ class BankNotificationParser {
   );
 
   static final _incoming = RegExp(
-    r'\b(menerima|diterima|terima|masuk|bertambah|kredit|cr|received|'
+    r'\b(menerima|diterima|terima|masuk|pemasukan|bertambah|kredit|cr|received|'
     r'incoming|credited|refund|cashback|top ?up)\b',
     caseSensitive: false,
   );
 
   static final _outgoing = RegExp(
     r'\b(bayar|membayar|pembayaran|dibayar|transfer|kirim|mengirim|keluar|'
+    r'pengeluaran|telah melakukan|'
     r'berkurang|debit|db|tarik|penarikan|belanja|pembelian|purchase|payment|'
     r'paid|spent|qris)\b',
     caseSensitive: false,
@@ -81,7 +82,14 @@ class BankNotificationParser {
     final amount = _transactionAmount(all);
     if (amount == null || amount <= 0) return null;
 
-    final isIncome = _direction(all);
+    // "Terima kasih telah melakukan transfer" (OCBC) is a thank-you, not
+    // money received.
+    final isIncome = _direction(
+      all.replaceAll(
+        RegExp(r'\b(terima ?kasih|thank you)\b', caseSensitive: false),
+        '',
+      ),
+    );
     if (isIncome == null) return null;
 
     final text = n.text.replaceAll(RegExp(r'\s+'), ' ').trim();
