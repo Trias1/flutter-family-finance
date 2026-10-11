@@ -8,7 +8,6 @@ final dashboardSectionsProvider = FutureProvider<Map<String, bool>>((
 ) async {
   final prefs = await SharedPreferences.getInstance();
   return {
-    'progress': prefs.getBool('dashboard_progress') ?? true,
     'calendar': prefs.getBool('dashboard_calendar') ?? true,
     'menu': prefs.getBool('dashboard_menu') ?? true,
     'insights': prefs.getBool('dashboard_insights') ?? true,
@@ -42,11 +41,6 @@ class DashboardSettingsPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _SectionSwitch(
-            'progress',
-            id ? 'Progress bulanan' : 'Monthly progress',
-            values,
-          ),
           _SectionSwitch(
             'calendar',
             id ? 'Kalender aktivitas' : 'Activity calendar',
