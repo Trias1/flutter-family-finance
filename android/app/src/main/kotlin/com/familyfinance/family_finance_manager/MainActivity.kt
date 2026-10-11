@@ -36,6 +36,14 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
         }
+        // One id per phone for the Active sessions list. ANDROID_ID is per
+        // app signing key and survives a reinstall; the app stores a hash.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEVICE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "androidId" -> result.success(Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID))
+                else -> result.notImplemented()
+            }
+        }
         bankChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BANK_CHANNEL)
         bankChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
@@ -164,6 +172,7 @@ class MainActivity : FlutterFragmentActivity() {
         private const val TAG = "FamilyFinanceShare"
         private const val SHARE_CHANNEL = "family_finance/share"
         private const val BANK_CHANNEL = "family_finance/bank_notifications"
+        private const val DEVICE_CHANNEL = "family_finance/device"
         private const val SHARED_PREFIX = "shared_scan_"
 
         // Screenshots and receipt photos are a few MB; refuse anything huge.

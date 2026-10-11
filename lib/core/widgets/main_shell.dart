@@ -550,6 +550,8 @@ class _MainShellState extends ConsumerState<MainShell> {
     try {
       await NotificationService().requestPermission();
       await service.registerDevice(uid);
+      // Registering can switch this phone to its lasting id; watch that one.
+      if (mounted) await _watchSession(uid);
       final update = await service.checkForUpdate();
       if (update != null && mounted) {
         unawaited(
