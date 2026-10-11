@@ -7,7 +7,7 @@ class AppStrings {
 
   bool get _id => locale.languageCode == 'id';
 
-  String get dashboard => 'Dashboard';
+  String get dashboard => _id ? 'Beranda' : 'Home';
   String get income => _id ? 'Pemasukan' : 'Income';
   String get expense => _id ? 'Pengeluaran' : 'Expense';
   String get transactions => _id ? 'Riwayat' : 'History';

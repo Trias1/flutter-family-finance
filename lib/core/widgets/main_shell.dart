@@ -28,6 +28,7 @@ import 'package:family_finance_manager/core/services/receipt_scanner.dart';
 import 'package:family_finance_manager/core/services/sheet_recap_service.dart';
 import 'package:family_finance_manager/core/services/share_intake.dart';
 import 'package:family_finance_manager/core/widgets/shell_app_bar.dart';
+import 'package:family_finance_manager/core/widgets/shell_bell.dart';
 import 'package:family_finance_manager/core/services/bank_inbox.dart';
 import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_inbox_banner.dart';
 import 'package:family_finance_manager/core/biometric/app_lock.dart';
@@ -253,14 +254,17 @@ class _MainShellState extends ConsumerState<MainShell> {
             scrolledUnderElevation: 1,
             surfaceTintColor: Colors.transparent,
             shadowColor: Colors.black.withValues(alpha: 0.25),
-            actions: isTab ? const [ShellMenu(), SizedBox(width: 4)] : null,
+            actions: isTab
+                ? const [ShellBell(), ShellMenu(), SizedBox(width: 4)]
+                : null,
           ),
           drawer: null,
           body: SafeArea(
             child: Column(
               children: [
                 const AnnouncementBanner(),
-                if (isTab) const BankInboxBanner(),
+                // Waiting bank transactions are announced on Home only.
+                if (isTab && _currentPage == 0) const BankInboxBanner(),
                 Expanded(
                   child: isTab
                       ? PageView(

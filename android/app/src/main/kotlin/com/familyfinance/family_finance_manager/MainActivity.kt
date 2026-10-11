@@ -48,6 +48,10 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
                 "takePending" -> result.success(BankNotificationStore.take(this))
+                "syncSummary" -> {
+                    BankNotificationStore.syncSummary(this, call.argument<Int>("count") ?: 0)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }

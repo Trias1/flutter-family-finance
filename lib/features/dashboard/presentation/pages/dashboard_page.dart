@@ -111,21 +111,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   const SizedBox(height: 16),
                   _buildCalendar(data, isId),
                 ],
-                if (dashboardSections['menu'] ?? true) ...[
-                  const SizedBox(height: 16),
-                  _buildMenuGrid(isId),
-                ],
+                // Where the money went and the 30-day outlook come before
+                // the menu; debts follow it.
                 if (dashboardSections['insights'] ?? true) ...[
                   const SizedBox(height: 16),
                   CategoryBreakdownCard(expenses: data.allExpenses, isId: isId),
-                  if (data.debts.any((d) => d.status == DebtStatus.active)) ...[
-                    const SizedBox(height: 16),
-                    DebtsSummaryCard(
-                      debts: data.debts,
-                      isId: isId,
-                      onOpen: () => context.push('/debts'),
-                    ),
-                  ],
                   if (data.prediction != null &&
                       (data.allIncomes.isNotEmpty ||
                           data.allExpenses.isNotEmpty)) ...[
@@ -136,6 +126,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       isId: isId,
                     ),
                   ],
+                ],
+                if (dashboardSections['menu'] ?? true) ...[
+                  const SizedBox(height: 16),
+                  _buildMenuGrid(isId),
+                ],
+                if ((dashboardSections['insights'] ?? true) &&
+                    data.debts.any((d) => d.status == DebtStatus.active)) ...[
+                  const SizedBox(height: 16),
+                  DebtsSummaryCard(
+                    debts: data.debts,
+                    isId: isId,
+                    onOpen: () => context.push('/debts'),
+                  ),
                 ],
                 if (data.savings.isNotEmpty) ...[
                   const SizedBox(height: 20),

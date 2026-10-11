@@ -31,6 +31,9 @@ object BankNotificationStore {
     private const val PREFS = "bank_notifications"
     private const val PENDING = "pending"
     private const val RECENT = "recent"
+
+    // How many the app already holds in its "to check" list.
+    private const val INBOX_COUNT = "inbox_count"
     private const val MAX_PENDING = 100
     private const val MAX_TEXT = 600
 
@@ -119,7 +122,7 @@ object BankNotificationStore {
                 .putString(PENDING, trimmed.toString())
                 .putString(RECENT, newRecent.toString())
                 .apply()
-            showSummary(context, trimmed.length())
+            showSummary(context, trimmed.length() + prefs.getInt(INBOX_COUNT, 0))
         }
     }
 
@@ -174,9 +177,22 @@ object BankNotificationStore {
         }
     }
 
-    /** The app has the transactions now; its banner takes over. */
-    fun clearSummary(context: Context) {
-        context.getSystemService(NotificationManager::class.java)?.cancel(SUMMARY_ID)
+    /**
+     * The app reports how many are still waiting in its list. The
+     * notification stays until that reaches zero (checked or skipped); its
+     * count follows, but one the user swiped away is not brought back.
+     */
+    fun syncSummary(context: Context, inboxCount: Int) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        synchronized(this) {
+            prefs.edit().putInt(INBOX_COUNT, inboxCount).apply()
+            val total = inboxCount + JSONArray(prefs.getString(PENDING, "[]")).length()
+            when {
+                total == 0 -> manager.cancel(SUMMARY_ID)
+                manager.activeNotifications.any { it.id == SUMMARY_ID } -> showSummary(context, total)
+            }
+        }
     }
 
     /** Hands the waiting notifications to Flutter, once. */
@@ -185,7 +201,6 @@ object BankNotificationStore {
         synchronized(this) {
             val pending = prefs.getString(PENDING, "[]") ?: "[]"
             prefs.edit().putString(PENDING, "[]").apply()
-            clearSummary(context)
             return pending
         }
     }

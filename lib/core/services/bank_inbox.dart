@@ -51,6 +51,13 @@ class BankNotifications {
     } catch (_) {}
   }
 
+  /// Keeps the app's notification in step with the "to check" list.
+  static Future<void> syncSummary(int count) async {
+    try {
+      await _channel.invokeMethod<void>('syncSummary', {'count': count});
+    } catch (_) {}
+  }
+
   static Future<List<Map<String, dynamic>>> takePending() async {
     try {
       final raw = await _channel.invokeMethod<String>('takePending');
@@ -144,5 +151,6 @@ class BankInboxNotifier extends StateNotifier<List<BankInboxEntry>> {
     }
     entries.sort((a, b) => a.source.time.compareTo(b.source.time));
     if (mounted) state = entries;
+    BankNotifications.syncSummary(entries.length);
   }
 }
