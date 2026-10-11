@@ -87,12 +87,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                _ModeCard(
-                  userName: user?.name,
-                  isFamilyMode: familyId.isNotEmpty,
-                  familyName: familyAsync.valueOrNull?.name,
-                ),
-                const SizedBox(height: 16),
+                if (familyId.isEmpty) ...[
+                  _ModeCard(
+                    userName: user?.name,
+                    isFamilyMode: false,
+                    familyName: familyAsync.valueOrNull?.name,
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 _BalanceCard(
                   data: data,
                   onTap: () => showMonthDetailSheet(context),

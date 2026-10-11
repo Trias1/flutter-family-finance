@@ -15,6 +15,7 @@ import 'package:family_finance_manager/data/models/currency_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/delete_account_section.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/own_accounts_tile.dart';
+import 'package:family_finance_manager/features/settings/presentation/widgets/profile_header.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/sheet_recap_tile.dart';
 import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_notifications_tile.dart';
 
@@ -32,7 +33,8 @@ class SettingsPage extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const SizedBox(height: 8),
+            const ProfileHeader(),
+            const SizedBox(height: 20),
             _SectionTitle(title: 'Bahasa / Language'),
             const SizedBox(height: 8),
             _LanguagePicker(),

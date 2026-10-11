@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -12,8 +11,6 @@ import 'package:family_finance_manager/core/services/app_update_service.dart';
 import 'package:family_finance_manager/core/services/currency_provider.dart';
 import 'package:family_finance_manager/core/services/recurring_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
-import 'package:family_finance_manager/core/theme/theme_provider.dart';
-import 'package:family_finance_manager/core/utils/image_utils.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/budget/presentation/pages/budget_page.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_page.dart';
@@ -30,6 +27,7 @@ import 'package:family_finance_manager/core/services/receipt_parser.dart';
 import 'package:family_finance_manager/core/services/receipt_scanner.dart';
 import 'package:family_finance_manager/core/services/sheet_recap_service.dart';
 import 'package:family_finance_manager/core/services/share_intake.dart';
+import 'package:family_finance_manager/core/widgets/shell_app_bar.dart';
 import 'package:family_finance_manager/core/services/bank_inbox.dart';
 import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_inbox_banner.dart';
 import 'package:family_finance_manager/core/biometric/app_lock.dart';
@@ -239,15 +237,20 @@ class _MainShellState extends ConsumerState<MainShell> {
                         : context.go(_tabRoutes[0]),
                   )
                 : null,
-            title: Text(
-              isTab
+            centerTitle: false,
+            titleSpacing: isTab ? 20 : 0,
+            toolbarHeight: isTab && _currentPage == 0 ? 64 : kToolbarHeight,
+            title: ShellTitle(
+              title: isTab
                   ? _tabTitle(strings, _currentPage)
                   : strings.titleForRoute(location),
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              greet: isTab && _currentPage == 0,
             ),
             elevation: 0,
-            scrolledUnderElevation: 0.5,
-            actions: [_ProfilePopup(user: user)],
+            scrolledUnderElevation: 1,
+            surfaceTintColor: Colors.transparent,
+            shadowColor: Colors.black.withValues(alpha: 0.25),
+            actions: isTab ? const [ShellMenu(), SizedBox(width: 4)] : null,
           ),
           drawer: null,
           body: SafeArea(
@@ -686,122 +689,6 @@ class _NavItem extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfilePopup extends ConsumerWidget {
-  final dynamic user;
-
-  const _ProfilePopup({required this.user});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final locale = ref.watch(localeProvider);
-    final themeMode = ref.watch(themeModeProvider);
-    final strings = AppStrings(ref.watch(localeProvider));
-    final isId = locale.languageCode == 'id';
-
-    void openRoute(String route) {
-      Future<void>.delayed(Duration.zero, () {
-        if (context.mounted) context.push(route);
-      });
-    }
-
-    void toggleTheme() {
-      Future<void>.delayed(Duration.zero, () async {
-        final themeNotifier = ref.read(themeModeProvider.notifier);
-        await themeNotifier.toggle();
-      });
-    }
-
-    void logout() {
-      Future<void>.delayed(Duration.zero, () async {
-        final prefs = await SharedPreferences.getInstance();
-        final uid = prefs.getString('biometric_last_uid');
-        final bioEnabled =
-            uid != null && (prefs.getBool('biometric_enabled_$uid') ?? false);
-        if (bioEnabled) {
-          await prefs.setBool('biometric_skip_auto_login', true);
-        }
-        await ref
-            .read(authNotifierProvider.notifier)
-            .signOut(keepGoogleSession: bioEnabled);
-        if (context.mounted) context.go('/login');
-      });
-    }
-
-    return PopupMenuButton<void>(
-      offset: const Offset(0, 48),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          onTap: () => openRoute('/settings'),
-          child: ListTile(
-            leading: const Icon(Icons.settings_rounded),
-            title: Text(strings.settings),
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          onTap: toggleTheme,
-          child: ListTile(
-            leading: Icon(
-              themeMode == ThemeMode.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
-            ),
-            title: Text(
-              themeMode == ThemeMode.dark
-                  ? (isId ? 'Mode Terang' : 'Light Mode')
-                  : (isId ? 'Mode Gelap' : 'Dark Mode'),
-            ),
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          onTap: logout,
-          child: ListTile(
-            leading: const Icon(
-              Icons.logout_rounded,
-              color: AppTheme.errorColor,
-            ),
-            title: Text(
-              strings.logout,
-              style: const TextStyle(color: AppTheme.errorColor),
-            ),
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-      ],
-      child: SizedBox(
-        width: 48,
-        height: 48,
-        child: Center(
-          child: CircleAvatar(
-            radius: 18,
-            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-            backgroundImage: getAvatarProvider(user?.photoUrl),
-            child: user?.photoUrl == null
-                ? Text(
-                    user?.name.isNotEmpty == true
-                        ? user.name[0].toUpperCase()
-                        : '?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
-                  )
-                : null,
-          ),
         ),
       ),
     );
