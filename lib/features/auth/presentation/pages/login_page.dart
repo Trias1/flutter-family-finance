@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
@@ -28,6 +29,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  // "Remember me": the email is kept by the app; the password goes to the
+  // phone's password manager (Google), never into the app's storage.
+  bool _remember = false;
+  static const _rememberKey = 'login_remembered_email';
   bool _biometricBusy = false;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -51,6 +57,17 @@ class _LoginPageState extends ConsumerState<LoginPage>
     _animController.forward();
     _checkBiometricAutoLogin();
     _explainRemoteSignOut();
+    _loadRemembered();
+  }
+
+  Future<void> _loadRemembered() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString(_rememberKey);
+    if (email == null || !mounted) return;
+    setState(() {
+      _remember = true;
+      if (_emailController.text.isEmpty) _emailController.text = email;
+    });
   }
 
   /// After "Sign out this device" from another phone or browser.
@@ -123,6 +140,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
       final prefs = await SharedPreferences.getInstance();
       final email = _emailController.text.trim();
       await prefs.setString('last_email', email);
+      if (_remember) {
+        await prefs.setString(_rememberKey, email);
+      } else {
+        await prefs.remove(_rememberKey);
+      }
+      // Android offers to save the email and password in its password
+      // manager, which fills them in next time.
+      TextInput.finishAutofillContext(shouldSave: _remember);
       if (!mounted) return;
       final firebaseUser = ref.read(firebaseAuthDataSourceProvider).currentUser;
       if (firebaseUser != null) {
@@ -335,342 +360,391 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       ),
                       child: Form(
                         key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _tr(context, 'Masuk', 'Sign in'),
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _tr(
-                                context,
-                                'Masuk ke akunmu',
-                                'Sign in to your account',
+                        child: AutofillGroup(
+                          onDisposeAction: AutofillContextAction.cancel,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _tr(context, 'Masuk', 'Sign in'),
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
-                              style: TextStyle(
-                                color: Theme.of(
+                              const SizedBox(height: 4),
+                              Text(
+                                _tr(
                                   context,
-                                ).colorScheme.onSurfaceVariant,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: InputDecoration(
-                                labelText: 'Email',
-                                hintText: _tr(
-                                  context,
-                                  'Masukkan email',
-                                  'Enter your email',
+                                  'Masuk ke akunmu',
+                                  'Sign in to your account',
                                 ),
-                                prefixIcon: const Icon(
-                                  Icons.email_outlined,
-                                  size: 20,
-                                ),
-                                filled: true,
-                                fillColor: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerLow,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(
-                                    color: AppTheme.primaryColor,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.errorColor,
-                                    width: 1,
-                                  ),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.errorColor,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                              validator: Validators.email,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                labelText: _tr(context, 'Password', 'Password'),
-                                hintText: _tr(
-                                  context,
-                                  'Masukkan password',
-                                  'Enter your password',
-                                ),
-                                prefixIcon: const Icon(
-                                  Icons.lock_outlined,
-                                  size: 20,
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                    size: 20,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                                  onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword,
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerLow,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(
-                                    color: AppTheme.primaryColor,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.errorColor,
-                                    width: 1,
-                                  ),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.errorColor,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                              validator: Validators.password,
-                            ),
-                            const SizedBox(height: 4),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () =>
-                                    context.push('/forgot-password'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppTheme.primaryColor,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                ),
-                                child: Text(
-                                  _tr(
+                                style: TextStyle(
+                                  color: Theme.of(
                                     context,
-                                    'Lupa password?',
-                                    'Forgot password?',
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontSize: 14,
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                onPressed: isLoading ? null : _login,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryColor,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
+                              const SizedBox(height: 24),
+                              TextFormField(
+                                controller: _emailController,
+                                autofillHints: const [
+                                  AutofillHints.username,
+                                  AutofillHints.email,
+                                ],
+                                keyboardType: TextInputType.emailAddress,
+                                decoration: InputDecoration(
+                                  labelText: 'Email',
+                                  hintText: _tr(
+                                    context,
+                                    'Masukkan email',
+                                    'Enter your email',
                                   ),
-                                ),
-                                child: isLoading
-                                    ? const SizedBox(
-                                        height: 22,
-                                        width: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : Text(
-                                        _tr(context, 'Masuk', 'Sign in'),
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Divider(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.outlineVariant,
+                                  prefixIcon: const Icon(
+                                    Icons.email_outlined,
+                                    size: 20,
                                   ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
+                                  filled: true,
+                                  fillColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerLow,
+                                  contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16,
+                                    vertical: 16,
                                   ),
-                                  child: Text(
-                                    _tr(context, 'atau', 'or'),
-                                    style: TextStyle(
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide(
+                                      color: AppTheme.primaryColor,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.errorColor,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.errorColor,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                validator: Validators.email,
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _passwordController,
+                                autofillHints: const [AutofillHints.password],
+                                obscureText: _obscurePassword,
+                                decoration: InputDecoration(
+                                  labelText: _tr(
+                                    context,
+                                    'Password',
+                                    'Password',
+                                  ),
+                                  hintText: _tr(
+                                    context,
+                                    'Masukkan password',
+                                    'Enter your password',
+                                  ),
+                                  prefixIcon: const Icon(
+                                    Icons.lock_outlined,
+                                    size: 20,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      size: 20,
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.onSurfaceVariant,
-                                      fontSize: 13,
+                                    ),
+                                    onPressed: () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Divider(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.outlineVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: OutlinedButton.icon(
-                                onPressed: isLoading ? null : _loginWithGoogle,
-                                icon: Image.asset(
-                                  'assets/google.png',
-                                  height: 20,
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.g_mobiledata,
-                                    size: 24,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                label: Text(
-                                  _tr(
+                                  filled: true,
+                                  fillColor: Theme.of(
                                     context,
-                                    'Lanjutkan dengan Google',
-                                    'Continue with Google',
+                                  ).colorScheme.surfaceContainerLow,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
                                   ),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                  side: BorderSide(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.outlineVariant,
-                                  ),
-                                  shape: RoundedRectangleBorder(
+                                  border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: BorderSide(
+                                      color: AppTheme.primaryColor,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.errorColor,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.errorColor,
+                                      width: 1.5,
+                                    ),
                                   ),
                                 ),
+                                validator: Validators.password,
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            FutureBuilder<bool>(
-                              future: Future.wait([
-                                LocalAuthentication().canCheckBiometrics,
-                                SharedPreferences.getInstance().then((
-                                  prefs,
-                                ) async {
-                                  final uid =
-                                      FirebaseAuth.instance.currentUser?.uid;
-                                  final lastUid =
-                                      uid ??
-                                      prefs.getString('biometric_last_uid');
-                                  final key = lastUid != null
-                                      ? 'biometric_enabled_$lastUid'
-                                      : 'biometric_enabled';
-                                  return prefs.getBool(key) ?? false;
-                                }),
-                              ]).then((results) => results[0] && results[1]),
-                              builder: (context, snapshot) {
-                                if (snapshot.data != true)
-                                  return const SizedBox.shrink();
-                                return SizedBox(
-                                  width: double.infinity,
-                                  height: 50,
-                                  child: OutlinedButton.icon(
-                                    onPressed: isLoading
-                                        ? null
-                                        : _loginWithBiometric,
-                                    icon: const Icon(
-                                      Icons.fingerprint,
-                                      color: AppTheme.savingsColor,
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () => setState(
+                                        () => _remember = !_remember,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Checkbox(
+                                            value: _remember,
+                                            onChanged: (v) => setState(
+                                              () => _remember = v ?? false,
+                                            ),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          Flexible(
+                                            child: Text(
+                                              _tr(
+                                                context,
+                                                'Ingat saya',
+                                                'Remember me',
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    label: Text(
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        context.push('/forgot-password'),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppTheme.primaryColor,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                    ),
+                                    child: Text(
                                       _tr(
                                         context,
-                                        'Masuk dengan sidik jari',
-                                        'Sign in with fingerprint',
+                                        'Lupa password?',
+                                        'Forgot password?',
                                       ),
                                       style: const TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: AppTheme.savingsColor,
-                                      side: BorderSide(
-                                        color: AppTheme.savingsColor.withValues(
-                                          alpha: 0.3,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: ElevatedButton(
+                                  onPressed: isLoading ? null : _login,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: isLoading
+                                      ? const SizedBox(
+                                          height: 22,
+                                          width: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(
+                                          _tr(context, 'Masuk', 'Sign in'),
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Divider(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    child: Text(
+                                      _tr(context, 'atau', 'or'),
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                        fontSize: 13,
                                       ),
                                     ),
                                   ),
-                                );
-                              },
-                            ),
-                          ],
+                                  Expanded(
+                                    child: Divider(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: OutlinedButton.icon(
+                                  onPressed: isLoading
+                                      ? null
+                                      : _loginWithGoogle,
+                                  icon: Image.asset(
+                                    'assets/google.png',
+                                    height: 20,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.g_mobiledata,
+                                      size: 24,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  label: Text(
+                                    _tr(
+                                      context,
+                                      'Lanjutkan dengan Google',
+                                      'Continue with Google',
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                    side: BorderSide(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              FutureBuilder<bool>(
+                                future: Future.wait([
+                                  LocalAuthentication().canCheckBiometrics,
+                                  SharedPreferences.getInstance().then((
+                                    prefs,
+                                  ) async {
+                                    final uid =
+                                        FirebaseAuth.instance.currentUser?.uid;
+                                    final lastUid =
+                                        uid ??
+                                        prefs.getString('biometric_last_uid');
+                                    final key = lastUid != null
+                                        ? 'biometric_enabled_$lastUid'
+                                        : 'biometric_enabled';
+                                    return prefs.getBool(key) ?? false;
+                                  }),
+                                ]).then((results) => results[0] && results[1]),
+                                builder: (context, snapshot) {
+                                  if (snapshot.data != true)
+                                    return const SizedBox.shrink();
+                                  return SizedBox(
+                                    width: double.infinity,
+                                    height: 50,
+                                    child: OutlinedButton.icon(
+                                      onPressed: isLoading
+                                          ? null
+                                          : _loginWithBiometric,
+                                      icon: const Icon(
+                                        Icons.fingerprint,
+                                        color: AppTheme.savingsColor,
+                                      ),
+                                      label: Text(
+                                        _tr(
+                                          context,
+                                          'Masuk dengan sidik jari',
+                                          'Sign in with fingerprint',
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.savingsColor,
+                                        side: BorderSide(
+                                          color: AppTheme.savingsColor
+                                              .withValues(alpha: 0.3),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
