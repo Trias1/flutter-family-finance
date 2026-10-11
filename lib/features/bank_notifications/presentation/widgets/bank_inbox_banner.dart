@@ -105,7 +105,7 @@ class BankInboxBanner extends ConsumerWidget {
                   child: Text(
                     isId
                         ? '$count transaksi dari notifikasi bank menunggu dicek'
-                        : '$count transactions from bank notifications to check',
+                        : '$count ${count == 1 ? 'transaction' : 'transactions'} from bank notifications to check',
                     style: const TextStyle(fontSize: 13, height: 1.4),
                   ),
                 ),
