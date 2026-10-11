@@ -68,6 +68,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   Timer? _recurringTimer;
   Timer? _heartbeatTimer;
   StreamSubscription<void>? _shareSub;
+  StreamSubscription<void>? _bankOpenSub;
   // Bank notifications kept while the app was away, and the access switch
   // the user may have just flipped in Android settings.
   late final AppLifecycleListener _lifecycle = AppLifecycleListener(
@@ -96,6 +97,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     _recurringTimer?.cancel();
     _heartbeatTimer?.cancel();
     _shareSub?.cancel();
+    _bankOpenSub?.cancel();
     _lifecycle.dispose();
     _pageController.dispose();
     super.dispose();
@@ -150,6 +152,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         _startRecurring(user.id);
         _startHeartbeat(user.id);
         _listenForShares();
+        _listenForBankOpen();
       });
     }
 
@@ -324,6 +327,38 @@ class _MainShellState extends ConsumerState<MainShell> {
     action?.call();
   }
 
+  /// The "transactions to check" notification: open the review screen when
+  /// the app was started from it, and whenever it is tapped later.
+  void _listenForBankOpen() {
+    _bankOpenSub?.cancel();
+    _bankOpenSub = BankNotifications.onOpenInbox.listen(
+      (_) => _openBankInbox(),
+    );
+    BankNotifications.takeOpenRequest().then((open) {
+      if (open) _openBankInbox();
+    });
+  }
+
+  Future<void> _openBankInbox() async {
+    await _whenUnlocked();
+    if (!mounted) return;
+    await ref.read(bankInboxProvider.notifier).refresh();
+    if (!mounted) return;
+    await reviewBankInbox(context, ref);
+  }
+
+  /// Waits for the fingerprint when the app is locked, so what opens next is
+  /// shown on screen rather than under the lock.
+  Future<void> _whenUnlocked() async {
+    if (!ref.read(appLockProvider)) return;
+    final unlocked = Completer<void>();
+    final sub = ref.listenManual<bool>(appLockProvider, (_, locked) {
+      if (!locked && !unlocked.isCompleted) unlocked.complete();
+    });
+    await unlocked.future;
+    sub.close();
+  }
+
   /// Images shared into the app: read now, and whenever another arrives.
   void _listenForShares() {
     _shareSub?.cancel();
@@ -336,15 +371,8 @@ class _MainShellState extends ConsumerState<MainShell> {
     if (path == null || !mounted) return;
     // A share can open the app while it is locked: wait for the fingerprint
     // so the result shows on screen, not under the lock.
-    if (ref.read(appLockProvider)) {
-      final unlocked = Completer<void>();
-      final sub = ref.listenManual<bool>(appLockProvider, (_, locked) {
-        if (!locked && !unlocked.isCompleted) unlocked.complete();
-      });
-      await unlocked.future;
-      sub.close();
-      if (!mounted) return;
-    }
+    await _whenUnlocked();
+    if (!mounted) return;
     try {
       await _scanReceipt(false, sharedPath: path);
     } finally {

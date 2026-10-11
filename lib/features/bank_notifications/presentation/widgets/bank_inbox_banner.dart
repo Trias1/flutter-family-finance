@@ -6,35 +6,35 @@ import 'package:family_finance_manager/core/services/own_accounts.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/statement_import_page.dart';
 
+/// Opens the waiting transactions on the review screen; saved rows leave
+/// the list. Used by the banner and by the "to check" notification.
+Future<void> reviewBankInbox(BuildContext context, WidgetRef ref) async {
+  final entries = ref.read(bankInboxProvider);
+  if (entries.isEmpty) return;
+  final ownNames = await ref
+      .read(ownAccountNamesProvider.future)
+      .catchError((_) => const <String>[]);
+  if (!context.mounted) return;
+  final saved = await Navigator.of(context).push<bool>(
+    MaterialPageRoute(
+      builder: (_) => StatementImportPage(
+        items: [for (final e in entries) e.item],
+        ownNames: ownNames,
+        fromNotifications: true,
+      ),
+    ),
+  );
+  if (saved == true) {
+    await ref
+        .read(bankInboxProvider.notifier)
+        .remove(entries.map((e) => e.source.id));
+  }
+}
+
 /// "3 transactions from bank notifications are waiting": opens them on the
 /// review screen; saved or skipped rows leave the list.
 class BankInboxBanner extends ConsumerWidget {
   const BankInboxBanner({super.key});
-
-  Future<void> _review(
-    BuildContext context,
-    WidgetRef ref,
-    List<BankInboxEntry> entries,
-  ) async {
-    final ownNames = await ref
-        .read(ownAccountNamesProvider.future)
-        .catchError((_) => const <String>[]);
-    if (!context.mounted) return;
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => StatementImportPage(
-          items: [for (final e in entries) e.item],
-          ownNames: ownNames,
-          fromNotifications: true,
-        ),
-      ),
-    );
-    if (saved == true) {
-      await ref
-          .read(bankInboxProvider.notifier)
-          .remove(entries.map((e) => e.source.id));
-    }
-  }
 
   Future<void> _dismiss(
     BuildContext context,
@@ -90,7 +90,7 @@ class BankInboxBanner extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => _review(context, ref, entries),
+          onTap: () => reviewBankInbox(context, ref),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
             child: Row(
@@ -110,7 +110,7 @@ class BankInboxBanner extends ConsumerWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _review(context, ref, entries),
+                  onPressed: () => reviewBankInbox(context, ref),
                   child: Text(isId ? 'Cek' : 'Check'),
                 ),
                 IconButton(

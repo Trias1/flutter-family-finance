@@ -17,6 +17,10 @@ class MainActivity : FlutterFragmentActivity() {
 
     // Path of an image shared into the app, waiting for Flutter to take it.
     private var sharedImage: String? = null
+    private var bankChannel: MethodChannel? = null
+
+    // Opened from the "transactions to check" notification.
+    private var openBankInbox = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -31,8 +35,13 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
         }
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BANK_CHANNEL).setMethodCallHandler { call, result ->
+        bankChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BANK_CHANNEL)
+        bankChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
+                "takeOpenRequest" -> {
+                    result.success(openBankInbox)
+                    openBankInbox = false
+                }
                 "isEnabled" -> result.success(notificationAccessOn())
                 "openSettings" -> {
                     openNotificationAccess()
@@ -74,13 +83,24 @@ class MainActivity : FlutterFragmentActivity() {
             setRecentsScreenshotEnabled(false)
         }
         // A recreated activity gets the same intent again; read it once.
-        if (savedInstanceState == null) receiveShare(intent)
+        if (savedInstanceState == null) {
+            receiveShare(intent)
+            receiveOpenInbox(intent)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         if (receiveShare(intent)) shareChannel?.invokeMethod("sharedImage", null)
+        if (receiveOpenInbox(intent)) bankChannel?.invokeMethod("openInbox", null)
+    }
+
+    private fun receiveOpenInbox(intent: Intent?): Boolean {
+        if (intent?.getBooleanExtra(BankNotificationStore.EXTRA_OPEN_INBOX, false) != true) return false
+        intent.removeExtra(BankNotificationStore.EXTRA_OPEN_INBOX)
+        openBankInbox = true
+        return true
     }
 
     /**

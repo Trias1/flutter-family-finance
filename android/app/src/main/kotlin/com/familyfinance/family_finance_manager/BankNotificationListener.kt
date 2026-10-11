@@ -1,7 +1,11 @@
 package com.familyfinance.family_finance_manager
 
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
@@ -49,6 +53,19 @@ object BankNotificationStore {
 
     private val AMOUNT = Regex("""(?i)(rp\.?|idr)\s?[0-9]""")
 
+    // A rough first pass so codes and promos are never kept or announced;
+    // the app's own parser (bank_notification_parser.dart) decides the rest.
+    private val SKIP = Regex(
+        """(?i)\b(otp|kode verifikasi|verification code|jangan berikan|password|pin anda|promo|diskon|discount|voucher|menangkan|undian|penawaran|dapatkan|cashback hingga|jatuh tempo|akan didebet|gagal|failed|dibatalkan|ditolak)\b""",
+    )
+    private val MONEY_WORDS = Regex(
+        """(?i)\b(menerima|diterima|terima|masuk|bertambah|kredit|cr|received|incoming|credited|refund|cashback|top ?up|bayar|membayar|pembayaran|dibayar|transfer|kirim|mengirim|keluar|berkurang|debit|db|tarik|penarikan|belanja|pembelian|purchase|payment|paid|spent|qris)\b""",
+    )
+
+    private const val CHANNEL = "bank_transactions"
+    private const val SUMMARY_ID = 7301
+    const val EXTRA_OPEN_INBOX = "open_bank_inbox"
+
     fun offer(context: Context, sbn: StatusBarNotification) {
         val pkg = sbn.packageName ?: return
         if (pkg == context.packageName || pkg in IGNORED) return
@@ -62,6 +79,7 @@ object BankNotificationStore {
         val text = (big ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()).orEmpty()
         val all = "$title\n$text"
         if (!AMOUNT.containsMatchIn(all)) return
+        if (SKIP.containsMatchIn(all) || !MONEY_WORDS.containsMatchIn(all)) return
 
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         // Banks often post the same notification again (updates, re-alerts).
@@ -101,7 +119,64 @@ object BankNotificationStore {
                 .putString(PENDING, trimmed.toString())
                 .putString(RECENT, newRecent.toString())
                 .apply()
+            showSummary(context, trimmed.length())
         }
+    }
+
+    /**
+     * One notification from the app, updated as more arrive: "2 transactions
+     * from bank notifications to check". Tapping it opens the review screen.
+     * Quiet (the bank's own notification already made a sound).
+     */
+    private fun showSummary(context: Context, count: Int) {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        val isId = context
+            .getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            .getString("flutter.locale", "id") == "id"
+        if (manager.getNotificationChannel(CHANNEL) == null) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL,
+                    if (isId) "Transaksi dari notifikasi bank" else "Transactions from bank notifications",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply { setSound(null, null) },
+            )
+        }
+        val open = Intent(context, MainActivity::class.java)
+            .putExtra(EXTRA_OPEN_INBOX, true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val tap = PendingIntent.getActivity(
+            context,
+            SUMMARY_ID,
+            open,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val title = if (isId) "Transaksi baru terdeteksi" else "New transaction detected"
+        val text = if (isId) {
+            "$count transaksi dari notifikasi bank menunggu dicek. Ketuk untuk cek."
+        } else {
+            "$count ${if (count == 1) "transaction" else "transactions"} from bank notifications to check. Tap to review."
+        }
+        val notification = Notification.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_bank)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setNumber(count)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true)
+            .setContentIntent(tap)
+            .build()
+        try {
+            manager.notify(SUMMARY_ID, notification)
+        } catch (_: SecurityException) {
+            // Notifications turned off for the app: the Dashboard banner remains.
+        }
+    }
+
+    /** The app has the transactions now; its banner takes over. */
+    fun clearSummary(context: Context) {
+        context.getSystemService(NotificationManager::class.java)?.cancel(SUMMARY_ID)
     }
 
     /** Hands the waiting notifications to Flutter, once. */
@@ -110,6 +185,7 @@ object BankNotificationStore {
         synchronized(this) {
             val pending = prefs.getString(PENDING, "[]") ?: "[]"
             prefs.edit().putString(PENDING, "[]").apply()
+            clearSummary(context)
             return pending
         }
     }

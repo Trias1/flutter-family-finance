@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -11,6 +12,29 @@ import 'package:family_finance_manager/features/auth/presentation/providers/auth
 /// notifications kept by the listener.
 class BankNotifications {
   static const _channel = MethodChannel('family_finance/bank_notifications');
+  static final _open = StreamController<void>.broadcast();
+  static bool _listening = false;
+
+  /// Fires when the "transactions to check" notification is tapped while
+  /// the app is running.
+  static Stream<void> get onOpenInbox {
+    if (!_listening) {
+      _listening = true;
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'openInbox') _open.add(null);
+      });
+    }
+    return _open.stream;
+  }
+
+  /// Whether the app was opened from that notification; asked once.
+  static Future<bool> takeOpenRequest() async {
+    try {
+      return await _channel.invokeMethod<bool>('takeOpenRequest') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 
   static Future<bool> isEnabled() async {
     try {
@@ -66,41 +90,40 @@ class BankInboxNotifier extends StateNotifier<List<BankInboxEntry>> {
 
   final String? _uid;
   List<Map<String, dynamic>> _raw = [];
-  bool _busy = false;
+  Future<void>? _inFlight;
 
   String get _key => 'bank_inbox_$_uid';
 
   /// Reads what the listener kept since last time and adds the ones that
   /// look like transactions.
-  Future<void> refresh() async {
-    if (_uid == null || _busy) return;
-    _busy = true;
+  /// A second call while one runs waits for it instead of starting again.
+  Future<void> refresh() {
+    if (_uid == null) return Future.value();
+    return _inFlight ??= _refresh().whenComplete(() => _inFlight = null);
+  }
+
+  Future<void> _refresh() async {
+    final prefs = await SharedPreferences.getInstance();
     try {
-      final prefs = await SharedPreferences.getInstance();
-      try {
-        _raw = (jsonDecode(prefs.getString(_key) ?? '[]') as List)
-            .whereType<Map<String, dynamic>>()
-            .toList();
-      } catch (_) {
-        _raw = [];
-      }
-      final known = {for (final r in _raw) r['id']};
-      final fresh = await BankNotifications.takePending();
-      for (final r in fresh) {
-        if (known.contains(r['id'])) continue;
-        if (BankNotificationParser.parse(BankNotification.fromJson(r)) ==
-            null) {
-          continue;
-        }
-        _raw.add(r);
-      }
-      // Keep the last 100; older ones are surely handled by now.
-      if (_raw.length > 100) _raw = _raw.sublist(_raw.length - 100);
-      await prefs.setString(_key, jsonEncode(_raw));
-      _publish();
-    } finally {
-      _busy = false;
+      _raw = (jsonDecode(prefs.getString(_key) ?? '[]') as List)
+          .whereType<Map<String, dynamic>>()
+          .toList();
+    } catch (_) {
+      _raw = [];
     }
+    final known = {for (final r in _raw) r['id']};
+    final fresh = await BankNotifications.takePending();
+    for (final r in fresh) {
+      if (known.contains(r['id'])) continue;
+      if (BankNotificationParser.parse(BankNotification.fromJson(r)) == null) {
+        continue;
+      }
+      _raw.add(r);
+    }
+    // Keep the last 100; older ones are surely handled by now.
+    if (_raw.length > 100) _raw = _raw.sublist(_raw.length - 100);
+    await prefs.setString(_key, jsonEncode(_raw));
+    _publish();
   }
 
   /// Rows reviewed (saved or skipped) leave the inbox.
