@@ -20,9 +20,17 @@ class EmptyWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Theme.of(context).colorScheme.outline),
+            Icon(
+              Icons.inbox_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
+            ),
             const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
               ElevatedButton(onPressed: onAction, child: Text(actionLabel!)),

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
+import 'package:family_finance_manager/core/widgets/account_actions.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 
 const _daysId = [
@@ -140,18 +140,6 @@ class ShellMenu extends ConsumerWidget {
     void later(VoidCallback action) =>
         Future<void>.delayed(Duration.zero, action);
 
-    Future<void> logout() async {
-      final prefs = await SharedPreferences.getInstance();
-      final uid = prefs.getString('biometric_last_uid');
-      final bioEnabled =
-          uid != null && (prefs.getBool('biometric_enabled_$uid') ?? false);
-      if (bioEnabled) await prefs.setBool('biometric_skip_auto_login', true);
-      await ref
-          .read(authNotifierProvider.notifier)
-          .signOut(keepGoogleSession: bioEnabled);
-      if (context.mounted) context.go('/login');
-    }
-
     PopupMenuItem<void> item(
       IconData icon,
       String label,
@@ -196,7 +184,7 @@ class ShellMenu extends ConsumerWidget {
         item(
           Icons.logout_rounded,
           strings.logout,
-          logout,
+          () => signOutUser(context, ref),
           color: AppTheme.errorColor,
         ),
       ],

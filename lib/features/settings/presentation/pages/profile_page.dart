@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:family_finance_manager/features/settings/presentation/widgets/profile_sections.dart';
 import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -86,6 +87,15 @@ class ProfilePage extends ConsumerWidget {
                 color: AppTheme.warningColor,
                 onTap: () => _showChangePasswordDialog(context, ref),
               ),
+              const SizedBox(height: 24),
+              const AccountInfoSection(),
+              const SizedBox(height: 20),
+              const ActivitySection(),
+              const SizedBox(height: 20),
+              const DevicesSection(),
+              const SizedBox(height: 20),
+              const ShortcutsSection(),
+              const SizedBox(height: 24),
             ],
           ),
         ),

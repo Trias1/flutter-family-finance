@@ -133,6 +133,34 @@ class BankInboxNotifier extends StateNotifier<List<BankInboxEntry>> {
     _publish();
   }
 
+  /// Drops waiting rows that were already saved from this very notification
+  /// (same direction, amount, day and the notification's text as the note),
+  /// so a saved transaction never has to be checked twice. A second, real
+  /// purchase of the same amount that day is kept.
+  Future<void> pruneRecorded({
+    required List<({DateTime date, double amount, String? note})> incomes,
+    required List<({DateTime date, double amount, String? note})> expenses,
+  }) async {
+    bool sameDay(DateTime a, DateTime b) =>
+        a.year == b.year && a.month == b.month && a.day == b.day;
+    bool recorded(
+      StatementItem item,
+      List<({DateTime date, double amount, String? note})> l,
+    ) =>
+        item.date != null &&
+        l.any(
+          (e) =>
+              (e.amount - item.amount).abs() < 0.5 &&
+              sameDay(e.date, item.date!) &&
+              e.note?.trim() == item.description.trim(),
+        );
+    final done = [
+      for (final e in state)
+        if (recorded(e.item, e.item.isIncome ? incomes : expenses)) e.source.id,
+    ];
+    if (done.isNotEmpty) await remove(done);
+  }
+
   /// Rows reviewed (saved or skipped) leave the inbox.
   Future<void> remove(Iterable<String> ids) async {
     final gone = ids.toSet();

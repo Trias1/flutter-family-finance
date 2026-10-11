@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/app_update_service.dart';
@@ -29,7 +28,9 @@ import 'package:family_finance_manager/core/services/sheet_recap_service.dart';
 import 'package:family_finance_manager/core/services/share_intake.dart';
 import 'package:family_finance_manager/core/widgets/shell_app_bar.dart';
 import 'package:family_finance_manager/core/widgets/shell_bell.dart';
+import 'package:family_finance_manager/core/widgets/account_actions.dart';
 import 'package:family_finance_manager/core/services/bank_inbox.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_inbox_banner.dart';
 import 'package:family_finance_manager/core/biometric/app_lock.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/statement_import_page.dart';
@@ -90,6 +91,16 @@ class _MainShellState extends ConsumerState<MainShell> {
     _currentPage = _tabIndex(widget.location);
     _pageController = PageController(initialPage: _currentPage);
     _lifecycle;
+    // Waiting bank transactions that are already recorded need no check:
+    // look when the dashboard data loads and when new ones arrive.
+    ref.listenManual(
+      dashboardProvider,
+      (_, _) => _pruneRecordedBankRows(),
+      fireImmediately: true,
+    );
+    ref.listenManual(bankInboxProvider, (prev, next) {
+      if (next.length > (prev?.length ?? 0)) _pruneRecordedBankRows();
+    });
     _lastLocation = widget.location;
   }
 
@@ -331,6 +342,23 @@ class _MainShellState extends ConsumerState<MainShell> {
     action?.call();
   }
 
+  void _pruneRecordedBankRows() {
+    final data = ref.read(dashboardProvider).valueOrNull;
+    if (data == null || ref.read(bankInboxProvider).isEmpty) return;
+    ref
+        .read(bankInboxProvider.notifier)
+        .pruneRecorded(
+          incomes: [
+            for (final e in data.allIncomes)
+              (date: e.date, amount: e.amount, note: e.note),
+          ],
+          expenses: [
+            for (final e in data.allExpenses)
+              (date: e.date, amount: e.amount, note: e.note),
+          ],
+        );
+  }
+
   /// The "transactions to check" notification: open the review screen when
   /// the app was started from it, and whenever it is tapped later.
   void _listenForBankOpen() {
@@ -501,57 +529,16 @@ class _MainShellState extends ConsumerState<MainShell> {
       await NotificationService().requestPermission();
       await service.registerDevice(uid);
       final update = await service.checkForUpdate();
-      if (update != null && mounted) _showUpdateDialog(update);
+      if (update != null && mounted) {
+        unawaited(
+          showAppUpdateDialog(
+            context,
+            AppStrings(ref.read(localeProvider)),
+            update,
+          ),
+        );
+      }
     } catch (_) {}
-  }
-
-  void _showUpdateDialog(AppUpdateInfo update) {
-    final strings = AppStrings(ref.read(localeProvider));
-    showDialog(
-      context: context,
-      barrierDismissible: !update.forceUpdate,
-      builder: (dialogContext) => PopScope(
-        canPop: !update.forceUpdate,
-        child: AlertDialog(
-          title: Text(
-            update.forceUpdate
-                ? strings.requiredUpdateAvailable
-                : strings.updateAvailable,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(strings.latestVersion(update.latestVersionName)),
-              const SizedBox(height: 8),
-              Text(update.releaseNotes),
-              const SizedBox(height: 12),
-              Text(
-                strings.updatePrivacyNote,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            if (!update.forceUpdate)
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(strings.later),
-              ),
-            FilledButton.icon(
-              onPressed: () => launchUrl(
-                Uri.parse(update.apkUrl),
-                mode: LaunchMode.externalApplication,
-              ),
-              icon: const Icon(Icons.download_rounded),
-              label: Text(strings.updateNow),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

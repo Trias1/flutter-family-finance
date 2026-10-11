@@ -84,7 +84,10 @@ class _SheetRecapTileState extends ConsumerState<SheetRecapTile> {
     if (ok != true || !mounted) return;
     await _run(
       () => ref.read(sheetRecapServiceProvider).connect(isId: _isId),
-      _t('Spreadsheet dibuat di Drive kamu.', 'Spreadsheet created in your Drive.'),
+      _t(
+        'Spreadsheet dibuat di Drive kamu.',
+        'Spreadsheet created in your Drive.',
+      ),
     );
   }
 
@@ -213,7 +216,10 @@ class _SheetRecapTileState extends ConsumerState<SheetRecapTile> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
             ],
           ),
         ),

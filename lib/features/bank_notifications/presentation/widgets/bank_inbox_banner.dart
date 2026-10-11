@@ -15,7 +15,7 @@ Future<void> reviewBankInbox(BuildContext context, WidgetRef ref) async {
       .read(ownAccountNamesProvider.future)
       .catchError((_) => const <String>[]);
   if (!context.mounted) return;
-  final saved = await Navigator.of(context).push<bool>(
+  await Navigator.of(context).push<bool>(
     MaterialPageRoute(
       builder: (_) => StatementImportPage(
         items: [for (final e in entries) e.item],
@@ -24,11 +24,11 @@ Future<void> reviewBankInbox(BuildContext context, WidgetRef ref) async {
       ),
     ),
   );
-  if (saved == true) {
-    await ref
-        .read(bankInboxProvider.notifier)
-        .remove(entries.map((e) => e.source.id));
-  }
+  // Seen is handled: saved or not, these leave the waiting list, so a row
+  // that turned out to be recorded already cannot linger.
+  await ref
+      .read(bankInboxProvider.notifier)
+      .remove(entries.map((e) => e.source.id));
 }
 
 /// "3 transactions from bank notifications are waiting": opens them on the
