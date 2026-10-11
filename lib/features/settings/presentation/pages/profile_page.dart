@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/profile_sections.dart';
 import 'package:family_finance_manager/features/settings/presentation/pages/sessions_page.dart';
+import 'package:family_finance_manager/features/settings/presentation/widgets/delete_account_section.dart';
 import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -371,6 +372,8 @@ class AccountPage extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           const AccountInfoGroup(),
+          const SizedBox(height: 32),
+          const DeleteAccountSection(),
         ],
       ),
     );

@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
-import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
-import 'package:family_finance_manager/core/widgets/account_actions.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 
 const _daysId = [
@@ -179,13 +177,6 @@ class ShellMenu extends ConsumerWidget {
               ? (isId ? 'Mode terang' : 'Light mode')
               : (isId ? 'Mode gelap' : 'Dark mode'),
           () => ref.read(themeModeProvider.notifier).toggle(),
-        ),
-        const PopupMenuDivider(),
-        item(
-          Icons.logout_rounded,
-          strings.logout,
-          () => signOutUser(context, ref),
-          color: AppTheme.errorColor,
         ),
       ],
     );

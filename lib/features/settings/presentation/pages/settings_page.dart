@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:family_finance_manager/core/biometric/biometric_provider.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
@@ -13,7 +12,6 @@ import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
 import 'package:family_finance_manager/data/models/currency_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
-import 'package:family_finance_manager/features/settings/presentation/widgets/delete_account_section.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/own_accounts_tile.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/profile_header.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/sheet_recap_tile.dart';
@@ -108,44 +106,6 @@ class SettingsPage extends ConsumerWidget {
               },
             ),
             const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  final uid = prefs.getString('biometric_last_uid');
-                  final bioEnabled =
-                      uid != null &&
-                      (prefs.getBool('biometric_enabled_$uid') ?? false);
-                  if (bioEnabled)
-                    await prefs.setBool('biometric_skip_auto_login', true);
-                  await ref
-                      .read(authNotifierProvider.notifier)
-                      .signOut(keepGoogleSession: bioEnabled);
-                  if (context.mounted) context.go('/login');
-                },
-                icon: const Icon(
-                  Icons.logout_rounded,
-                  color: AppTheme.errorColor,
-                ),
-                label: Text(
-                  strings.logout,
-                  style: const TextStyle(color: AppTheme.errorColor),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppTheme.errorColor),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const DeleteAccountSection(),
-            const SizedBox(height: 16),
             const _AppVersionText(),
           ],
         ),
