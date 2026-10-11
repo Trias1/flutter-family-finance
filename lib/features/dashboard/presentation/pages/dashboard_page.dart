@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
+import 'package:family_finance_manager/core/utils/amount_privacy.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
@@ -27,6 +28,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
 
+  /// The eye on the balance card hides the numbers on Home.
+  bool get _hidden => ref.read(hideAmountsProvider);
+
   @override
   Widget build(BuildContext context) {
     final dashboardAsync = ref.watch(dashboardProvider);
@@ -34,6 +38,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final familyId = ref.watch(familyIdProvider);
     final familyAsync = ref.watch(familyProvider);
     final isId = ref.watch(localeProvider).languageCode == 'id';
+    final hidden = ref.watch(hideAmountsProvider);
     final dashboardSections =
         ref.watch(dashboardSectionsProvider).valueOrNull ??
         const {'progress': true, 'calendar': true, 'menu': true};
@@ -97,6 +102,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ],
                 _BalanceCard(
                   data: data,
+                  hidden: hidden,
                   onTap: () => showMonthDetailSheet(context),
                 ),
                 if (data.upcomingBills.isNotEmpty) ...[
@@ -118,6 +124,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   const SizedBox(height: 16),
                   DebtsSummaryCard(
                     debts: data.debts,
+                    hidden: hidden,
                     isId: isId,
                     onOpen: () => context.push('/debts'),
                   ),
@@ -219,7 +226,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ),
                   ),
                   Text(
-                    CurrencyFormatter.format(b.amount),
+                    moneyText(_hidden, b.amount),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -354,7 +361,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   if (daySummary.totalIncome > 0) {
                     children.add(
                       Text(
-                        '+${_shortAmount(daySummary.totalIncome, isId)}',
+                        _hidden
+                            ? '•••'
+                            : '+${_shortAmount(daySummary.totalIncome, isId)}',
                         style: const TextStyle(
                           fontSize: 9,
                           color: AppTheme.incomeColor,
@@ -369,7 +378,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   if (daySummary.totalExpense > 0) {
                     children.add(
                       Text(
-                        '-${_shortAmount(daySummary.totalExpense, isId)}',
+                        _hidden
+                            ? '•••'
+                            : '-${_shortAmount(daySummary.totalExpense, isId)}',
                         style: const TextStyle(
                           fontSize: 9,
                           color: AppTheme.expenseColor,
@@ -761,7 +772,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
               const Spacer(),
               Text(
-                CurrencyFormatter.format(data.totalSavings),
+                moneyText(_hidden, data.totalSavings),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -798,7 +809,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${CurrencyFormatter.formatWithoutSymbol(s.currentAmount)} / ${CurrencyFormatter.formatWithoutSymbol(s.targetAmount)}',
+                                '${numberText(_hidden, s.currentAmount)} / ${numberText(_hidden, s.targetAmount)}',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: Theme.of(
@@ -1097,7 +1108,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         ),
                       ),
                       Text(
-                        CurrencyFormatter.formatWithoutSymbol(b.usedAmount),
+                        numberText(_hidden, b.usedAmount),
                         style: TextStyle(
                           fontSize: 11,
                           color: b.isExceeded
@@ -1106,7 +1117,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         ),
                       ),
                       Text(
-                        ' / ${CurrencyFormatter.formatWithoutSymbol(b.effectiveBudget)}',
+                        ' / ${numberText(_hidden, b.effectiveBudget)}',
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1435,8 +1446,13 @@ class _ModeCard extends StatelessWidget {
 
 class _BalanceCard extends StatelessWidget {
   final DashboardData data;
+  final bool hidden;
   final VoidCallback onTap;
-  const _BalanceCard({required this.data, required this.onTap});
+  const _BalanceCard({
+    required this.data,
+    required this.hidden,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1455,7 +1471,6 @@ class _BalanceCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     isId ? 'Sisa uang bulan ini' : 'Left this month',
@@ -1464,6 +1479,11 @@ class _BalanceCard extends StatelessWidget {
                       fontSize: 13,
                     ),
                   ),
+                  HideAmountsButton(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    size: 18,
+                  ),
+                  const Spacer(),
                   Text(
                     MaterialLocalizations.of(
                       context,
@@ -1477,7 +1497,7 @@ class _BalanceCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                CurrencyFormatter.format(net),
+                moneyText(hidden, net),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 30,
@@ -1492,11 +1512,13 @@ class _BalanceCard extends StatelessWidget {
                   _MiniStat(
                     label: isId ? 'Masuk' : 'In',
                     amount: data.monthIncome,
+                    hidden: hidden,
                     color: const Color(0xFFB9DCC6),
                   ),
                   _MiniStat(
                     label: isId ? 'Keluar' : 'Out',
                     amount: data.monthExpense,
+                    hidden: hidden,
                     color: const Color(0xFFF0C2BB),
                   ),
                 ],
@@ -1509,7 +1531,7 @@ class _BalanceCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${isId ? 'Saldo keseluruhan' : 'Overall balance'}: ${CurrencyFormatter.format(data.totalBalance)}',
+                      '${isId ? 'Saldo keseluruhan' : 'Overall balance'}: ${moneyText(hidden, data.totalBalance)}',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 12,
@@ -1542,10 +1564,12 @@ class _BalanceCard extends StatelessWidget {
 class _MiniStat extends StatelessWidget {
   final String label;
   final double amount;
+  final bool hidden;
   final Color color;
   const _MiniStat({
     required this.label,
     required this.amount,
+    required this.hidden,
     required this.color,
   });
 
@@ -1561,7 +1585,7 @@ class _MiniStat extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          '$label: ${CurrencyFormatter.format(amount)}',
+          '$label: ${moneyText(hidden, amount)}',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.9),
             fontSize: 11,

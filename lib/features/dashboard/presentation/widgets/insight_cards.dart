@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:family_finance_manager/core/services/prediction_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
+import 'package:family_finance_manager/core/utils/amount_privacy.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/data/models/debt_model.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
@@ -266,12 +267,14 @@ class CategoryBreakdownCard extends StatelessWidget {
 class DebtsSummaryCard extends StatelessWidget {
   final List<DebtModel> debts;
   final bool isId;
+  final bool hidden;
   final VoidCallback onOpen;
 
   const DebtsSummaryCard({
     super.key,
     required this.debts,
     required this.isId,
+    this.hidden = false,
     required this.onOpen,
   });
 
@@ -296,7 +299,7 @@ class DebtsSummaryCard extends StatelessWidget {
           Text(label, style: TextStyle(fontSize: 11, color: muted)),
           const SizedBox(height: 4),
           Text(
-            CurrencyFormatter.format(value),
+            moneyText(hidden, value),
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,

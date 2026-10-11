@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/constants/app_constants.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
+import 'package:family_finance_manager/core/utils/amount_privacy.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/widgets/empty_widget.dart';
@@ -41,6 +42,7 @@ class SavingsPage extends ConsumerWidget {
     final locale = Localizations.localeOf(context);
     final isId = locale.languageCode == 'id';
     final s = AppStrings(locale);
+    final hidden = ref.watch(hideAmountsProvider);
 
     return savingsAsync.when(
       loading: () =>
@@ -70,10 +72,22 @@ class SavingsPage extends ConsumerWidget {
                     )
                   : ListView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                      itemCount: savings.length,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                      itemCount: savings.length + 1,
                       itemBuilder: (context, index) {
-                        final saving = savings[index];
+                        if (index == 0) {
+                          return _GoalsTotal(
+                            total: savings
+                                .where((g) => !g.isGoldInvestment)
+                                .fold<double>(
+                                  0,
+                                  (sum, g) => sum + g.currentAmount,
+                                ),
+                            hidden: hidden,
+                            isId: isId,
+                          );
+                        }
+                        final saving = savings[index - 1];
                         final progress = saving.progress;
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
@@ -229,7 +243,7 @@ class SavingsPage extends ConsumerWidget {
                                     saving.isGoldInvestment &&
                                             saving.goldGrams != null
                                         ? '${saving.goldGrams!.toStringAsFixed(2)} gram'
-                                        : '${CurrencyFormatter.format(saving.currentAmount)} / ${CurrencyFormatter.format(saving.targetAmount)}',
+                                        : '${moneyText(hidden, saving.currentAmount)} / ${moneyText(hidden, saving.targetAmount)}',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Theme.of(
@@ -239,7 +253,9 @@ class SavingsPage extends ConsumerWidget {
                                   ),
                                   Text(
                                     saving.isGoldInvestment
-                                        ? '${saving.goldProfitLoss >= 0 ? '+' : ''}${CurrencyFormatter.format(saving.goldProfitLoss)}'
+                                        ? (hidden
+                                              ? hiddenDigits
+                                              : '${saving.goldProfitLoss >= 0 ? '+' : ''}${CurrencyFormatter.format(saving.goldProfitLoss)}')
                                         : '${progress.toStringAsFixed(0)}%',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
@@ -306,7 +322,11 @@ class SavingsPage extends ConsumerWidget {
                                   ],
                                 ),
                               ] else
-                                _GoalPlan(saving: saving, isId: isId),
+                                _GoalPlan(
+                                  saving: saving,
+                                  isId: isId,
+                                  hidden: hidden,
+                                ),
                             ],
                           ),
                         );
@@ -1091,10 +1111,54 @@ class _CircularGoalProgress extends StatelessWidget {
 
 /// Target date, what to put aside each month, whether the goal is on track,
 /// and where the balance came from.
+/// "Total saved Rp X" with the eye that hides amounts (shared with Home).
+class _GoalsTotal extends StatelessWidget {
+  final double total;
+  final bool hidden;
+  final bool isId;
+  const _GoalsTotal({
+    required this.total,
+    required this.hidden,
+    required this.isId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Row(
+        children: [
+          Text(
+            isId ? 'Total tabungan' : 'Total saved',
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              moneyText(hidden, total),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const HideAmountsButton(),
+        ],
+      ),
+    );
+  }
+}
+
 class _GoalPlan extends StatelessWidget {
   final SavingModel saving;
   final bool isId;
-  const _GoalPlan({required this.saving, required this.isId});
+  final bool hidden;
+  const _GoalPlan({
+    required this.saving,
+    required this.isId,
+    required this.hidden,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1150,8 +1214,8 @@ class _GoalPlan extends StatelessWidget {
         else ...[
           Text(
             isId
-                ? 'Nabung ${CurrencyFormatter.format(saving.monthlyNeeded())}/bulan'
-                : 'Save ${CurrencyFormatter.format(saving.monthlyNeeded())}/month',
+                ? 'Nabung ${moneyText(hidden, saving.monthlyNeeded())}/bulan'
+                : 'Save ${moneyText(hidden, saving.monthlyNeeded())}/month',
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 2),
@@ -1169,8 +1233,8 @@ class _GoalPlan extends StatelessWidget {
                 onTrack
                     ? (isId ? 'Sesuai jalur' : 'On track')
                     : (isId
-                          ? 'Ketinggalan ${CurrencyFormatter.format(behind)}'
-                          : 'Behind by ${CurrencyFormatter.format(behind)}'),
+                          ? 'Ketinggalan ${moneyText(hidden, behind)}'
+                          : 'Behind by ${moneyText(hidden, behind)}'),
                 style: TextStyle(
                   fontSize: 11,
                   color: onTrack ? AppTheme.incomeColor : AppTheme.warningColor,
