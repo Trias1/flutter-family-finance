@@ -33,6 +33,11 @@
 - [x] Back Android 14+ - sub-halaman (Tagihan/Utang/Tabungan) kembali ke Dashboard, tidak menutup app
 - [x] Recurring anti-dobel - lewati periode yang sudah dicatat manual (kategori + nominal sama)
 - [x] Tes struk belanja asli (kertas) & karcis parkir di HP user - aman
+- [x] Goals berjangka (kontrakan/haji) - durasi, nabung per bulan, on track, ulang tiap tahun
+- [x] Saldo goal dari screenshot bank - per kantong (Neo: Tabungan Neo / Neo NOW), cocok ke goal di bank yang sama
+- [x] Sembunyikan nominal (ikon mata) di Home & Goals
+- [x] Ingat saya di login - email disimpan app, password ke password manager HP
+- [x] Profil gaya Telegram + sesi aktif (keluarkan perangkat lain) + ganti email
 - [ ] Baca notifikasi bank (menunggu contoh notifikasi asli)
 - [ ] OTP login (ditunda: berbayar) dan App Check
 
