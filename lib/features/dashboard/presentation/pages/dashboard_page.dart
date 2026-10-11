@@ -12,11 +12,9 @@ import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_settings_page.dart';
-import 'package:family_finance_manager/features/expense/presentation/pages/expense_page.dart';
-import 'package:family_finance_manager/features/income/presentation/pages/income_page.dart';
 import 'package:family_finance_manager/data/models/debt_model.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/widgets/insight_cards.dart';
-import 'package:family_finance_manager/features/family/presentation/providers/family_provider.dart';
+import 'package:family_finance_manager/features/dashboard/presentation/widgets/month_detail_sheet.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -38,12 +36,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final isId = ref.watch(localeProvider).languageCode == 'id';
     final dashboardSections =
         ref.watch(dashboardSectionsProvider).valueOrNull ??
-        const {
-          'progress': true,
-          'calendar': true,
-          'menu': true,
-          'recent': true,
-        };
+        const {'progress': true, 'calendar': true, 'menu': true};
 
     return dashboardAsync.when(
       loading: () => LoadingWidget(
@@ -100,7 +93,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   familyName: familyAsync.valueOrNull?.name,
                 ),
                 const SizedBox(height: 16),
-                _BalanceCard(data: data),
+                _BalanceCard(
+                  data: data,
+                  onTap: () => showMonthDetailSheet(context),
+                ),
                 if (dashboardSections['progress'] ?? true) ...[
                   const SizedBox(height: 16),
                   _buildProgressRow(data, isId),
@@ -118,16 +114,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   _buildMenuGrid(isId),
                 ],
                 if (dashboardSections['insights'] ?? true) ...[
-                  if (familyId.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    MemberSpendingCard(
-                      expenses: data.allExpenses,
-                      members:
-                          ref.watch(familyMembersProvider).valueOrNull ??
-                          const [],
-                      isId: isId,
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   CategoryBreakdownCard(expenses: data.allExpenses, isId: isId),
                   if (data.debts.any((d) => d.status == DebtStatus.active)) ...[
@@ -148,19 +134,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       isId: isId,
                     ),
                   ],
-                ],
-                if (dashboardSections['recent'] ?? true) ...[
-                  const SizedBox(height: 20),
-                  Text(
-                    isId ? 'Transaksi Terbaru' : 'Recent Transactions',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildRecentTransactions(data, isId),
                 ],
                 if (data.savings.isNotEmpty) ...[
                   const SizedBox(height: 20),
@@ -1186,64 +1159,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildRecentTransactions(DashboardData data, bool isId) {
-    if (data.recentIncomes.isEmpty && data.recentExpenses.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Center(
-          child: Text(
-            isId ? 'Belum ada transaksi' : 'No transactions yet',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Newest first across income and spending; tap to edit or delete.
-    final recent = <(DateTime, Widget)>[
-      for (final e in data.recentIncomes)
-        (
-          e.date,
-          _TransactionItem(
-            icon: Icons.trending_up,
-            title: e.category,
-            subtitle: e.note ?? '',
-            amount: e.amount,
-            color: AppTheme.incomeColor,
-            isIncome: true,
-            onTap: () async {
-              await IncomePage.openEditor(context, ref, e);
-              ref.invalidate(dashboardProvider);
-            },
-          ),
-        ),
-      for (final e in data.recentExpenses)
-        (
-          e.date,
-          _TransactionItem(
-            icon: Icons.trending_down,
-            title: e.category,
-            subtitle: e.note ?? '',
-            amount: e.amount,
-            color: AppTheme.expenseColor,
-            isIncome: false,
-            onTap: () async {
-              await ExpensePage.openEditor(context, ref, e);
-              ref.invalidate(dashboardProvider);
-            },
-          ),
-        ),
-    ]..sort((a, b) => b.$1.compareTo(a.$1));
-
-    return Column(children: recent.take(5).map((r) => r.$2).toList());
-  }
-
   Widget _buildGoalsSummary(DashboardData data, bool isId) {
     return Container(
       width: double.infinity,
@@ -1949,81 +1864,105 @@ class _ModeCard extends StatelessWidget {
 
 class _BalanceCard extends StatelessWidget {
   final DashboardData data;
-  const _BalanceCard({required this.data});
+  final VoidCallback onTap;
+  const _BalanceCard({required this.data, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final isId = Localizations.localeOf(context).languageCode == 'id';
     final net = data.monthIncome - data.monthExpense;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
+    return Material(
+      color: AppTheme.primaryColor,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
         borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isId ? 'Sisa uang bulan ini' : 'Left this month',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    MaterialLocalizations.of(
+                      context,
+                    ).formatMonthYear(DateTime.now()),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               Text(
-                isId ? 'Sisa uang bulan ini' : 'Left this month',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 13,
+                CurrencyFormatter.format(net),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                MaterialLocalizations.of(
-                  context,
-                ).formatMonthYear(DateTime.now()),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.75),
-                  fontSize: 11,
-                ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 20,
+                runSpacing: 4,
+                children: [
+                  _MiniStat(
+                    label: isId ? 'Masuk' : 'In',
+                    amount: data.monthIncome,
+                    color: const Color(0xFFB9DCC6),
+                  ),
+                  _MiniStat(
+                    label: isId ? 'Keluar' : 'Out',
+                    amount: data.monthExpense,
+                    color: const Color(0xFFF0C2BB),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Divider(color: Colors.white.withValues(alpha: 0.18), height: 1),
+              const SizedBox(height: 10),
+              // The all-time figure is still useful, just not as the headline.
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${isId ? 'Saldo keseluruhan' : 'Overall balance'}: ${CurrencyFormatter.format(data.totalBalance)}',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    isId ? 'Rincian' : 'Details',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            CurrencyFormatter.format(net),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 20,
-            runSpacing: 4,
-            children: [
-              _MiniStat(
-                label: isId ? 'Masuk' : 'In',
-                amount: data.monthIncome,
-                color: const Color(0xFFB9DCC6),
-              ),
-              _MiniStat(
-                label: isId ? 'Keluar' : 'Out',
-                amount: data.monthExpense,
-                color: const Color(0xFFF0C2BB),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Divider(color: Colors.white.withValues(alpha: 0.18), height: 1),
-          const SizedBox(height: 10),
-          // The all-time figure is still useful, just not as the headline.
-          Text(
-            '${isId ? 'Saldo keseluruhan' : 'Overall balance'}: ${CurrencyFormatter.format(data.totalBalance)}',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2279,96 +2218,6 @@ class _MenuButton extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _TransactionItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final double amount;
-  final Color color;
-  final bool isIncome;
-  final VoidCallback? onTap;
-
-  const _TransactionItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.color,
-    required this.isIncome,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: _content(context),
-    );
-  }
-
-  Widget _content(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                if (subtitle.isNotEmpty)
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 11,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Text(
-            '${isIncome ? '+' : '-'}${CurrencyFormatter.format(amount)}',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: isIncome ? AppTheme.incomeColor : AppTheme.expenseColor,
-            ),
-          ),
-        ],
       ),
     );
   }

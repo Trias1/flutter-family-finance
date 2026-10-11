@@ -11,7 +11,6 @@ final dashboardSectionsProvider = FutureProvider<Map<String, bool>>((
     'progress': prefs.getBool('dashboard_progress') ?? true,
     'calendar': prefs.getBool('dashboard_calendar') ?? true,
     'menu': prefs.getBool('dashboard_menu') ?? true,
-    'recent': prefs.getBool('dashboard_recent') ?? true,
     'insights': prefs.getBool('dashboard_insights') ?? true,
   };
 });
@@ -27,7 +26,9 @@ class DashboardSettingsPage extends ConsumerWidget {
     return sections.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
-        child: Text(id ? 'Pengaturan gagal dimuat.' : "Couldn't load settings."),
+        child: Text(
+          id ? 'Pengaturan gagal dimuat.' : "Couldn't load settings.",
+        ),
       ),
       data: (values) => ListView(
         padding: const EdgeInsets.all(16),
@@ -55,13 +56,8 @@ class DashboardSettingsPage extends ConsumerWidget {
           _SectionSwitch(
             'insights',
             id
-                ? 'Ringkasan (per anggota, kategori, hutang, perkiraan)'
-                : 'Insights (members, categories, debts, outlook)',
-            values,
-          ),
-          _SectionSwitch(
-            'recent',
-            id ? 'Transaksi terbaru' : 'Recent transactions',
+                ? 'Ringkasan (kategori, hutang, perkiraan)'
+                : 'Insights (categories, debts, outlook)',
             values,
           ),
         ],
