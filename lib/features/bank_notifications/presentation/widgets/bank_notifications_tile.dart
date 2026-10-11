@@ -44,6 +44,9 @@ class BankNotificationsTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!(ref.watch(bankFeatureProvider).valueOrNull ?? false)) {
+      return const SizedBox.shrink();
+    }
     final isId = ref.watch(localeProvider).languageCode == 'id';
     final on = ref.watch(bankAccessProvider).valueOrNull ?? false;
     final scheme = Theme.of(context).colorScheme;

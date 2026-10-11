@@ -36,6 +36,16 @@ class BankNotifications {
     }
   }
 
+  /// Whether this build can read notifications at all (debug builds only
+  /// until the feature is finished).
+  static Future<bool> isAvailable() async {
+    try {
+      return await _channel.invokeMethod<bool>('isAvailable') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<bool> isEnabled() async {
     try {
       return await _channel.invokeMethod<bool>('isEnabled') ?? false;
@@ -68,6 +78,10 @@ class BankNotifications {
     }
   }
 }
+
+final bankFeatureProvider = FutureProvider<bool>(
+  (ref) => BankNotifications.isAvailable(),
+);
 
 final bankAccessProvider = FutureProvider<bool>(
   (ref) => BankNotifications.isEnabled(),

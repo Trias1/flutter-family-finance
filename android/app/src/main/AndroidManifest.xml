@@ -40,17 +40,6 @@
                 <data android:mimeType="image/*"/>
             </intent-filter>
         </activity>
-        <!-- Bank notifications: only after the user turns on Notification
-             access in Android settings; read on the phone, never uploaded. -->
-        <service
-            android:name=".BankNotificationListener"
-            android:exported="false"
-            android:label="Family Finance"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

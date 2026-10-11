@@ -2,6 +2,7 @@ package com.familyfinance.family_finance_manager
 
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -42,6 +43,7 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(openBankInbox)
                     openBankInbox = false
                 }
+                "isAvailable" -> result.success(listenerInBuild())
                 "isEnabled" -> result.success(notificationAccessOn())
                 "openSettings" -> {
                     openNotificationAccess()
@@ -55,6 +57,14 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    /** Debug builds only for now; release APKs leave the listener out. */
+    private fun listenerInBuild(): Boolean = try {
+        packageManager.getServiceInfo(ComponentName(this, BankNotificationListener::class.java), 0)
+        true
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
     }
 
     private fun notificationAccessOn(): Boolean {
