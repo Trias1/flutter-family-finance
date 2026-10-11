@@ -25,7 +25,9 @@ class BudgetAlertService {
           _notifiedAlmostExceeded.add(budget.id)) {
         NotificationService().show(
           id: budget.id.hashCode,
-          title: isIndonesian ? 'Anggaran Hampir Habis' : 'Budget Almost Exhausted',
+          title: isIndonesian
+              ? 'Anggaran Hampir Habis'
+              : 'Budget Almost Exhausted',
           body: isIndonesian
               ? 'Kategori ${budget.category} sudah mencapai ${budget.percentage.toStringAsFixed(0)}% dari anggaran'
               : 'Category ${budget.category} has reached ${budget.percentage.toStringAsFixed(0)}% of the budget',

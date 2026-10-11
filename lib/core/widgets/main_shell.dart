@@ -30,6 +30,8 @@ import 'package:family_finance_manager/core/widgets/shell_app_bar.dart';
 import 'package:family_finance_manager/core/widgets/shell_bell.dart';
 import 'package:family_finance_manager/core/widgets/account_actions.dart';
 import 'package:family_finance_manager/core/services/session_service.dart';
+import 'package:family_finance_manager/core/services/balance_parser.dart';
+import 'package:family_finance_manager/features/savings/presentation/widgets/balance_sync.dart';
 import 'package:family_finance_manager/core/services/bank_inbox.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_inbox_banner.dart';
@@ -482,6 +484,14 @@ class _MainShellState extends ConsumerState<MainShell> {
         ),
       );
       return;
+    }
+    // A bank's account screen ("Saldo Rp3.000.000"): offer to set the goal
+    // kept at that bank. "Not a savings balance" falls through to the
+    // transaction flows below.
+    final reading = BalanceParser.parse(scan.text);
+    if (reading != null) {
+      final handled = await offerBalanceUpdate(context, ref, reading);
+      if (handled || !mounted) return;
     }
     final draft = scan.draft;
     if (draft.isEmpty) {

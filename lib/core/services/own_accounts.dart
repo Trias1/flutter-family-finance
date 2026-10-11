@@ -10,7 +10,9 @@ import 'package:family_finance_manager/features/family/presentation/providers/fa
 final ownAccountNamesProvider = FutureProvider<List<String>>((ref) async {
   final user = ref.watch(authNotifierProvider).valueOrNull;
   final members = ref.watch(familyMembersProvider).valueOrNull ?? const [];
-  final saved = user == null ? const <String>[] : await OwnAccounts.load(user.id);
+  final saved = user == null
+      ? const <String>[]
+      : await OwnAccounts.load(user.id);
   return {
     ...saved,
     if (user != null && user.name.trim().isNotEmpty) user.name.trim(),
@@ -35,8 +37,11 @@ class OwnAccounts {
     );
   }
 
-  static String _norm(String s) =>
-      s.toUpperCase().replaceAll(RegExp(r'[^A-Z ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  static String _norm(String s) => s
+      .toUpperCase()
+      .replaceAll(RegExp(r'[^A-Z ]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 
   /// Whether [text] mentions one of [names]. Banks often cut names short
   /// ("TRIAS ZAEN MUTAQ"), so the first two words, or the first 12 letters
@@ -48,7 +53,8 @@ class OwnAccounts {
       if (n.length < 3) continue;
       final words = n.split(' ');
       if (t.contains(' $n ')) return true;
-      if (words.length >= 2 && t.contains(' ${words[0]} ${words[1]}')) return true;
+      if (words.length >= 2 && t.contains(' ${words[0]} ${words[1]}'))
+        return true;
       if (n.length >= 14 && t.contains(' ${n.substring(0, 12)}')) return true;
     }
     return false;

@@ -9,7 +9,10 @@ class ScanResult {
   final ReceiptDraft draft;
   final List<StatementItem> items;
 
-  const ScanResult({required this.draft, required this.items});
+  /// The text read, rows rebuilt top to bottom (for the balance reader).
+  final String text;
+
+  const ScanResult({required this.draft, required this.items, this.text = ''});
 
   bool get isStatement => items.length >= 2;
 }
@@ -47,6 +50,7 @@ class ReceiptScanner {
       return ScanResult(
         draft: ReceiptParser.parse(text),
         items: StatementParser.parse(text),
+        text: text,
       );
     } finally {
       await recognizer.close();

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -79,7 +80,18 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   /// app restart or a biometric unlock.
   Future<void> restoreSession(String uid) async {
     try {
-      final user = await _authRepository.getUser(uid);
+      var user = await _authRepository.getUser(uid);
+      // A confirmed email change shows up in Firebase Auth first; copy it to
+      // the profile so the app, the family and the web show the new one.
+      final authEmail = FirebaseAuth.instance.currentUser?.email;
+      if (user != null && authEmail != null && authEmail != user.email) {
+        try {
+          await FirebaseFirestore.instance.collection('users').doc(uid).update({
+            'email': authEmail,
+          });
+          user = await _authRepository.getUser(uid) ?? user;
+        } catch (_) {}
+      }
       if (mounted) state = AsyncValue.data(user);
     } catch (e, st) {
       if (mounted) state = AsyncValue.error(e, st);

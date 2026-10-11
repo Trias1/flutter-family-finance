@@ -159,8 +159,10 @@ class SheetRecapService {
     );
     await _save(uid, config);
     final now = DateTime.now();
-    await _sync(config, [DateTime(now.year, now.month - 1), _monthOf(now)],
-        headers);
+    await _sync(config, [
+      DateTime(now.year, now.month - 1),
+      _monthOf(now),
+    ], headers);
     _ref.invalidate(sheetRecapConfigProvider);
     return config;
   }
@@ -247,7 +249,9 @@ class SheetRecapService {
     } catch (_) {
       throw const SheetRecapException('network');
     }
-    if (res.statusCode == 401 || res.statusCode == 403 || res.statusCode == 404) {
+    if (res.statusCode == 401 ||
+        res.statusCode == 403 ||
+        res.statusCode == 404) {
       throw const SheetRecapException('reconnect');
     }
     if (res.statusCode >= 300) throw const SheetRecapException('google');
@@ -436,11 +440,7 @@ class SheetRecapService {
   };
 
   /// Donut of the month's spending per group, read from the recap table.
-  Map<String, dynamic> _pieChart(
-    int sheetId,
-    List<SheetRow> rows,
-    bool isId,
-  ) {
+  Map<String, dynamic> _pieChart(int sheetId, List<SheetRow> rows, bool isId) {
     final head = rows.indexWhere((r) => r.anchor == 'recap_head');
     final total = rows.indexWhere((r) => r.anchor == 'spend_total');
     return {
@@ -582,7 +582,8 @@ class SheetRecapService {
             },
           },
         },
-      if (tabs.containsKey(overviewTitle)) ..._clear(overviewId, rows.length + 20),
+      if (tabs.containsKey(overviewTitle))
+        ..._clear(overviewId, rows.length + 20),
       _write(overviewId, rows),
       ..._widths(overviewId, const [160, 160, 160, 160]),
       if (months.isNotEmpty)

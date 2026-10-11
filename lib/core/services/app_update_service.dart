@@ -40,7 +40,8 @@ class AppDeviceInfo {
 }
 
 class AppUpdateService {
-  AppUpdateService({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+  AppUpdateService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   static const _apkUrl = 'https://family-finance.tzm.web.id/FamilyFinance.apk';
   static const _playStoreUrl = null;
@@ -59,18 +60,24 @@ class AppUpdateService {
     final deviceInfo = await getCurrentDeviceInfo();
     final fcmToken = await FirebaseMessaging.instance.getToken();
 
-    await _firestore.collection('users').doc(uid).collection('devices').doc(deviceId).set({
-      'deviceId': deviceId,
-      'platform': 'android',
-      'brand': deviceInfo.brand,
-      'model': deviceInfo.model,
-      'androidVersion': deviceInfo.androidVersion,
-      'appVersionName': deviceInfo.appVersionName,
-      'appVersionCode': deviceInfo.appVersionCode,
-      'fcmToken': fcmToken,
-      'lastSeenAt': FieldValue.serverTimestamp(),
-      'privacyNote': 'Basic device info only. No contacts, files, photos, location, phone number, or IMEI are collected.',
-    }, SetOptions(merge: true));
+    await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('devices')
+        .doc(deviceId)
+        .set({
+          'deviceId': deviceId,
+          'platform': 'android',
+          'brand': deviceInfo.brand,
+          'model': deviceInfo.model,
+          'androidVersion': deviceInfo.androidVersion,
+          'appVersionName': deviceInfo.appVersionName,
+          'appVersionCode': deviceInfo.appVersionCode,
+          'fcmToken': fcmToken,
+          'lastSeenAt': FieldValue.serverTimestamp(),
+          'privacyNote':
+              'Basic device info only. No contacts, files, photos, location, phone number, or IMEI are collected.',
+        }, SetOptions(merge: true));
   }
 
   /// Marks this phone as active right now for the admin's "online" count.

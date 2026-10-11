@@ -25,7 +25,10 @@ class CurrencyFormatter {
       final m = RegExp(r'[.,](\d{1,2})$').firstMatch(v);
       if (m != null) {
         final whole = v.substring(0, m.start).replaceAll(RegExp(r'[.,]'), '');
-        return double.tryParse('${whole.isEmpty ? '0' : whole}.${m.group(1)}') ?? 0;
+        return double.tryParse(
+              '${whole.isEmpty ? '0' : whole}.${m.group(1)}',
+            ) ??
+            0;
       }
     }
     return double.tryParse(v.replaceAll(RegExp(r'[.,]'), '')) ?? 0;

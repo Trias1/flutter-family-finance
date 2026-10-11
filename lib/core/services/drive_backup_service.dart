@@ -59,11 +59,12 @@ class DriveBackupService {
     body.writeln('--$boundary');
     body.writeln('Content-Type: application/json; charset=UTF-8');
     body.writeln();
-    body.writeln(jsonEncode({
-      'name':
-          'backup_${backup.createdAt.millisecondsSinceEpoch}.json',
-      'parents': [folderId],
-    }));
+    body.writeln(
+      jsonEncode({
+        'name': 'backup_${backup.createdAt.millisecondsSinceEpoch}.json',
+        'parents': [folderId],
+      }),
+    );
     body.writeln('--$boundary');
     body.writeln('Content-Type: application/json');
     body.writeln();
@@ -113,9 +114,7 @@ class DriveBackupService {
     if (token == null) return null;
 
     final res = await http.get(
-      Uri.parse(
-        'https://www.googleapis.com/drive/v3/files/$fileId?alt=media',
-      ),
+      Uri.parse('https://www.googleapis.com/drive/v3/files/$fileId?alt=media'),
       headers: {'Authorization': 'Bearer $token'},
     );
     if (res.statusCode == 200) {

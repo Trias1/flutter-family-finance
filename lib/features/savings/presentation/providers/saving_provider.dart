@@ -8,23 +8,29 @@ final savingRepositoryProvider = Provider<SavingRepository>((ref) {
   return SavingRepository(dataSource: ref.watch(firestoreDataSourceProvider));
 });
 
-final savingStreamProvider = StreamProvider.family<List<SavingModel>, String>((ref, familyId) {
+final savingStreamProvider = StreamProvider.family<List<SavingModel>, String>((
+  ref,
+  familyId,
+) {
   // No scope yet (profile still loading): skip a query the rules would deny.
   if (familyId.isEmpty) return Stream.value(const <SavingModel>[]);
-  return ref.watch(savingRepositoryProvider).streamSavings(familyId).map(
-    (snapshot) {
-      final list = snapshot.docs.map((doc) => SavingModel.fromFirestore(doc)).toList();
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return list;
-    },
-  );
+  return ref.watch(savingRepositoryProvider).streamSavings(familyId).map((
+    snapshot,
+  ) {
+    final list = snapshot.docs
+        .map((doc) => SavingModel.fromFirestore(doc))
+        .toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  });
 });
 
 class SavingNotifier extends StateNotifier<AsyncValue<void>> {
   final SavingRepository _repository;
   final FirestoreDataSource _dataSource;
 
-  SavingNotifier(this._repository, this._dataSource) : super(const AsyncValue.data(null));
+  SavingNotifier(this._repository, this._dataSource)
+    : super(const AsyncValue.data(null));
 
   Future<void> createSaving(SavingModel saving) async {
     state = const AsyncValue.loading();
@@ -46,15 +52,8 @@ class SavingNotifier extends StateNotifier<AsyncValue<void>> {
     state = await AsyncValue.guard(() async {
       final savingData = await _dataSource.getSaving(savingId);
       if (savingData == null) throw Exception('Saving not found');
-      final updated = SavingModel(
-        id: savingData.id,
-        familyId: savingData.familyId,
-        name: savingData.name,
-        targetAmount: savingData.targetAmount,
+      final updated = savingData.copyWith(
         currentAmount: savingData.currentAmount + amount,
-        bankName: savingData.bankName,
-        targetDate: savingData.targetDate,
-        createdAt: savingData.createdAt,
       );
       await _repository.updateSaving(updated);
     });
@@ -65,25 +64,20 @@ class SavingNotifier extends StateNotifier<AsyncValue<void>> {
     state = await AsyncValue.guard(() async {
       final savingData = await _dataSource.getSaving(savingId);
       if (savingData == null) throw Exception('Saving not found');
-      if (savingData.currentAmount < amount) throw Exception('Saldo tabungan tidak mencukupi');
-      final updated = SavingModel(
-        id: savingData.id,
-        familyId: savingData.familyId,
-        name: savingData.name,
-        targetAmount: savingData.targetAmount,
+      if (savingData.currentAmount < amount)
+        throw Exception('Saldo tabungan tidak mencukupi');
+      final updated = savingData.copyWith(
         currentAmount: savingData.currentAmount - amount,
-        bankName: savingData.bankName,
-        targetDate: savingData.targetDate,
-        createdAt: savingData.createdAt,
       );
       await _repository.updateSaving(updated);
     });
   }
 }
 
-final savingNotifierProvider = StateNotifierProvider<SavingNotifier, AsyncValue<void>>((ref) {
-  return SavingNotifier(
-    ref.watch(savingRepositoryProvider),
-    ref.watch(firestoreDataSourceProvider),
-  );
-});
+final savingNotifierProvider =
+    StateNotifierProvider<SavingNotifier, AsyncValue<void>>((ref) {
+      return SavingNotifier(
+        ref.watch(savingRepositoryProvider),
+        ref.watch(firestoreDataSourceProvider),
+      );
+    });

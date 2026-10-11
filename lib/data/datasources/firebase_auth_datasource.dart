@@ -92,6 +92,14 @@ class FirebaseAuthDataSource {
       false;
 
   /// Fresh sign-in proof required before deleting the account.
+  /// Sends a confirmation link to [newEmail]; the sign-in email changes only
+  /// once that link is opened, so a typo cannot lock the account. Needs the
+  /// current password first.
+  Future<void> requestEmailChange(String newEmail, String password) async {
+    await reauthenticate(password: password);
+    await _auth.currentUser!.verifyBeforeUpdateEmail(newEmail.trim());
+  }
+
   Future<void> reauthenticate({String? password}) async {
     final user = _auth.currentUser;
     if (user == null) throw FirebaseAuthException(code: 'no-current-user');

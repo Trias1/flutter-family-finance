@@ -41,7 +41,10 @@ class CurrencyNotifier extends StateNotifier<AsyncValue<CurrencyModel>> {
     final target = _target();
     if (target != null) {
       try {
-        final snap = await _db.collection(target.collection).doc(target.id).get();
+        final snap = await _db
+            .collection(target.collection)
+            .doc(target.id)
+            .get();
         final code = snap.data()?['currency'];
         if (code is String && code.isNotEmpty) {
           currency = CurrencyModel.fromCode(code);
@@ -56,7 +59,10 @@ class CurrencyNotifier extends StateNotifier<AsyncValue<CurrencyModel>> {
   }
 
   /// Returns an error message, or null on success.
-  Future<String?> setCurrency(CurrencyModel currency, {required bool isId}) async {
+  Future<String?> setCurrency(
+    CurrencyModel currency, {
+    required bool isId,
+  }) async {
     final target = _target();
     if (target != null) {
       try {
@@ -69,10 +75,9 @@ class CurrencyNotifier extends StateNotifier<AsyncValue<CurrencyModel>> {
                 : 'Only the family owner can change the family currency.';
           }
         }
-        await _db
-            .collection(target.collection)
-            .doc(target.id)
-            .update({'currency': currency.code});
+        await _db.collection(target.collection).doc(target.id).update({
+          'currency': currency.code,
+        });
       } catch (_) {
         return isId
             ? 'Mata uang gagal disimpan. Coba lagi.'

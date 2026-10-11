@@ -15,6 +15,7 @@ import 'package:family_finance_manager/features/dashboard/presentation/providers
 import 'package:family_finance_manager/features/expense/presentation/providers/expense_provider.dart';
 import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
 import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
+import 'package:family_finance_manager/features/savings/presentation/widgets/balance_sync.dart';
 
 class SavingsPage extends ConsumerWidget {
   const SavingsPage({super.key});
@@ -48,259 +49,301 @@ class SavingsPage extends ConsumerWidget {
         message: s.loadFailed,
         onRetry: () => ref.invalidate(savingStreamProvider(familyId)),
       ),
-      data: (savings) => Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: () async =>
-                ref.invalidate(savingStreamProvider(familyId)),
-            child: savings.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.3,
-                      ),
-                      EmptyWidget(
-                        message: isId ? 'Belum ada goals' : 'No goals yet',
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                    itemCount: savings.length,
-                    itemBuilder: (context, index) {
-                      final saving = savings[index];
-                      final progress = saving.progress;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+      data: (savings) {
+        _rollYearlyGoals(ref, savings);
+        return Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: () async =>
+                  ref.invalidate(savingStreamProvider(familyId)),
+              child: savings.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.3,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      _GoalBankBadge(bankName: saving.bankName),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              saving.name,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            if (saving.bankName != null)
+                        EmptyWidget(
+                          message: isId ? 'Belum ada goals' : 'No goals yet',
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                      itemCount: savings.length,
+                      itemBuilder: (context, index) {
+                        final saving = savings[index];
+                        final progress = saving.progress;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        _GoalBankBadge(
+                                          bankName: saving.bankName,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
                                               Text(
-                                                saving.bankName!,
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
+                                                saving.name,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                          ],
+                                              if (saving.bankName != null)
+                                                Text(
+                                                  saving.bankName!,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                            ],
+                                          ),
                                         ),
+                                      ],
+                                    ),
+                                  ),
+                                  _CircularGoalProgress(progress: progress),
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'edit')
+                                        _showSavingForm(
+                                          context,
+                                          ref,
+                                          saving: saving,
+                                        );
+                                      else if (value == 'add')
+                                        _showAddMoneyDialog(
+                                          context,
+                                          ref,
+                                          saving,
+                                        );
+                                      else if (value == 'withdraw')
+                                        _showWithdrawDialog(
+                                          context,
+                                          ref,
+                                          saving,
+                                        );
+                                      else if (value == 'sync')
+                                        syncGoalFromScreenshot(
+                                          context,
+                                          ref,
+                                          saving,
+                                        );
+                                      else if (value == 'delete')
+                                        ref
+                                            .read(
+                                              savingNotifierProvider.notifier,
+                                            )
+                                            .deleteSaving(saving.id);
+                                    },
+                                    itemBuilder: (ctx) => [
+                                      if (!saving.isGoldInvestment)
+                                        PopupMenuItem(
+                                          value: 'sync',
+                                          child: Text(
+                                            isId
+                                                ? 'Perbarui saldo dari screenshot'
+                                                : 'Update balance from screenshot',
+                                          ),
+                                        ),
+                                      PopupMenuItem(
+                                        value: 'add',
+                                        child: Text(
+                                          isId ? 'Tambah Goals' : 'Add Money',
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'withdraw',
+                                        child: Text(
+                                          isId ? 'Tarik Goals' : 'Withdraw',
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text(
+                                          isId ? 'Edit Target' : 'Edit Goal',
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text(s.delete),
                                       ),
                                     ],
                                   ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: LinearProgressIndicator(
+                                  value: progress / 100,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    progress >= 100
+                                        ? AppTheme.incomeColor
+                                        : AppTheme.savingsColor,
+                                  ),
+                                  minHeight: 10,
                                 ),
-                                _CircularGoalProgress(progress: progress),
-                                PopupMenuButton<String>(
-                                  onSelected: (value) {
-                                    if (value == 'edit')
-                                      _showSavingForm(
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    saving.isGoldInvestment &&
+                                            saving.goldGrams != null
+                                        ? '${saving.goldGrams!.toStringAsFixed(2)} gram'
+                                        : '${CurrencyFormatter.format(saving.currentAmount)} / ${CurrencyFormatter.format(saving.targetAmount)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(
                                         context,
-                                        ref,
-                                        saving: saving,
-                                      );
-                                    else if (value == 'add')
-                                      _showAddMoneyDialog(context, ref, saving);
-                                    else if (value == 'withdraw')
-                                      _showWithdrawDialog(context, ref, saving);
-                                    else if (value == 'delete')
-                                      ref
-                                          .read(savingNotifierProvider.notifier)
-                                          .deleteSaving(saving.id);
-                                  },
-                                  itemBuilder: (ctx) => [
-                                    PopupMenuItem(
-                                      value: 'add',
-                                      child: Text(
-                                        isId ? 'Tambah Goals' : 'Add Money',
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    saving.isGoldInvestment
+                                        ? '${saving.goldProfitLoss >= 0 ? '+' : ''}${CurrencyFormatter.format(saving.goldProfitLoss)}'
+                                        : '${progress.toStringAsFixed(0)}%',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: saving.isGoldInvestment
+                                          ? (saving.goldProfitLoss >= 0
+                                                ? AppTheme.incomeColor
+                                                : AppTheme.expenseColor)
+                                          : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              if (saving.isGoldInvestment) ...[
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '${saving.goldType ?? (isId ? 'Emas' : 'Gold')} • ${saving.purchaseSource != null ? _sourceLabel(saving.purchaseSource!, isId) : '-'}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                       ),
                                     ),
-                                    PopupMenuItem(
-                                      value: 'withdraw',
-                                      child: Text(
-                                        isId ? 'Tarik Goals' : 'Withdraw',
+                                    Text(
+                                      '${saving.goldProfitLossPercent >= 0 ? '+' : ''}${saving.goldProfitLossPercent.toStringAsFixed(1)}%',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: saving.goldProfitLoss >= 0
+                                            ? AppTheme.incomeColor
+                                            : AppTheme.expenseColor,
                                       ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text(
-                                        isId ? 'Edit Target' : 'Edit Goal',
-                                      ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text(s.delete),
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: LinearProgressIndicator(
-                                value: progress / 100,
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  progress >= 100
-                                      ? AppTheme.incomeColor
-                                      : AppTheme.savingsColor,
-                                ),
-                                minHeight: 10,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  saving.isGoldInvestment &&
-                                          saving.goldGrams != null
-                                      ? '${saving.goldGrams!.toStringAsFixed(2)} gram'
-                                      : '${CurrencyFormatter.format(saving.currentAmount)} / ${CurrencyFormatter.format(saving.targetAmount)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                Text(
-                                  saving.isGoldInvestment
-                                      ? '${saving.goldProfitLoss >= 0 ? '+' : ''}${CurrencyFormatter.format(saving.goldProfitLoss)}'
-                                      : '${progress.toStringAsFixed(0)}%',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: saving.isGoldInvestment
-                                        ? (saving.goldProfitLoss >= 0
-                                              ? AppTheme.incomeColor
-                                              : AppTheme.expenseColor)
-                                        : null,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            if (saving.isGoldInvestment) ...[
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${saving.goldType ?? (isId ? 'Emas' : 'Gold')} • ${saving.purchaseSource != null ? _sourceLabel(saving.purchaseSource!, isId) : '-'}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
+                                const SizedBox(height: 2),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '${isId ? 'Beli' : 'Bought'}: ${CurrencyFormatter.format(saving.purchasePricePerGram ?? 0)}/g',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    '${saving.goldProfitLossPercent >= 0 ? '+' : ''}${saving.goldProfitLossPercent.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: saving.goldProfitLoss >= 0
-                                          ? AppTheme.incomeColor
-                                          : AppTheme.expenseColor,
+                                    Text(
+                                      '${isId ? 'Sekarang' : 'Now'}: ${CurrencyFormatter.format(saving.currentPricePerGram ?? 0)}/g',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${isId ? 'Beli' : 'Bought'}: ${CurrencyFormatter.format(saving.purchasePricePerGram ?? 0)}/g',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${isId ? 'Sekarang' : 'Now'}: ${CurrencyFormatter.format(saving.currentPricePerGram ?? 0)}/g',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ] else
-                              Text(
-                                'Target: ${DateFormatter.format(saving.targetDate)}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                                  ],
                                 ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              backgroundColor: AppTheme.savingsColor,
-              foregroundColor: Colors.white,
-              onPressed: () => _showSavingForm(context, ref),
-              child: const Icon(Icons.add),
+                              ] else
+                                _GoalPlan(saving: saving, isId: isId),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
-          ),
-        ],
-      ),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                backgroundColor: AppTheme.savingsColor,
+                foregroundColor: Colors.white,
+                onPressed: () => _showSavingForm(context, ref),
+                child: const Icon(Icons.add),
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  static final _rolled = <String>{};
+
+  /// A yearly goal whose date has passed starts its next year. The balance
+  /// stays as it is (it follows the bank's real balance from screenshots).
+  void _rollYearlyGoals(WidgetRef ref, List<SavingModel> goals) {
+    for (final g in goals) {
+      final next = g.nextYearlyDate();
+      if (next == null || !_rolled.add(g.id)) continue;
+      Future.microtask(
+        () => ref
+            .read(savingRepositoryProvider)
+            .updateSaving(g.copyWith(targetDate: next))
+            .catchError((_) => _rolled.remove(g.id)),
+      );
+    }
   }
 
   void _showSavingForm(
@@ -337,6 +380,7 @@ class SavingsPage extends ConsumerWidget {
           : '',
     );
     String? selectedSource = saving?.purchaseSource;
+    bool repeatYearly = saving?.repeatYearly ?? false;
     final locale = Localizations.localeOf(context);
     final isId = locale.languageCode == 'id';
     final s = AppStrings(locale);
@@ -411,15 +455,36 @@ class SavingsPage extends ConsumerWidget {
                         child: Text(isId ? 'Pendidikan' : 'Education'),
                       ),
                       DropdownMenuItem(
+                        value: SavingCategory.rent,
+                        child: Text(isId ? 'Kontrakan/Sewa' : 'Rent'),
+                      ),
+                      DropdownMenuItem(
+                        value: SavingCategory.hajj,
+                        child: Text(isId ? 'Haji & Umrah' : 'Hajj & Umrah'),
+                      ),
+                      DropdownMenuItem(
+                        value: SavingCategory.wedding,
+                        child: Text(isId ? 'Pernikahan' : 'Wedding'),
+                      ),
+                      DropdownMenuItem(
+                        value: SavingCategory.vehicle,
+                        child: Text(isId ? 'Kendaraan' : 'Vehicle'),
+                      ),
+                      DropdownMenuItem(
                         value: SavingCategory.gold,
                         child: Text(
                           isId ? 'Investasi Emas' : 'Gold Investment',
                         ),
                       ),
                     ],
-                    onChanged: (v) => setSheetState(
-                      () => selectedCategory = v ?? SavingCategory.general,
-                    ),
+                    onChanged: (v) => setSheetState(() {
+                      selectedCategory = v ?? SavingCategory.general;
+                      // Rent comes back every year.
+                      if (saving == null &&
+                          selectedCategory == SavingCategory.rent) {
+                        repeatYearly = true;
+                      }
+                    }),
                   ),
                   const SizedBox(height: 16),
                   if (selectedCategory == SavingCategory.gold) ...[
@@ -576,20 +641,72 @@ class SavingsPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  if (selectedCategory != SavingCategory.gold) ...[
+                    Text(
+                      isId ? 'Jangka waktu' : 'Time frame',
+                      style: Theme.of(ctx).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final months in const [6, 12, 24, 36, 60, 120])
+                          ChoiceChip(
+                            label: Text(
+                              months < 12
+                                  ? (isId ? '$months bulan' : '$months months')
+                                  : (isId
+                                        ? '${months ~/ 12} tahun'
+                                        : '${months ~/ 12} ${months == 12 ? 'year' : 'years'}'),
+                            ),
+                            selected: false,
+                            onSelected: (_) {
+                              final now = DateTime.now();
+                              setSheetState(
+                                () => targetDate = DateTime(
+                                  now.year,
+                                  now.month + months,
+                                  now.day,
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.calendar_today),
                     title: Text('Target: ${DateFormatter.format(targetDate)}'),
+                    subtitle: Text(
+                      isId ? 'Ketuk untuk pilih tanggal' : 'Tap to pick a date',
+                    ),
                     onTap: () async {
                       final date = await showDatePicker(
                         context: ctx,
                         initialDate: targetDate,
                         firstDate: DateTime.now(),
-                        lastDate: DateTime(2035),
+                        // Hajj queues and children's education run decades.
+                        lastDate: DateTime(DateTime.now().year + 40),
                       );
                       if (date != null) setSheetState(() => targetDate = date);
                     },
                   ),
+                  if (selectedCategory != SavingCategory.gold)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: repeatYearly,
+                      onChanged: (v) => setSheetState(() => repeatYearly = v),
+                      title: Text(
+                        isId ? 'Ulang tiap tahun' : 'Repeat every year',
+                      ),
+                      subtitle: Text(
+                        isId
+                            ? 'Untuk kontrakan, uang sekolah, dll. Setelah tanggal target, goal pindah ke tahun berikutnya.'
+                            : 'For rent, school fees and the like. After the target date the goal moves to the next year.',
+                      ),
+                    ),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: isSaving
@@ -622,7 +739,14 @@ class SavingsPage extends ConsumerWidget {
                                   ? null
                                   : selectedBank,
                               targetDate: targetDate,
+                              // Keeps the start date: the on-track check
+                              // measures from it.
+                              createdAt: saving?.createdAt,
                               category: selectedCategory,
+                              repeatYearly:
+                                  selectedCategory != SavingCategory.gold &&
+                                  repeatYearly,
+                              balanceSyncedAt: saving?.balanceSyncedAt,
                               goldType: selectedCategory == SavingCategory.gold
                                   ? goldTypeController.text
                                   : null,
@@ -946,6 +1070,110 @@ class _CircularGoalProgress extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Target date, what to put aside each month, whether the goal is on track,
+/// and where the balance came from.
+class _GoalPlan extends StatelessWidget {
+  final SavingModel saving;
+  final bool isId;
+  const _GoalPlan({required this.saving, required this.isId});
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final small = TextStyle(fontSize: 11, color: muted);
+    final done = saving.remaining <= 0;
+    final months = saving.monthsLeft();
+    final behind = saving.expectedByNow() - saving.currentAmount;
+    final onTrack = behind <= 0.5;
+
+    String timeLeft() {
+      if (months < 12)
+        return isId ? '$months bulan lagi' : '$months months left';
+      final years = months ~/ 12;
+      final rest = months % 12;
+      if (isId)
+        return rest == 0 ? '$years tahun lagi' : '$years th $rest bln lagi';
+      return rest == 0 ? '$years years left' : '${years}y ${rest}m left';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Target: ${DateFormatter.format(saving.targetDate)} · ${timeLeft()}',
+                style: small,
+              ),
+            ),
+            if (saving.repeatYearly)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.autorenew_rounded, size: 13, color: muted),
+                  const SizedBox(width: 2),
+                  Text(isId ? 'Tiap tahun' : 'Yearly', style: small),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (done)
+          Text(
+            isId ? 'Target tercapai 🎉' : 'Target reached 🎉',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.incomeColor,
+            ),
+          )
+        else ...[
+          Text(
+            isId
+                ? 'Nabung ${CurrencyFormatter.format(saving.monthlyNeeded())}/bulan'
+                : 'Save ${CurrencyFormatter.format(saving.monthlyNeeded())}/month',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Icon(
+                onTrack
+                    ? Icons.check_circle_rounded
+                    : Icons.error_outline_rounded,
+                size: 13,
+                color: onTrack ? AppTheme.incomeColor : AppTheme.warningColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                onTrack
+                    ? (isId ? 'Sesuai jalur' : 'On track')
+                    : (isId
+                          ? 'Ketinggalan ${CurrencyFormatter.format(behind)}'
+                          : 'Behind by ${CurrencyFormatter.format(behind)}'),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: onTrack ? AppTheme.incomeColor : AppTheme.warningColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (saving.balanceSyncedAt != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            isId
+                ? 'Saldo dari screenshot · ${DateFormatter.format(saving.balanceSyncedAt!)}'
+                : 'Balance from screenshot · ${DateFormatter.format(saving.balanceSyncedAt!)}',
+            style: small,
+          ),
+        ],
+      ],
     );
   }
 }

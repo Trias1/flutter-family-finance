@@ -338,6 +338,9 @@ class ReceiptParser {
     return letters.length >= 3 && letters == letters.toUpperCase();
   }
 
+  /// The bank or e-wallet named anywhere in [text] ("Bank Neo", "BCA"...).
+  static String? bankIn(String text) => _findName(_payers, text.toLowerCase());
+
   static String? _findName(Map<String, List<String>> table, String lower) {
     for (final entry in table.entries) {
       for (final word in entry.value) {

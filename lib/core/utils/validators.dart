@@ -19,7 +19,8 @@ class Validators {
     if (value == null || value.isEmpty) return 'Password tidak boleh kosong';
     if (value.length < 8) return 'Password minimal 8 karakter';
     if (value.length > 128) return 'Password maksimal 128 karakter';
-    if (!RegExp(r'[A-Za-z]').hasMatch(value) || !RegExp(r'\d').hasMatch(value)) {
+    if (!RegExp(r'[A-Za-z]').hasMatch(value) ||
+        !RegExp(r'\d').hasMatch(value)) {
       return 'Password harus berisi huruf dan angka';
     }
     return null;

@@ -26,16 +26,17 @@ Future<bool> confirmIfDuplicate({
   required bool isId,
 }) async {
   final now = DateTime.now();
-  final matches = recent
-      .where(
-        (e) =>
-            e.category == category &&
-            (e.amount - amount).abs() < 0.005 &&
-            now.difference(e.createdAt) <= duplicateWindow &&
-            !e.createdAt.isAfter(now.add(const Duration(minutes: 1))),
-      )
-      .toList()
-    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  final matches =
+      recent
+          .where(
+            (e) =>
+                e.category == category &&
+                (e.amount - amount).abs() < 0.005 &&
+                now.difference(e.createdAt) <= duplicateWindow &&
+                !e.createdAt.isAfter(now.add(const Duration(minutes: 1))),
+          )
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   if (matches.isEmpty) return true;
 
   final match = matches.first;

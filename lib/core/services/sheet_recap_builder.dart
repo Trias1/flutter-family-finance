@@ -185,38 +185,122 @@ class SheetRecapBuilder {
     if (isSavings(c) || _has(c, ['tabungan', 'savings'])) {
       final both = '$c $n';
       if (_has(both, ['darurat', 'emergency'])) return 'emergency';
-      if (_has(both, ['investasi', 'invest', 'emas', 'gold', 'reksa', 'saham', 'deposito'])) {
+      if (_has(both, [
+        'investasi',
+        'invest',
+        'emas',
+        'gold',
+        'reksa',
+        'saham',
+        'deposito',
+      ])) {
         return 'invest';
       }
       return 'goal';
     }
     if (_has(c, ['darurat', 'emergency'])) return 'emergency';
-    if (_has(c, ['investasi', 'invest', 'emas', 'gold', 'reksa', 'saham', 'deposito'])) {
+    if (_has(c, [
+      'investasi',
+      'invest',
+      'emas',
+      'gold',
+      'reksa',
+      'saham',
+      'deposito',
+    ])) {
       return 'invest';
     }
-    if (_has(c, ['sedekah', 'infaq', 'infak', 'zakat', 'donasi', 'charity', 'donation'])) {
+    if (_has(c, [
+      'sedekah',
+      'infaq',
+      'infak',
+      'zakat',
+      'donasi',
+      'charity',
+      'donation',
+    ])) {
       return 'charity';
     }
     if (_has(c, ['arisan'])) return 'arisan';
-    if (_has(c, ['sewa', 'kontrakan', 'kost!', 'kos!', 'rent!', 'kpr!', 'housing'])) {
+    if (_has(c, [
+      'sewa',
+      'kontrakan',
+      'kost!',
+      'kos!',
+      'rent!',
+      'kpr!',
+      'housing',
+    ])) {
       return 'rent';
     }
-    if (_has(c, ['tagihan', 'listrik', 'air!', 'internet', 'wifi', 'pulsa', 'pln!', 'pdam!', 'bill', 'utilit'])) {
+    if (_has(c, [
+      'tagihan',
+      'listrik',
+      'air!',
+      'internet',
+      'wifi',
+      'pulsa',
+      'pln!',
+      'pdam!',
+      'bill',
+      'utilit',
+    ])) {
       return 'bills';
     }
-    if (_has(c, ['transport', 'bensin', 'bbm!', 'ojek', 'parkir', 'tol!', 'fuel'])) {
+    if (_has(c, [
+      'transport',
+      'bensin',
+      'bbm!',
+      'ojek',
+      'parkir',
+      'tol!',
+      'fuel',
+    ])) {
       return 'transport';
     }
-    if (_has(c, ['makan', 'belanja', 'groceries', 'grocery', 'food', 'minum', 'jajan', 'dapur', 'sembako', 'shopping'])) {
+    if (_has(c, [
+      'makan',
+      'belanja',
+      'groceries',
+      'grocery',
+      'food',
+      'minum',
+      'jajan',
+      'dapur',
+      'sembako',
+      'shopping',
+    ])) {
       return 'food';
     }
-    if (_has(c, ['hangout', 'jalan', 'nongkrong', 'liburan', 'travel', 'trip'])) {
+    if (_has(c, [
+      'hangout',
+      'jalan',
+      'nongkrong',
+      'liburan',
+      'travel',
+      'trip',
+    ])) {
       return 'hangout';
     }
-    if (_has(c, ['pakaian', 'baju', 'kebutuhan pribadi', 'kebutuuan', 'skincare', 'personal', 'cloth'])) {
+    if (_has(c, [
+      'pakaian',
+      'baju',
+      'kebutuhan pribadi',
+      'kebutuuan',
+      'skincare',
+      'personal',
+      'cloth',
+    ])) {
       return 'personal';
     }
-    if (_has(c, ['hobi', 'hobby', 'hiburan', 'entertain', 'game', 'streaming'])) {
+    if (_has(c, [
+      'hobi',
+      'hobby',
+      'hiburan',
+      'entertain',
+      'game',
+      'streaming',
+    ])) {
       return 'hobby';
     }
     if (_has(c, ['sosial', 'social', 'hadiah', 'kado', 'gift', 'kondangan'])) {
@@ -349,10 +433,7 @@ class SheetRecapBuilder {
     rows.add(
       SheetRow([
         SheetCell.text(
-          t(
-            'Rekapitulasi Pengeluaran Bulanan',
-            'Monthly Spending Recap',
-          ),
+          t('Rekapitulasi Pengeluaran Bulanan', 'Monthly Spending Recap'),
           style: CellStyle.blockTitle,
         ),
       ]),

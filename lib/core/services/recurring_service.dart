@@ -120,10 +120,11 @@ class RecurringService {
       RecurringFrequency.daily =>
         d.year == due.year && d.month == due.month && d.day == due.day,
       RecurringFrequency.weekly =>
-        DateTime(d.year, d.month, d.day)
-                .difference(DateTime(due.year, due.month, due.day))
-                .inDays
-                .abs() <=
+        DateTime(
+              d.year,
+              d.month,
+              d.day,
+            ).difference(DateTime(due.year, due.month, due.day)).inDays.abs() <=
             3,
       RecurringFrequency.monthly ||
       RecurringFrequency.yearly => d.year == due.year && d.month == due.month,

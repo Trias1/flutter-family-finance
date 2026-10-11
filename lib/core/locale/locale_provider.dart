@@ -7,7 +7,9 @@ Locale _initialLocale = const Locale('en', 'US');
 Future<Locale> loadInitialLocale() async {
   final prefs = await SharedPreferences.getInstance();
   final code = prefs.getString('locale') ?? 'en';
-  _initialLocale = code == 'id' ? const Locale('id', 'ID') : const Locale('en', 'US');
+  _initialLocale = code == 'id'
+      ? const Locale('id', 'ID')
+      : const Locale('en', 'US');
   return _initialLocale;
 }
 
@@ -25,7 +27,9 @@ class LocaleNotifier extends StateNotifier<Locale> {
   }
 
   void toggle() {
-    final next = state.languageCode == 'en' ? const Locale('id', 'ID') : const Locale('en', 'US');
+    final next = state.languageCode == 'en'
+        ? const Locale('id', 'ID')
+        : const Locale('en', 'US');
     setLocale(next);
   }
 }

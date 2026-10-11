@@ -332,6 +332,160 @@ class ProfilePage extends ConsumerWidget {
 class AccountPage extends ConsumerWidget {
   const AccountPage({super.key});
 
+  /// New email + current password; Firebase mails a link to the new address
+  /// and the change happens when it is opened.
+  Future<void> _changeEmail(BuildContext context, WidgetRef ref) async {
+    final id = ref.read(localeProvider).languageCode == 'id';
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String? error;
+    var busy = false;
+    final sentTo = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(id ? 'Ganti email' : 'Change email'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  id
+                      ? 'Kami kirim link ke email baru. Email baru dipakai setelah link itu diklik; sampai saat itu email lama tetap berlaku.'
+                      : "We'll send a link to the new address. It takes over once the link is opened; until then the old one still works.",
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailCtrl,
+                  enabled: !busy,
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [AutofillHints.email],
+                  decoration: InputDecoration(
+                    labelText: id ? 'Email baru' : 'New email',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: passCtrl,
+                  enabled: !busy,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: id ? 'Password sekarang' : 'Current password',
+                  ),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    error!,
+                    style: const TextStyle(color: AppTheme.errorColor),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(ctx),
+              child: Text(id ? 'Batal' : 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      final email = emailCtrl.text.trim();
+                      if (Validators.email(email) != null) {
+                        setState(
+                          () => error = id
+                              ? 'Format email tidak valid.'
+                              : 'That email address is not valid.',
+                        );
+                        return;
+                      }
+                      setState(() {
+                        busy = true;
+                        error = null;
+                      });
+                      try {
+                        await ref
+                            .read(firebaseAuthDataSourceProvider)
+                            .requestEmailChange(email, passCtrl.text);
+                        if (ctx.mounted) Navigator.pop(ctx, email);
+                      } on FirebaseAuthException catch (e) {
+                        setState(() {
+                          busy = false;
+                          error = switch (e.code) {
+                            'wrong-password' ||
+                            'invalid-credential' ||
+                            'invalid-login-credentials' =>
+                              id ? 'Password salah.' : 'Wrong password.',
+                            'email-already-in-use' =>
+                              id
+                                  ? 'Email itu sudah dipakai akun lain.'
+                                  : 'That email belongs to another account.',
+                            'invalid-email' =>
+                              id
+                                  ? 'Format email tidak valid.'
+                                  : 'That email address is not valid.',
+                            'too-many-requests' =>
+                              id
+                                  ? 'Terlalu sering. Coba lagi nanti.'
+                                  : 'Too many attempts. Try again later.',
+                            _ =>
+                              id
+                                  ? 'Gagal mengirim link. Coba lagi nanti.'
+                                  : "Couldn't send the link. Try again later.",
+                          };
+                        });
+                      } catch (_) {
+                        setState(() {
+                          busy = false;
+                          error = id
+                              ? 'Gagal mengirim link. Cek koneksi lalu coba lagi.'
+                              : "Couldn't send the link. Check your connection.";
+                        });
+                      }
+                    },
+              child: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(id ? 'Kirim link' : 'Send link'),
+            ),
+          ],
+        ),
+      ),
+    );
+    emailCtrl.dispose();
+    passCtrl.dispose();
+    if (sentTo == null || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(id ? 'Cek email baru' : 'Check your new inbox'),
+        content: Text(
+          id
+              ? 'Link sudah dikirim ke $sentTo. Buka link itu untuk menyelesaikan. Setelahnya kamu mungkin diminta masuk lagi dengan email baru.'
+              : 'We sent a link to $sentTo. Open it to finish. You may be asked to sign in again with the new email afterwards.',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final id = ref.watch(localeProvider).languageCode == 'id';
@@ -359,7 +513,10 @@ class AccountPage extends ConsumerWidget {
                 icon: Icons.alternate_email_rounded,
                 color: MenuColors.teal,
                 title: 'Email',
-                subtitle: user?.email ?? '',
+                subtitle: usesPassword
+                    ? user?.email ?? ''
+                    : '${user?.email ?? ''} · ${id ? 'mengikuti akun Google' : 'from your Google account'}',
+                onTap: usesPassword ? () => _changeEmail(context, ref) : null,
               ),
               if (usesPassword)
                 MenuRow(
