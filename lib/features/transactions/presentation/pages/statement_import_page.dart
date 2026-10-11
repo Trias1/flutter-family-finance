@@ -240,13 +240,27 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
     ref.invalidate(dashboardProvider);
     if (!mounted) return;
     final saved = chosen.length - failed;
+    // Rows keep the statement's dates, so an older month's transfer does not
+    // change this month's totals; say where they went.
+    final now = DateTime.now();
+    final months = <DateTime>{
+      for (final r in chosen)
+        if (r.item.date != null)
+          DateTime(r.item.date!.year, r.item.date!.month),
+    }.where((m) => m.year != now.year || m.month != now.month).toList()..sort();
+    final format = MaterialLocalizations.of(context).formatMonthYear;
+    final where = months.isEmpty
+        ? ''
+        : (isId
+              ? ' · masuk ke ${months.map(format).join(', ')}'
+              : ' · recorded in ${months.map(format).join(', ')}');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           failed == 0
               ? (isId
-                    ? '$saved transaksi tersimpan.'
-                    : '$saved transactions saved.')
+                    ? '$saved transaksi tersimpan$where.'
+                    : '$saved ${saved == 1 ? 'transaction' : 'transactions'} saved$where.')
               : (isId
                     ? '$saved tersimpan, $failed gagal. Coba simpan ulang yang gagal.'
                     : '$saved saved, $failed failed. Try those again.'),
