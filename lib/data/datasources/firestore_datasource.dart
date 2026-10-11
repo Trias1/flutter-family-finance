@@ -181,10 +181,15 @@ class FirestoreDataSource {
     return _incomes.doc(id).set(income.toFirestore());
   }
 
-  Future<List<IncomeModel>> getIncomes(String familyId) async {
+  /// [cacheOnly] reads what this phone already has, at once and offline;
+  /// the dashboard shows that first, then the server's answer.
+  Future<List<IncomeModel>> getIncomes(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
     final snapshot = await _incomes
         .where('familyId', isEqualTo: familyId)
-        .get();
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => IncomeModel.fromFirestore(doc))
         .toList();
@@ -219,10 +224,13 @@ class FirestoreDataSource {
     return _expenses.doc(id).set(expense.toFirestore());
   }
 
-  Future<List<ExpenseModel>> getExpenses(String familyId) async {
+  Future<List<ExpenseModel>> getExpenses(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
     final snapshot = await _expenses
         .where('familyId', isEqualTo: familyId)
-        .get();
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => ExpenseModel.fromFirestore(doc))
         .toList();
@@ -258,10 +266,13 @@ class FirestoreDataSource {
     return SavingModel.fromFirestore(doc);
   }
 
-  Future<List<SavingModel>> getSavings(String familyId) async {
+  Future<List<SavingModel>> getSavings(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
     final snapshot = await _savings
         .where('familyId', isEqualTo: familyId)
-        .get();
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => SavingModel.fromFirestore(doc))
         .toList();
@@ -296,11 +307,12 @@ class FirestoreDataSource {
 
   Future<List<BudgetModel>> getBudgetsByMonth(
     String familyId,
-    String month,
-  ) async {
+    String month, {
+    bool cacheOnly = false,
+  }) async {
     final snapshot = await _budgets
         .where('familyId', isEqualTo: familyId)
-        .get();
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final all = snapshot.docs
         .map((doc) => BudgetModel.fromFirestore(doc))
         .toList();
@@ -343,8 +355,13 @@ class FirestoreDataSource {
     return _debts.add(debt.toFirestore());
   }
 
-  Future<List<DebtModel>> getDebts(String familyId) async {
-    final snapshot = await _debts.where('familyId', isEqualTo: familyId).get();
+  Future<List<DebtModel>> getDebts(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
+    final snapshot = await _debts
+        .where('familyId', isEqualTo: familyId)
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => DebtModel.fromFirestore(doc))
         .toList();
@@ -447,8 +464,13 @@ class FirestoreDataSource {
     return BillModel.fromFirestore(doc);
   }
 
-  Future<List<BillModel>> getBills(String familyId) async {
-    final snapshot = await _bills.where('familyId', isEqualTo: familyId).get();
+  Future<List<BillModel>> getBills(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
+    final snapshot = await _bills
+        .where('familyId', isEqualTo: familyId)
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => BillModel.fromFirestore(doc))
         .toList();

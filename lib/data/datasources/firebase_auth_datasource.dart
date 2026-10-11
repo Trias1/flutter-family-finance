@@ -97,7 +97,10 @@ class FirebaseAuthDataSource {
     if (user == null) throw FirebaseAuthException(code: 'no-current-user');
     if (hasPasswordProvider) {
       await user.reauthenticateWithCredential(
-        EmailAuthProvider.credential(email: user.email ?? '', password: password ?? ''),
+        EmailAuthProvider.credential(
+          email: user.email ?? '',
+          password: password ?? '',
+        ),
       );
       return;
     }

@@ -30,16 +30,16 @@ class BillModel {
   });
 
   Map<String, dynamic> toFirestore() => {
-        'familyId': familyId,
-        'name': name,
-        'amount': amount,
-        'dueDate': Timestamp.fromDate(dueDate),
-        'repeatType': repeatType.name,
-        'status': status.name,
-        'paidDate': paidDate != null ? Timestamp.fromDate(paidDate!) : null,
-        'note': note,
-        'createdAt': Timestamp.fromDate(createdAt),
-      };
+    'familyId': familyId,
+    'name': name,
+    'amount': amount,
+    'dueDate': Timestamp.fromDate(dueDate),
+    'repeatType': repeatType.name,
+    'status': status.name,
+    'paidDate': paidDate != null ? Timestamp.fromDate(paidDate!) : null,
+    'note': note,
+    'createdAt': Timestamp.fromDate(createdAt),
+  };
 
   factory BillModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;

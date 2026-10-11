@@ -6,14 +6,18 @@ class BudgetRepository {
   final FirestoreDataSource _dataSource;
 
   BudgetRepository({required FirestoreDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   Future<void> setBudget(BudgetModel budget) {
     return _dataSource.setBudget(budget);
   }
 
-  Future<List<BudgetModel>> getBudgetsByMonth(String familyId, String month) {
-    return _dataSource.getBudgetsByMonth(familyId, month);
+  Future<List<BudgetModel>> getBudgetsByMonth(
+    String familyId,
+    String month, {
+    bool cacheOnly = false,
+  }) {
+    return _dataSource.getBudgetsByMonth(familyId, month, cacheOnly: cacheOnly);
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> streamBudgets(String familyId) {
@@ -82,16 +86,21 @@ class BudgetRepository {
     for (final b in prevBudgets) {
       // A fixed id per family/month/category: if two devices roll over at
       // the same time they write the same document instead of duplicates.
-      final safeCategory = b.category.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
-      await setBudget(BudgetModel(
-        id: 'rollover_${familyId}_${currentMonth}_$safeCategory',
-        familyId: familyId,
-        month: currentMonth,
-        category: b.category,
-        budgetAmount: b.budgetAmount,
-        usedAmount: 0,
-        rolloverAmount: b.remaining > 0 ? b.remaining : 0,
-      ));
+      final safeCategory = b.category.replaceAll(
+        RegExp(r'[^A-Za-z0-9_-]'),
+        '_',
+      );
+      await setBudget(
+        BudgetModel(
+          id: 'rollover_${familyId}_${currentMonth}_$safeCategory',
+          familyId: familyId,
+          month: currentMonth,
+          category: b.category,
+          budgetAmount: b.budgetAmount,
+          usedAmount: 0,
+          rolloverAmount: b.remaining > 0 ? b.remaining : 0,
+        ),
+      );
     }
   }
 }

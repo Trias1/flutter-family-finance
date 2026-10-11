@@ -176,7 +176,8 @@ class MemberSpendingCard extends StatelessWidget {
                 for (final r in rows)
                   _ShareRow(
                     label:
-                        names[r.key] ?? (isId ? 'Mantan anggota' : 'Former member'),
+                        names[r.key] ??
+                        (isId ? 'Mantan anggota' : 'Former member'),
                     amount: r.value,
                     share: total > 0 ? r.value / total : 0,
                     note: total > 0

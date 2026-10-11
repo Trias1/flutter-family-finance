@@ -41,9 +41,12 @@ class DebtModel {
       personName: data['personName'] ?? '',
       type: data['type'] == 'piutang' ? DebtType.piutang : DebtType.hutang,
       amount: (data['amount'] ?? 0).toDouble(),
-      remainingAmount: (data['remainingAmount'] ?? data['amount'] ?? 0).toDouble(),
+      remainingAmount: (data['remainingAmount'] ?? data['amount'] ?? 0)
+          .toDouble(),
       description: data['description'],
-      dueDate: data['dueDate'] != null ? (data['dueDate'] as Timestamp).toDate() : null,
+      dueDate: data['dueDate'] != null
+          ? (data['dueDate'] as Timestamp).toDate()
+          : null,
       status: _parseStatus(data['status']),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
@@ -59,19 +62,30 @@ class DebtModel {
       'remainingAmount': remainingAmount,
       'description': description,
       'dueDate': dueDate != null ? Timestamp.fromDate(dueDate!) : null,
-      'status': status == DebtStatus.paid ? 'paid' : status == DebtStatus.cancelled ? 'cancelled' : 'active',
+      'status': status == DebtStatus.paid
+          ? 'paid'
+          : status == DebtStatus.cancelled
+          ? 'cancelled'
+          : 'active',
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
   static DebtStatus _parseStatus(String? s) {
     switch (s) {
-      case 'paid': return DebtStatus.paid;
-      case 'cancelled': return DebtStatus.cancelled;
-      default: return DebtStatus.active;
+      case 'paid':
+        return DebtStatus.paid;
+      case 'cancelled':
+        return DebtStatus.cancelled;
+      default:
+        return DebtStatus.active;
     }
   }
 
-  double get progress => amount > 0 ? ((amount - remainingAmount) / amount) * 100 : 0;
-  bool get isOverdue => dueDate != null && dueDate!.isBefore(DateTime.now()) && status == DebtStatus.active;
+  double get progress =>
+      amount > 0 ? ((amount - remainingAmount) / amount) * 100 : 0;
+  bool get isOverdue =>
+      dueDate != null &&
+      dueDate!.isBefore(DateTime.now()) &&
+      status == DebtStatus.active;
 }

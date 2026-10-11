@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
 import 'package:family_finance_manager/core/services/prediction_service.dart';
 import 'package:family_finance_manager/core/services/widget_service.dart';
 import 'package:family_finance_manager/data/models/bill_model.dart';
@@ -100,7 +101,11 @@ Map<DateTime, DailySummary> _buildDailySummary(
     incomeByDay.putIfAbsent(day, () => []).add(income);
   }
   for (final expense in expenses) {
-    final day = DateTime(expense.date.year, expense.date.month, expense.date.day);
+    final day = DateTime(
+      expense.date.year,
+      expense.date.month,
+      expense.date.day,
+    );
     expenseByDay.putIfAbsent(day, () => []).add(expense);
   }
 
@@ -108,10 +113,14 @@ Map<DateTime, DailySummary> _buildDailySummary(
   return {
     for (final date in allDates)
       date: DailySummary(
-        totalIncome:
-            (incomeByDay[date] ?? []).fold<double>(0, (s, e) => s + e.amount),
-        totalExpense:
-            (expenseByDay[date] ?? []).fold<double>(0, (s, e) => s + e.amount),
+        totalIncome: (incomeByDay[date] ?? []).fold<double>(
+          0,
+          (s, e) => s + e.amount,
+        ),
+        totalExpense: (expenseByDay[date] ?? []).fold<double>(
+          0,
+          (s, e) => s + e.amount,
+        ),
         incomes: incomeByDay[date] ?? [],
         expenses: expenseByDay[date] ?? [],
       ),
@@ -133,9 +142,33 @@ Future<List<T>> _safeQuery<T>(
   }
 }
 
-final dashboardProvider = FutureProvider<DashboardData>((ref) async {
+/// Shows what the phone already has right away (like WhatsApp opening on the
+/// last chats), then the server's answer when it arrives.
+final dashboardProvider = StreamProvider<DashboardData>((ref) async* {
   final familyId = ref.watch(financeScopeIdProvider);
   final dataSource = ref.watch(firestoreDataSourceProvider);
+  if (familyId.isNotEmpty) {
+    try {
+      final cached = await _loadDashboard(
+        familyId,
+        dataSource,
+        cacheOnly: true,
+      );
+      if (cached.allIncomes.isNotEmpty || cached.allExpenses.isNotEmpty) {
+        yield cached;
+      }
+    } catch (_) {
+      // Nothing usable cached yet: wait for the server below.
+    }
+  }
+  yield await _loadDashboard(familyId, dataSource);
+});
+
+Future<DashboardData> _loadDashboard(
+  String familyId,
+  FirestoreDataSource dataSource, {
+  bool cacheOnly = false,
+}) async {
   final budgetRepo = BudgetRepository(dataSource: dataSource);
 
   final failed = <String>[];
@@ -143,17 +176,22 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
   Future<List<T>> q<T>(String name, Future<List<T>> Function() query) =>
       familyId.isEmpty ? Future.value(<T>[]) : _safeQuery(name, failed, query);
   final results = await Future.wait([
-    q('incomes', () => dataSource.getIncomes(familyId)),
-    q('expenses', () => dataSource.getExpenses(familyId)),
-    q('savings', () => dataSource.getSavings(familyId)),
+    q('incomes', () => dataSource.getIncomes(familyId, cacheOnly: cacheOnly)),
+    q('expenses', () => dataSource.getExpenses(familyId, cacheOnly: cacheOnly)),
+    q('savings', () => dataSource.getSavings(familyId, cacheOnly: cacheOnly)),
     q('budgets', () async {
-      await budgetRepo.rolloverIfNeeded(familyId);
+      // Carrying budgets over writes; only the server pass does it.
+      if (!cacheOnly) await budgetRepo.rolloverIfNeeded(familyId);
       final month =
           '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
-      return budgetRepo.getBudgetsByMonth(familyId, month);
+      return budgetRepo.getBudgetsByMonth(
+        familyId,
+        month,
+        cacheOnly: cacheOnly,
+      );
     }),
-    q('bills', () => dataSource.getBills(familyId)),
-    q('debts', () => dataSource.getDebts(familyId)),
+    q('bills', () => dataSource.getBills(familyId, cacheOnly: cacheOnly)),
+    q('debts', () => dataSource.getDebts(familyId, cacheOnly: cacheOnly)),
   ]);
 
   final incomes = results[0] as List<IncomeModel>;
@@ -173,16 +211,19 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
       .where((b) => b.category != 'Tabungan' && b.category != 'Savings')
       .fold<double>(0, (sum, e) => sum + e.remaining);
 
-  WidgetService.updateBalance(totalIncome - totalExpense);
+  if (!cacheOnly) WidgetService.updateBalance(totalIncome - totalExpense);
 
-  final upcomingBills = allBills
-      .where((b) => b.status != BillStatus.paid)
-      .toList()
-    ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+  final upcomingBills =
+      allBills.where((b) => b.status != BillStatus.paid).toList()
+        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
   final Map<DateTime, List<BillModel>> billsByDate = {};
   for (final bill in allBills) {
-    final day = DateTime(bill.dueDate.year, bill.dueDate.month, bill.dueDate.day);
+    final day = DateTime(
+      bill.dueDate.year,
+      bill.dueDate.month,
+      bill.dueDate.day,
+    );
     billsByDate.putIfAbsent(day, () => []).add(bill);
   }
 
@@ -201,11 +242,12 @@ final dashboardProvider = FutureProvider<DashboardData>((ref) async {
     dailySummary: _buildDailySummary(incomes, expenses),
     billsByDate: billsByDate,
     debts: debts,
-    failedSections: failed,
+    // A cache miss is not a failure worth a banner.
+    failedSections: cacheOnly ? const [] : failed,
     prediction: PredictionService().predict30Days(
       incomes: incomes,
       expenses: expenses,
       currentBalance: totalIncome - totalExpense,
     ),
   );
-});
+}

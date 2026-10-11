@@ -6,7 +6,7 @@ class FamilyRepository {
   final FirestoreDataSource _dataSource;
 
   FamilyRepository({required FirestoreDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   Future<FamilyModel> createFamily(String name, String createdBy) {
     final code = _generateInviteCode();

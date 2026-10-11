@@ -7,7 +7,7 @@ class TransactionRepository {
   final FirestoreDataSource _dataSource;
 
   TransactionRepository({required FirestoreDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   Future<void> createIncome(IncomeModel income) {
     return _dataSource.createIncome(income);

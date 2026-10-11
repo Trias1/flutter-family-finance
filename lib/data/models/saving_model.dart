@@ -13,7 +13,7 @@ class SavingModel {
   final DateTime targetDate;
   final DateTime createdAt;
   final SavingCategory category;
-  
+
   // Gold investment fields
   final String? goldType; // LM 0.5gr, Antam 1gr, Antam 5gr, UBS, etc
   final double? goldGrams; // jumlah gram
@@ -51,9 +51,15 @@ class SavingModel {
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       category: _parseCategory(data['category']),
       goldType: data['goldType'] as String?,
-      goldGrams: data['goldGrams'] != null ? (data['goldGrams'] as num).toDouble() : null,
-      purchasePricePerGram: data['purchasePricePerGram'] != null ? (data['purchasePricePerGram'] as num).toDouble() : null,
-      currentPricePerGram: data['currentPricePerGram'] != null ? (data['currentPricePerGram'] as num).toDouble() : null,
+      goldGrams: data['goldGrams'] != null
+          ? (data['goldGrams'] as num).toDouble()
+          : null,
+      purchasePricePerGram: data['purchasePricePerGram'] != null
+          ? (data['purchasePricePerGram'] as num).toDouble()
+          : null,
+      currentPricePerGram: data['currentPricePerGram'] != null
+          ? (data['currentPricePerGram'] as num).toDouble()
+          : null,
       purchaseSource: data['purchaseSource'] as String?,
     );
   }
@@ -87,32 +93,44 @@ class SavingModel {
       'category': category.name,
       if (goldType != null) 'goldType': goldType,
       if (goldGrams != null) 'goldGrams': goldGrams,
-      if (purchasePricePerGram != null) 'purchasePricePerGram': purchasePricePerGram,
-      if (currentPricePerGram != null) 'currentPricePerGram': currentPricePerGram,
+      if (purchasePricePerGram != null)
+        'purchasePricePerGram': purchasePricePerGram,
+      if (currentPricePerGram != null)
+        'currentPricePerGram': currentPricePerGram,
       if (purchaseSource != null) 'purchaseSource': purchaseSource,
     };
   }
 
-  double get progress => targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
+  double get progress =>
+      targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
   double get remaining => targetAmount - currentAmount;
-  
+
   // Gold investment helpers
   bool get isGoldInvestment => category == SavingCategory.gold;
-  
+
   double get goldCurrentValue {
-    if (!isGoldInvestment || goldGrams == null || currentPricePerGram == null) return currentAmount;
+    if (!isGoldInvestment || goldGrams == null || currentPricePerGram == null)
+      return currentAmount;
     return goldGrams! * currentPricePerGram!;
   }
-  
+
   double get goldProfitLoss {
-    if (!isGoldInvestment || goldGrams == null || purchasePricePerGram == null || currentPricePerGram == null) return 0;
+    if (!isGoldInvestment ||
+        goldGrams == null ||
+        purchasePricePerGram == null ||
+        currentPricePerGram == null)
+      return 0;
     final purchaseValue = goldGrams! * purchasePricePerGram!;
     final currentValue = goldGrams! * currentPricePerGram!;
     return currentValue - purchaseValue;
   }
-  
+
   double get goldProfitLossPercent {
-    if (!isGoldInvestment || goldGrams == null || purchasePricePerGram == null || currentPricePerGram == null) return 0;
+    if (!isGoldInvestment ||
+        goldGrams == null ||
+        purchasePricePerGram == null ||
+        currentPricePerGram == null)
+      return 0;
     final purchaseValue = goldGrams! * purchasePricePerGram!;
     if (purchaseValue == 0) return 0;
     return (goldProfitLoss / purchaseValue) * 100;
