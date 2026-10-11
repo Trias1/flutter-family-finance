@@ -225,6 +225,31 @@ describe("profiles", () => {
   })
 })
 
+describe("signing out another device", () => {
+  const mark = (db, uid, device) =>
+    setDoc(doc(db, "users", uid, "session_revocations", device), { requestedAt: serverTimestamp(), requestedBy: "phone-1" })
+
+  test("users can mark, read and clear their own devices", async () => {
+    const db = as("bob")
+    await assertSucceeds(mark(db, "bob", "web-1"))
+    await assertSucceeds(getDoc(doc(db, "users", "bob", "session_revocations", "web-1")))
+    await assertSucceeds(deleteDoc(doc(db, "users", "bob", "session_revocations", "web-1")))
+  })
+
+  test("nobody can mark or read someone else's devices, family included", async () => {
+    await assertFails(mark(as("alice"), "bob", "web-1"))
+    await env.withSecurityRulesDisabled((ctx) => mark(ctx.firestore(), "bob", "web-2"))
+    await assertFails(getDoc(doc(as("alice"), "users", "bob", "session_revocations", "web-2")))
+    await assertFails(deleteDoc(doc(as("alice"), "users", "bob", "session_revocations", "web-2")))
+  })
+
+  test("marks carry only the request time and the requesting device", async () => {
+    const db = as("bob")
+    await assertFails(setDoc(doc(db, "users", "bob", "session_revocations", "web-1"), { requestedAt: serverTimestamp(), requestedBy: "x", note: "hi" }))
+    await assertFails(setDoc(doc(db, "users", "bob", "session_revocations", "web-1"), { requestedAt: now, requestedBy: "x" }))
+  })
+})
+
 describe("finance data", () => {
   test("members read their family's data; outsiders cannot", async () => {
     await assertSucceeds(getDocs(query(collection(as("alice"), "expenses"), where("familyId", "==", "F1"))))

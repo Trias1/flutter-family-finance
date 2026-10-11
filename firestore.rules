@@ -185,6 +185,20 @@ service cloud.firestore {
           && shortText('fcmToken', 4096) && shortText('privacyNote', 300);
         allow delete: if isAuth() && request.auth.uid == uid;
       }
+
+      // "Sign out this device": the user marks one of their own devices from
+      // another; that device sees the mark, signs itself out and removes it.
+      match /session_revocations/{deviceId} {
+        allow read, delete: if isAuth() && request.auth.uid == uid;
+        allow create: if isAuth()
+          && request.auth.uid == uid
+          && deviceId.size() <= 80
+          && request.resource.data.keys().hasOnly(['requestedAt', 'requestedBy'])
+          && request.resource.data.requestedAt == request.time
+          && request.resource.data.requestedBy is string
+          && request.resource.data.requestedBy.size() <= 80;
+        allow update: if false;
+      }
     }
 
     // ============ PUBLIC USER MONITORING DATA ============

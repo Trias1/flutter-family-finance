@@ -1,6 +1,6 @@
-import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { deleteDoc, doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore"
 
-import { db } from "@/lib/firebase"
+import { db, signOutAndClear } from "@/lib/firebase"
 import { APP_VERSION_CODE, APP_VERSION_NAME } from "@/lib/app-info"
 
 const PRESENCE_STORAGE_KEY = "family-finance-web-device-id"
@@ -55,6 +55,26 @@ export function startWebPresence(uid: string) {
 
   void sync()
   const interval = window.setInterval(sync, 60_000)
+
+  // "Sign out this device" from the phone app: this browser sees the mark,
+  // clears it and its own entry, signs out and shows why on the login page.
+  const deviceId = getWebDeviceId()
+  const stopRevocation = onSnapshot(
+    doc(db, "users", uid, "session_revocations", deviceId),
+    async (snap) => {
+      if (!snap.exists() || cancelled) return
+      cancelled = true
+      window.clearInterval(interval)
+      await deleteDoc(snap.ref).catch(() => {})
+      await deleteDoc(doc(db, "users", uid, "devices", deviceId)).catch(() => {})
+      await signOutAndClear().catch(() => {})
+      const locale = window.location.pathname.split("/")[1] || "id"
+      // A full load is required: the Firestore instance is closed after clearing.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = `/${locale}/login?revoked=1`
+    },
+    () => {},
+  )
   const visibilityHandler = () => {
     if (document.visibilityState === "visible") void sync()
   }
@@ -64,6 +84,7 @@ export function startWebPresence(uid: string) {
   return () => {
     cancelled = true
     window.clearInterval(interval)
+    stopRevocation()
     document.removeEventListener("visibilitychange", visibilityHandler)
   }
 }

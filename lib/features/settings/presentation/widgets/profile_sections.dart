@@ -1,10 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -15,8 +13,8 @@ import 'package:family_finance_manager/core/widgets/account_actions.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 
-// Extra sections on the Profile tab: account facts, the user's own activity,
-// the phones signed in, and shortcuts.
+// Building blocks for the Profile tab in a Telegram-like layout: grouped
+// rows with coloured icon tiles, each opening its own page.
 
 const _months = {
   true: [
@@ -46,86 +44,166 @@ int recordingStreak(Iterable<DateTime> recordedAt, DateTime today) {
   return streak;
 }
 
-class _Section extends StatelessWidget {
-  final String title;
+/// Tile colours, one per row, like Telegram's settings list.
+class MenuColors {
+  static const blue = Color(0xFF3D7BD9);
+  static const green = Color(0xFF3FA866);
+  static const orange = Color(0xFFE8863A);
+  static const purple = Color(0xFF8A63D2);
+  static const grey = Color(0xFF8E8E93);
+  static const teal = Color(0xFF2FA7A0);
+  static const red = Color(0xFFE0534A);
+  static const pink = Color(0xFFD9467A);
+}
+
+/// A rounded group of rows with an optional coloured label above it.
+class MenuGroup extends StatelessWidget {
+  final String? label;
   final List<Widget> children;
-  const _Section({required this.title, required this.children});
+  final String? footer;
+  const MenuGroup({super.key, this.label, required this.children, this.footer});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) rows.add(const Divider(height: 1, indent: 60));
+      rows.add(children[i]);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: scheme.onSurfaceVariant,
+        if (label != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              label!,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
             ),
           ),
-        ),
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
             color: scheme.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
-            ),
           ),
           clipBehavior: Clip.antiAlias,
-          child: Column(children: children),
+          child: Column(children: rows),
         ),
+        if (footer != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              footer!,
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+          ),
       ],
     );
   }
 }
 
-class _Row extends StatelessWidget {
+/// One row: coloured icon tile, title, small grey subtitle, then a value or
+/// a chevron.
+class MenuRow extends StatelessWidget {
   final IconData icon;
+  final Color color;
   final String title;
   final String? subtitle;
+  final String? value;
   final Widget? trailing;
-  final Color? color;
+  final bool danger;
   final VoidCallback? onTap;
-  const _Row({
+  const MenuRow({
+    super.key,
     required this.icon,
+    required this.color,
     required this.title,
     this.subtitle,
+    this.value,
     this.trailing,
-    this.color,
+    this.danger = false,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ListTile(
+    return InkWell(
       onTap: onTap,
-      leading: Icon(icon, color: color ?? scheme.onSurfaceVariant, size: 22),
-      title: Text(title, style: TextStyle(fontSize: 14, color: color)),
-      subtitle: subtitle == null
-          ? null
-          : Text(subtitle!, style: const TextStyle(fontSize: 12)),
-      trailing:
-          trailing ??
-          (onTap == null
-              ? null
-              : Icon(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, color: Colors.white, size: 19),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: danger ? AppTheme.errorColor : null,
+                    ),
+                  ),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (trailing != null) trailing!,
+            if (value != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Text(
+                  value!,
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+              ),
+            if (onTap != null && !danger)
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(
                   Icons.chevron_right_rounded,
                   color: scheme.onSurfaceVariant,
-                )),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 /// How the user signs in, whether the email is verified, and since when.
-class AccountInfoSection extends ConsumerWidget {
-  const AccountInfoSection({super.key});
+class AccountInfoGroup extends ConsumerWidget {
+  const AccountInfoGroup({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -138,30 +216,30 @@ class AccountInfoSection extends ConsumerWidget {
     final password = providers.contains('password');
     final method = [
       if (google) 'Google',
-      if (password) (isId ? 'Email & password' : 'Email & password'),
+      if (password) 'Email & password',
     ].join(' + ');
     final verified = auth.emailVerified || google;
 
-    return _Section(
-      title: isId ? 'Akun' : 'Account',
+    return MenuGroup(
+      label: isId ? 'Keamanan akun' : 'Account security',
       children: [
-        _Row(
-          icon: google ? Icons.g_mobiledata_rounded : Icons.key_rounded,
+        MenuRow(
+          icon: Icons.key_rounded,
+          color: MenuColors.grey,
           title: isId ? 'Cara masuk' : 'Signs in with',
           subtitle: method.isEmpty ? '-' : method,
         ),
-        _Row(
-          icon: verified
-              ? Icons.verified_rounded
-              : Icons.mark_email_unread_outlined,
-          color: verified ? AppTheme.incomeColor : AppTheme.warningColor,
+        MenuRow(
+          icon: verified ? Icons.verified_rounded : Icons.mark_email_unread,
+          color: verified ? MenuColors.green : MenuColors.orange,
           title: verified
               ? (isId ? 'Email terverifikasi' : 'Email verified')
               : (isId ? 'Email belum terverifikasi' : 'Email not verified'),
           subtitle: user.email,
         ),
-        _Row(
+        MenuRow(
           icon: Icons.event_available_rounded,
+          color: MenuColors.blue,
           title: isId ? 'Bergabung sejak' : 'Member since',
           subtitle: _monthYear(user.createdAt, isId),
         ),
@@ -170,257 +248,100 @@ class AccountInfoSection extends ConsumerWidget {
   }
 }
 
-/// What the user has recorded: how many, how many days in a row, and (in a
-/// family) their own spending this month.
-class ActivitySection extends ConsumerWidget {
-  const ActivitySection({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isId = ref.watch(localeProvider).languageCode == 'id';
-    final uid = ref.watch(authNotifierProvider).valueOrNull?.id;
-    final familyMode = ref.watch(familyIdProvider).isNotEmpty;
-    final data = ref.watch(dashboardProvider).valueOrNull;
-    if (uid == null || data == null) return const SizedBox.shrink();
-
-    final incomes = data.allIncomes.where((e) => e.userId == uid).toList();
-    final expenses = data.allExpenses.where((e) => e.userId == uid).toList();
-    final count = incomes.length + expenses.length;
-    final now = DateTime.now();
-    final streak = recordingStreak([
-      for (final e in incomes) e.createdAt,
-      for (final e in expenses) e.createdAt,
-    ], now);
-    final mySpending = expenses
-        .where(
-          (e) =>
-              e.date.year == now.year &&
-              e.date.month == now.month &&
-              e.category != 'Tabungan' &&
-              e.category != 'Savings',
-        )
-        .fold<double>(0, (s, e) => s + e.amount);
-
-    return _Section(
-      title: isId ? 'Aktivitas kamu' : 'Your activity',
-      children: [
-        _Row(
-          icon: Icons.receipt_long_rounded,
-          title: isId
-              ? '$count transaksi dicatat'
-              : '$count ${count == 1 ? 'transaction' : 'transactions'} recorded',
-        ),
-        _Row(
-          icon: Icons.local_fire_department_rounded,
-          color: streak > 0 ? AppTheme.warningColor : null,
-          title: streak > 0
-              ? (isId
-                    ? 'Mencatat $streak hari berturut-turut'
-                    : 'Recorded $streak ${streak == 1 ? 'day' : 'days'} in a row')
-              : (isId
-                    ? 'Belum ada catatan hari ini'
-                    : 'Nothing recorded today'),
-          subtitle: streak > 0
-              ? (isId
-                    ? 'Catat tiap hari biar nggak putus.'
-                    : 'Record something every day to keep it going.')
-              : (isId
-                    ? 'Catat satu transaksi untuk mulai.'
-                    : 'Record a transaction to start a streak.'),
-        ),
-        if (familyMode)
-          _Row(
-            icon: Icons.person_outline_rounded,
-            title: isId
-                ? 'Pengeluaranmu bulan ini'
-                : 'Your spending this month',
-            trailing: Text(
-              CurrencyFormatter.format(mySpending),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.expenseColor,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
+/// Numbers behind the Activity row and page.
+class ActivityStats {
+  final int count;
+  final int streak;
+  final double mySpendingThisMonth;
+  const ActivityStats(this.count, this.streak, this.mySpendingThisMonth);
 }
 
-final _myDevicesProvider =
-    StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final uid = ref.watch(authNotifierProvider).valueOrNull?.id;
-      if (uid == null) return Stream.value(const []);
-      return FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('devices')
-          .snapshots()
-          .map((snap) {
-            final list = [
-              for (final d in snap.docs) {...d.data(), 'id': d.id},
-            ];
-            list.sort((a, b) {
-              final ta = a['lastSeenAt'] as Timestamp?;
-              final tb = b['lastSeenAt'] as Timestamp?;
-              return (tb?.millisecondsSinceEpoch ?? 0).compareTo(
-                ta?.millisecondsSinceEpoch ?? 0,
-              );
-            });
-            return list;
-          })
-          .handleError((_) {});
-    });
-
-final _thisDeviceIdProvider = FutureProvider.autoDispose<String?>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getString('device_registry_id');
+final activityStatsProvider = Provider<ActivityStats?>((ref) {
+  final uid = ref.watch(authNotifierProvider).valueOrNull?.id;
+  final data = ref.watch(dashboardProvider).valueOrNull;
+  if (uid == null || data == null) return null;
+  final incomes = data.allIncomes.where((e) => e.userId == uid).toList();
+  final expenses = data.allExpenses.where((e) => e.userId == uid).toList();
+  final now = DateTime.now();
+  final streak = recordingStreak([
+    for (final e in incomes) e.createdAt,
+    for (final e in expenses) e.createdAt,
+  ], now);
+  final mine = expenses
+      .where(
+        (e) =>
+            e.date.year == now.year &&
+            e.date.month == now.month &&
+            e.category != 'Tabungan' &&
+            e.category != 'Savings',
+      )
+      .fold<double>(0, (s, e) => s + e.amount);
+  return ActivityStats(incomes.length + expenses.length, streak, mine);
 });
 
-/// The Android phones signed in to this account, newest first, so a phone
-/// the user does not recognise stands out.
-class DevicesSection extends ConsumerWidget {
-  const DevicesSection({super.key});
+String activitySummary(ActivityStats? s, bool isId) {
+  if (s == null) return '';
+  final count = isId
+      ? '${s.count} transaksi'
+      : '${s.count} ${s.count == 1 ? 'transaction' : 'transactions'}';
+  if (s.streak == 0) return count;
+  final streak = isId
+      ? '${s.streak} hari berturut-turut'
+      : '${s.streak} ${s.streak == 1 ? 'day' : 'days'} in a row';
+  return '$count · $streak';
+}
 
-  String _ago(DateTime t, bool isId) {
-    final d = DateTime.now().difference(t);
-    if (d.inMinutes < 2) return isId ? 'aktif sekarang' : 'active now';
-    if (d.inHours < 1) {
-      return isId ? '${d.inMinutes} menit lalu' : '${d.inMinutes} min ago';
-    }
-    if (d.inDays < 1) {
-      return isId ? '${d.inHours} jam lalu' : '${d.inHours} h ago';
-    }
-    if (isId) return '${d.inDays} hari lalu';
-    return d.inDays == 1 ? '1 day ago' : '${d.inDays} days ago';
-  }
-
-  static const _os = {
-    'Win32': 'Windows',
-    'Win64': 'Windows',
-    'MacIntel': 'Mac',
-    'Linux x86_64': 'Linux',
-  };
-
-  Widget _deviceRow(
-    BuildContext context,
-    String uid,
-    Map<String, dynamic> d,
-    bool mine,
-    bool isId,
-  ) {
-    final web = d['platform'] == 'web';
-    final brand = (d['brand'] ?? '').toString().trim();
-    final model = (d['model'] ?? '').toString().trim();
-    final version = (d['androidVersion'] ?? '').toString().trim();
-    final app = (d['appVersionName'] ?? '').toString().trim();
-    final name = web
-        ? [brand, _os[model] ?? model].where((s) => s.isNotEmpty).join(' · ')
-        : '$brand $model'.trim();
-    return _Row(
-      icon: web ? Icons.laptop_rounded : Icons.phone_android_rounded,
-      color: mine ? AppTheme.primaryColor : null,
-      title: name,
-      subtitle: [
-        if (web) 'Browser' else if (version.isNotEmpty) 'Android $version',
-        if (!web && app.isNotEmpty) 'App $app',
-        if (!mine && d['lastSeenAt'] is Timestamp)
-          _ago((d['lastSeenAt'] as Timestamp).toDate(), isId),
-      ].join(' · '),
-      trailing: mine
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.incomeColor.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                isId ? 'Sedang dipakai' : 'In use',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.incomeColor,
-                ),
-              ),
-            )
-          : IconButton(
-              tooltip: isId ? 'Hapus dari daftar' : 'Remove from list',
-              icon: const Icon(Icons.close_rounded, size: 20),
-              onPressed: () =>
-                  _remove(context, uid, d['id'] as String, name, isId),
-            ),
-    );
-  }
-
-  /// Removes the entry only: Firebase cannot sign out one device, so a
-  /// phone still signed in comes back the next time it opens the app.
-  Future<void> _remove(
-    BuildContext context,
-    String uid,
-    String deviceId,
-    String name,
-    bool isId,
-  ) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isId ? 'Hapus perangkat?' : 'Remove device?'),
-        content: Text(
-          isId
-              ? '$name dihapus dari daftar. Kalau perangkat itu masih masuk ke akunmu, ia akan muncul lagi saat aplikasinya dibuka. Kalau kamu tidak mengenalinya, ganti password.'
-              : '$name leaves the list. If it is still signed in to your account it shows up again when the app opens there. If you do not recognise it, change your password.',
-          style: const TextStyle(height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(isId ? 'Batal' : 'Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(isId ? 'Hapus' : 'Remove'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('devices')
-          .doc(deviceId)
-          .delete();
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isId
-                  ? 'Gagal menghapus. Cek koneksi lalu coba lagi.'
-                  : "Couldn't remove it. Check your connection.",
-            ),
-          ),
-        );
-      }
-    }
-  }
+/// The user's own recording: how many, how many days in a row, and (in a
+/// family) their own spending this month.
+class ActivityPage extends ConsumerWidget {
+  const ActivityPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isId = ref.watch(localeProvider).languageCode == 'id';
-    final devices = ref.watch(_myDevicesProvider).valueOrNull ?? const [];
-    final thisId = ref.watch(_thisDeviceIdProvider).valueOrNull;
-    final uid = ref.watch(authNotifierProvider).valueOrNull?.id;
-    if (devices.isEmpty || uid == null) return const SizedBox.shrink();
-
-    return _Section(
-      title: isId ? 'Perangkat yang masuk' : 'Signed-in devices',
-      children: [
-        for (final d in devices)
-          _deviceRow(context, uid, d, d['id'] == thisId, isId),
-      ],
+    final stats = ref.watch(activityStatsProvider);
+    final familyMode = ref.watch(familyIdProvider).isNotEmpty;
+    return Scaffold(
+      appBar: AppBar(title: Text(isId ? 'Aktivitas' : 'Activity')),
+      body: stats == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                MenuGroup(
+                  footer: isId
+                      ? 'Catat tiap hari biar rentetannya nggak putus.'
+                      : 'Record something every day to keep the streak going.',
+                  children: [
+                    MenuRow(
+                      icon: Icons.receipt_long_rounded,
+                      color: MenuColors.blue,
+                      title: isId
+                          ? 'Transaksi dicatat'
+                          : 'Transactions recorded',
+                      value: '${stats.count}',
+                    ),
+                    MenuRow(
+                      icon: Icons.local_fire_department_rounded,
+                      color: MenuColors.orange,
+                      title: isId ? 'Hari berturut-turut' : 'Days in a row',
+                      value: '${stats.streak}',
+                    ),
+                    if (familyMode)
+                      MenuRow(
+                        icon: Icons.person_rounded,
+                        color: MenuColors.red,
+                        title: isId
+                            ? 'Pengeluaranmu bulan ini'
+                            : 'Your spending this month',
+                        value: CurrencyFormatter.format(
+                          stats.mySpendingThisMonth,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 }
@@ -430,9 +351,9 @@ final _appVersionProvider = FutureProvider<String>((ref) async {
   return info.version;
 });
 
-/// Quick ways to the places people look for on a profile page.
-class ShortcutsSection extends ConsumerWidget {
-  const ShortcutsSection({super.key});
+/// Settings, guide, reports, updates and sign out.
+class ProfileMoreGroups extends ConsumerWidget {
+  const ProfileMoreGroups({super.key});
 
   Future<void> _checkUpdate(BuildContext context, WidgetRef ref) async {
     final strings = AppStrings(ref.read(localeProvider));
@@ -471,42 +392,62 @@ class ShortcutsSection extends ConsumerWidget {
     final strings = AppStrings(ref.watch(localeProvider));
     final version = ref.watch(_appVersionProvider).valueOrNull ?? '';
 
-    return _Section(
-      title: isId ? 'Lainnya' : 'More',
+    return Column(
       children: [
-        _Row(
-          icon: Icons.settings_outlined,
-          title: strings.settings,
-          onTap: () => context.push('/settings'),
-        ),
-        _Row(
-          icon: Icons.menu_book_outlined,
-          title: isId ? 'Panduan penggunaan' : 'User guide',
-          onTap: () => launchUrl(
-            Uri.parse(
-              'https://family-finance.tzm.web.id/${isId ? 'id' : 'en'}/guide',
+        MenuGroup(
+          children: [
+            MenuRow(
+              icon: Icons.settings_rounded,
+              color: MenuColors.grey,
+              title: strings.settings,
+              subtitle: isId
+                  ? 'Bahasa, mata uang, keamanan, tampilan'
+                  : 'Language, currency, security, appearance',
+              onTap: () => context.push('/settings'),
             ),
-            mode: LaunchMode.externalApplication,
-          ),
+            MenuRow(
+              icon: Icons.picture_as_pdf_rounded,
+              color: MenuColors.pink,
+              title: isId ? 'Laporan & PDF' : 'Reports & PDF',
+              subtitle: isId
+                  ? 'Ringkasan bulanan dan cetak'
+                  : 'Monthly summary and printing',
+              onTap: () => context.push('/reports'),
+            ),
+            MenuRow(
+              icon: Icons.menu_book_rounded,
+              color: MenuColors.teal,
+              title: isId ? 'Panduan' : 'User guide',
+              subtitle: isId ? 'Cara pakai aplikasi' : 'How to use the app',
+              onTap: () => launchUrl(
+                Uri.parse(
+                  'https://family-finance.tzm.web.id/${isId ? 'id' : 'en'}/guide',
+                ),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+            MenuRow(
+              icon: Icons.system_update_rounded,
+              color: MenuColors.blue,
+              title: isId ? 'Cek update' : 'Check for updates',
+              subtitle: version.isEmpty
+                  ? null
+                  : (isId ? 'Versi $version' : 'Version $version'),
+              onTap: () => _checkUpdate(context, ref),
+            ),
+          ],
         ),
-        _Row(
-          icon: Icons.picture_as_pdf_outlined,
-          title: isId ? 'Laporan & ekspor PDF' : 'Reports & PDF export',
-          onTap: () => context.push('/reports'),
-        ),
-        _Row(
-          icon: Icons.system_update_outlined,
-          title: isId ? 'Cek update' : 'Check for updates',
-          subtitle: version.isEmpty
-              ? null
-              : (isId ? 'Versi $version' : 'Version $version'),
-          onTap: () => _checkUpdate(context, ref),
-        ),
-        _Row(
-          icon: Icons.logout_rounded,
-          color: AppTheme.errorColor,
-          title: strings.logout,
-          onTap: () => signOutUser(context, ref),
+        const SizedBox(height: 20),
+        MenuGroup(
+          children: [
+            MenuRow(
+              icon: Icons.logout_rounded,
+              color: MenuColors.red,
+              title: strings.logout,
+              danger: true,
+              onTap: () => signOutUser(context, ref),
+            ),
+          ],
         ),
       ],
     );

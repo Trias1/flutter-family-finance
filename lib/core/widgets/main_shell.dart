@@ -29,6 +29,7 @@ import 'package:family_finance_manager/core/services/share_intake.dart';
 import 'package:family_finance_manager/core/widgets/shell_app_bar.dart';
 import 'package:family_finance_manager/core/widgets/shell_bell.dart';
 import 'package:family_finance_manager/core/widgets/account_actions.dart';
+import 'package:family_finance_manager/core/services/session_service.dart';
 import 'package:family_finance_manager/core/services/bank_inbox.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_inbox_banner.dart';
@@ -71,6 +72,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   Timer? _heartbeatTimer;
   StreamSubscription<void>? _shareSub;
   StreamSubscription<void>? _bankOpenSub;
+  StreamSubscription<void>? _sessionSub;
   // Bank notifications kept while the app was away, and the access switch
   // the user may have just flipped in Android settings.
   late final AppLifecycleListener _lifecycle = AppLifecycleListener(
@@ -110,6 +112,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     _heartbeatTimer?.cancel();
     _shareSub?.cancel();
     _bankOpenSub?.cancel();
+    _sessionSub?.cancel();
     _lifecycle.dispose();
     _pageController.dispose();
     super.dispose();
@@ -165,6 +168,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         _startHeartbeat(user.id);
         _listenForShares();
         _listenForBankOpen();
+        _watchSession(user.id);
       });
     }
 
@@ -340,6 +344,15 @@ class _MainShellState extends ConsumerState<MainShell> {
     );
     if (!mounted) return;
     action?.call();
+  }
+
+  /// Signs this device out when the user ends its session from another
+  /// device (Profile > Devices).
+  Future<void> _watchSession(String uid) async {
+    await _sessionSub?.cancel();
+    _sessionSub = await SessionService.watch(uid, () async {
+      if (mounted) await signOutUser(context, ref);
+    });
   }
 
   void _pruneRecordedBankRows() {

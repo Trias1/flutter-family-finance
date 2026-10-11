@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/profile_sections.dart';
+import 'package:family_finance_manager/features/settings/presentation/pages/sessions_page.dart';
 import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -25,6 +26,9 @@ class ProfilePage extends ConsumerWidget {
     final locale = Localizations.localeOf(context);
     final strings = AppStrings(locale);
     final id = locale.languageCode == 'id';
+    final devices = ref.watch(sessionDevicesProvider).valueOrNull ?? const [];
+    final activity = ref.watch(activityStatsProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: showAppBar
@@ -37,67 +41,79 @@ class ProfilePage extends ConsumerWidget {
             )
           : null,
       body: authState.when(
-        data: (user) => SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              _ProfilePhoto(user: user),
-              const SizedBox(height: 24),
-              _InfoTile(
-                icon: Icons.person_outline,
-                label: id ? 'Nama' : 'Name',
-                value: user?.name ?? '',
-              ),
-              const SizedBox(height: 8),
-              _InfoTile(
-                icon: Icons.email_outlined,
-                label: 'Email',
-                value: user?.email ?? '',
-              ),
-              const SizedBox(height: 8),
-              // Always reachable, so users without a family can create or join one.
-              _InfoTile(
-                icon: Icons.family_restroom_rounded,
-                label: strings.family,
-                value: user?.familyId?.isNotEmpty == true
-                    ? familyAsync.when(
-                        data: (family) => family?.name ?? strings.family,
-                        loading: () => '...',
-                        error: (_, __) => strings.family,
-                      )
-                    : (locale.languageCode == 'id'
-                          ? 'Buat atau gabung keluarga'
-                          : 'Create or join a family'),
-                onTap: () => context.push('/family'),
-              ),
-              const SizedBox(height: 24),
-              _SectionTitle(title: id ? 'Edit profil' : 'Edit profile'),
-              const SizedBox(height: 8),
-              _ActionButton(
-                icon: Icons.edit_rounded,
-                label: id ? 'Ubah nama' : 'Change name',
-                color: AppTheme.primaryColor,
-                onTap: () => _showEditProfileDialog(context, ref, user),
-              ),
-              const SizedBox(height: 8),
-              _ActionButton(
-                icon: Icons.lock_outline_rounded,
-                label: id ? 'Ubah password' : 'Change password',
-                color: AppTheme.warningColor,
-                onTap: () => _showChangePasswordDialog(context, ref),
-              ),
-              const SizedBox(height: 24),
-              const AccountInfoSection(),
-              const SizedBox(height: 20),
-              const ActivitySection(),
-              const SizedBox(height: 20),
-              const DevicesSection(),
-              const SizedBox(height: 20),
-              const ShortcutsSection(),
-              const SizedBox(height: 24),
-            ],
-          ),
+        data: (user) => ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            Center(child: _ProfilePhoto(user: user)),
+            const SizedBox(height: 12),
+            Text(
+              user?.name ?? '',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              user?.email ?? '',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            MenuGroup(
+              children: [
+                MenuRow(
+                  icon: Icons.person_rounded,
+                  color: MenuColors.blue,
+                  title: id ? 'Akun' : 'Account',
+                  subtitle: id
+                      ? 'Nama, password, cara masuk'
+                      : 'Name, password, sign-in method',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AccountPage(),
+                    ),
+                  ),
+                ),
+                MenuRow(
+                  icon: Icons.family_restroom_rounded,
+                  color: MenuColors.green,
+                  title: strings.family,
+                  subtitle: user?.familyId?.isNotEmpty == true
+                      ? familyAsync.valueOrNull?.name ?? strings.family
+                      : (id
+                            ? 'Buat atau gabung keluarga'
+                            : 'Create or join a family'),
+                  onTap: () => context.push('/family'),
+                ),
+                MenuRow(
+                  icon: Icons.local_fire_department_rounded,
+                  color: MenuColors.orange,
+                  title: id ? 'Aktivitas' : 'Activity',
+                  subtitle: activitySummary(activity, id),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ActivityPage(),
+                    ),
+                  ),
+                ),
+                MenuRow(
+                  icon: Icons.devices_rounded,
+                  color: MenuColors.purple,
+                  title: id ? 'Perangkat aktif' : 'Active sessions',
+                  subtitle: id
+                      ? 'HP & browser yang masuk ke akunmu'
+                      : 'Phones and browsers signed in',
+                  value: devices.isEmpty ? null : '${devices.length}',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SessionsPage(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const ProfileMoreGroups(),
+          ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -311,6 +327,56 @@ class ProfilePage extends ConsumerWidget {
   }
 }
 
+/// Name, email, password and how the account signs in.
+class AccountPage extends ConsumerWidget {
+  const AccountPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final id = ref.watch(localeProvider).languageCode == 'id';
+    final user = ref.watch(authNotifierProvider).valueOrNull;
+    final usesPassword = ref
+        .read(firebaseAuthDataSourceProvider)
+        .hasPasswordProvider;
+    const profile = ProfilePage();
+    return Scaffold(
+      appBar: AppBar(title: Text(id ? 'Akun' : 'Account')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          MenuGroup(
+            label: id ? 'Profil' : 'Profile',
+            children: [
+              MenuRow(
+                icon: Icons.badge_rounded,
+                color: MenuColors.blue,
+                title: id ? 'Nama' : 'Name',
+                subtitle: user?.name ?? '',
+                onTap: () => profile._showEditProfileDialog(context, ref, user),
+              ),
+              MenuRow(
+                icon: Icons.alternate_email_rounded,
+                color: MenuColors.teal,
+                title: 'Email',
+                subtitle: user?.email ?? '',
+              ),
+              if (usesPassword)
+                MenuRow(
+                  icon: Icons.lock_rounded,
+                  color: MenuColors.orange,
+                  title: id ? 'Ubah password' : 'Change password',
+                  onTap: () => profile._showChangePasswordDialog(context, ref),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const AccountInfoGroup(),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProfilePhoto extends ConsumerWidget {
   final dynamic user;
   const _ProfilePhoto({required this.user});
@@ -391,167 +457,6 @@ class _ProfilePhoto extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tile = Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          ),
-          if (onTap != null) ...[
-            const Spacer(),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ],
-      ),
-    );
-    if (onTap == null) return tile;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: tile,
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  const _SectionTitle({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        tileColor: Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        title: Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.chevron_right,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            size: 20,
-          ),
-        ),
-        onTap: onTap,
       ),
     );
   }

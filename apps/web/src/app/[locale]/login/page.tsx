@@ -50,7 +50,8 @@ function LoginForm() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
-  const [status, setStatus] = useState("")
+  // Signed out from the phone app ("sign out this device").
+  const [status, setStatus] = useState(() => (searchParams.get("revoked") === "1" ? t("revoked") : ""))
   const [submitting, setSubmitting] = useState(false)
   const [lockSeconds, setLockSeconds] = useState(0)
   // Signed in with an email that is not verified yet.

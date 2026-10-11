@@ -129,7 +129,8 @@
       "resent": "Email verifikasi dikirim ulang.",
       "resendFailed": "Email tidak terkirim. Coba lagi nanti.",
       "useAnother": "Keluar dan pakai email lain"
-    }
+    },
+    "revoked": "Kamu dikeluarkan dari browser ini lewat perangkat lain. Masuk lagi kalau ini memang perangkatmu."
   },
   "publicNav": {
     "features": "Fitur",

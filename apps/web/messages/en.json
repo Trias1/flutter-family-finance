@@ -123,7 +123,8 @@
       "resent": "Verification email sent again.",
       "resendFailed": "Couldn't send the email. Try again later.",
       "useAnother": "Sign out and use another email"
-    }
+    },
+    "revoked": "You were signed out of this browser from another device. Sign in again if this is your device."
   },
   "publicNav": {
     "features": "Features",
