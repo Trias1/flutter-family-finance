@@ -132,7 +132,7 @@ object BankNotificationStore {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val isId = context
             .getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            .getString("flutter.locale", "id") == "id"
+            .getString("flutter.locale", "en") == "id"
         if (manager.getNotificationChannel(CHANNEL) == null) {
             manager.createNotificationChannel(
                 NotificationChannel(
