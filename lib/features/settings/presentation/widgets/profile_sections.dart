@@ -56,6 +56,15 @@ class MenuColors {
   static const pink = Color(0xFFD9467A);
 }
 
+/// Group background: a step lighter than the page in dark mode so groups
+/// stand out, plain surface in light mode.
+Color groupColor(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  return Theme.of(context).brightness == Brightness.dark
+      ? scheme.surfaceContainerHigh
+      : scheme.surface;
+}
+
 /// A rounded group of rows with an optional coloured label above it.
 class MenuGroup extends StatelessWidget {
   final String? label;
@@ -89,7 +98,7 @@ class MenuGroup extends StatelessWidget {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: scheme.surface,
+            color: groupColor(context),
             borderRadius: BorderRadius.circular(14),
           ),
           clipBehavior: Clip.antiAlias,

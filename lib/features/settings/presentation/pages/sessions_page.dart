@@ -5,6 +5,7 @@ import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/session_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
+import 'package:family_finance_manager/features/settings/presentation/widgets/profile_sections.dart';
 
 /// Phones and browsers signed in to the account, newest first.
 final sessionDevicesProvider =
@@ -96,7 +97,10 @@ class SessionsPage extends ConsumerWidget {
             child: Text(isId ? 'Batal' : 'Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(action),
           ),
@@ -197,6 +201,7 @@ class SessionsPage extends ConsumerWidget {
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.errorColor,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: () async {
@@ -252,7 +257,7 @@ class SessionsPage extends ConsumerWidget {
     Widget group(List<Widget> children) => Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: scheme.surface,
+        color: groupColor(context),
         borderRadius: BorderRadius.circular(14),
       ),
       clipBehavior: Clip.antiAlias,
