@@ -38,7 +38,7 @@
 - [x] Sembunyikan nominal (ikon mata) di Home & Goals
 - [x] Ingat saya di login - email disimpan app, password ke password manager HP
 - [x] Profil gaya Telegram + sesi aktif (keluarkan perangkat lain) + ganti email
-- [ ] Baca notifikasi bank (menunggu contoh notifikasi asli)
+- [ ] Baca notifikasi bank (menunggu contoh notifikasi asli). Hanya di build debug: Play Protect (Indonesia) memblokir APK sideload yang bisa minta akses notifikasi (1.1.16 diblokir, 1.1.17 tanpa listener)
 - [ ] OTP login (ditunda: berbayar) dan App Check
 
 ## Key Decisions
