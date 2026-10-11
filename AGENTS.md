@@ -32,7 +32,7 @@
 - [x] Bagikan -> Family Finance - share gambar dari galeri/app bank langsung dibaca seperti scan
 - [x] Back Android 14+ - sub-halaman (Tagihan/Utang/Tabungan) kembali ke Dashboard, tidak menutup app
 - [x] Recurring anti-dobel - lewati periode yang sudah dicatat manual (kategori + nominal sama)
-- [ ] Tes struk belanja asli (kertas) di HP user
+- [x] Tes struk belanja asli (kertas) & karcis parkir di HP user - aman
 - [ ] Baca notifikasi bank (menunggu contoh notifikasi asli)
 - [ ] OTP login (ditunda: berbayar) dan App Check
 
