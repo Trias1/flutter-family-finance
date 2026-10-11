@@ -16,6 +16,7 @@ import 'package:family_finance_manager/features/auth/presentation/providers/auth
 import 'package:family_finance_manager/features/settings/presentation/widgets/delete_account_section.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/own_accounts_tile.dart';
 import 'package:family_finance_manager/features/settings/presentation/widgets/sheet_recap_tile.dart';
+import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_notifications_tile.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -45,6 +46,8 @@ class SettingsPage extends ConsumerWidget {
             const OwnAccountsTile(),
             const SizedBox(height: 8),
             const SheetRecapTile(),
+            const SizedBox(height: 8),
+            const BankNotificationsTile(),
             const SizedBox(height: 8),
             _ActionButton(
               icon: Icons.category_rounded,

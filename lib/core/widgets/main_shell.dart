@@ -30,6 +30,8 @@ import 'package:family_finance_manager/core/services/receipt_parser.dart';
 import 'package:family_finance_manager/core/services/receipt_scanner.dart';
 import 'package:family_finance_manager/core/services/sheet_recap_service.dart';
 import 'package:family_finance_manager/core/services/share_intake.dart';
+import 'package:family_finance_manager/core/services/bank_inbox.dart';
+import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_inbox_banner.dart';
 import 'package:family_finance_manager/core/biometric/app_lock.dart';
 import 'package:family_finance_manager/features/transactions/presentation/pages/statement_import_page.dart';
 import 'package:family_finance_manager/core/services/own_accounts.dart';
@@ -68,6 +70,14 @@ class _MainShellState extends ConsumerState<MainShell> {
   Timer? _recurringTimer;
   Timer? _heartbeatTimer;
   StreamSubscription<void>? _shareSub;
+  // Bank notifications kept while the app was away, and the access switch
+  // the user may have just flipped in Android settings.
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    onResume: () {
+      ref.read(bankInboxProvider.notifier).refresh();
+      ref.invalidate(bankAccessProvider);
+    },
+  );
   late PageController _pageController;
   bool _isProgrammaticUpdate = false;
   bool _syncScheduled = false;
@@ -79,6 +89,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     super.initState();
     _currentPage = _tabIndex(widget.location);
     _pageController = PageController(initialPage: _currentPage);
+    _lifecycle;
     _lastLocation = widget.location;
   }
 
@@ -87,6 +98,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     _recurringTimer?.cancel();
     _heartbeatTimer?.cancel();
     _shareSub?.cancel();
+    _lifecycle.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -242,6 +254,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             child: Column(
               children: [
                 const AnnouncementBanner(),
+                if (isTab) const BankInboxBanner(),
                 Expanded(
                   child: isTab
                       ? PageView(

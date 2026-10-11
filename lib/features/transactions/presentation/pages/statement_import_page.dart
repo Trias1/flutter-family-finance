@@ -30,10 +30,15 @@ class StatementImportPage extends ConsumerStatefulWidget {
   final List<StatementItem> items;
   final List<String> ownNames;
 
+  /// Rows read from bank notifications: spending is as useful as income
+  /// there, so everything starts ticked.
+  final bool fromNotifications;
+
   const StatementImportPage({
     super.key,
     required this.items,
     this.ownNames = const [],
+    this.fromNotifications = false,
   });
 
   @override
@@ -117,6 +122,7 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
   @override
   void initState() {
     super.initState();
+    _incomeOnly = !widget.fromNotifications;
     final incomes = ref.read(incomeStreamProvider(_scope)).valueOrNull ?? [];
     final expenses = ref.read(expenseStreamProvider(_scope)).valueOrNull ?? [];
     _rows = [];
@@ -136,7 +142,10 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
                       (e.amount - item.amount).abs() < 0.5 &&
                       _sameDay(e.date, date),
                 ));
-      final own = OwnAccounts.isOwnTransfer(item.description, widget.ownNames);
+      // Topping up an e-wallet only moves your own money.
+      final own =
+          item.categoryHint == 'topup' ||
+          OwnAccounts.isOwnTransfer(item.description, widget.ownNames);
       final row = _Row(
         item: item,
         selected: false,
@@ -247,7 +256,9 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
             : AppTheme.errorColor,
       ),
     );
-    Navigator.of(context).pop();
+    // Tells the caller the rows were handled (bank notifications leave the
+    // waiting list).
+    Navigator.of(context).pop(true);
   }
 
   @override
@@ -275,7 +286,11 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isId ? 'Impor mutasi' : 'Import transactions'),
+        title: Text(
+          widget.fromNotifications
+              ? (isId ? 'Dari notifikasi bank' : 'From bank notifications')
+              : (isId ? 'Impor mutasi' : 'Import transactions'),
+        ),
       ),
       body: Column(
         children: [

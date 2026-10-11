@@ -1,9 +1,11 @@
 package com.familyfinance.family_finance_manager
 
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -28,6 +30,39 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BANK_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isEnabled" -> result.success(notificationAccessOn())
+                "openSettings" -> {
+                    openNotificationAccess()
+                    result.success(null)
+                }
+                "takePending" -> result.success(BankNotificationStore.take(this))
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun notificationAccessOn(): Boolean {
+        val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: return false
+        val me = ComponentName(this, BankNotificationListener::class.java)
+        return enabled.split(':').any { ComponentName.unflattenFromString(it) == me }
+    }
+
+    /** The user turns Notification access on or off themselves. */
+    private fun openNotificationAccess() {
+        val me = ComponentName(this, BankNotificationListener::class.java)
+        val detail = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, me.flattenToString())
+        } else {
+            null
+        }
+        try {
+            startActivity(detail ?: Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        } catch (_: Exception) {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
     }
 
@@ -94,6 +129,7 @@ class MainActivity : FlutterFragmentActivity() {
     companion object {
         private const val TAG = "FamilyFinanceShare"
         private const val SHARE_CHANNEL = "family_finance/share"
+        private const val BANK_CHANNEL = "family_finance/bank_notifications"
         private const val SHARED_PREFIX = "shared_scan_"
 
         // Screenshots and receipt photos are a few MB; refuse anything huge.
