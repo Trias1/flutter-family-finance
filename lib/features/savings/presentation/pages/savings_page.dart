@@ -358,7 +358,12 @@ class SavingsPage extends ConsumerWidget {
     );
     String? selectedBank = saving?.bankName;
     DateTime targetDate =
-        saving?.targetDate ?? DateTime.now().add(const Duration(days: 365));
+        saving?.targetDate ??
+        DateTime(
+          DateTime.now().year + 1,
+          DateTime.now().month,
+          DateTime.now().day,
+        );
     SavingCategory selectedCategory =
         saving?.category ?? SavingCategory.general;
 
@@ -660,7 +665,17 @@ class SavingsPage extends ConsumerWidget {
                                         ? '${months ~/ 12} tahun'
                                         : '${months ~/ 12} ${months == 12 ? 'year' : 'years'}'),
                             ),
-                            selected: false,
+                            selected: () {
+                              final now = DateTime.now();
+                              final due = DateTime(
+                                now.year,
+                                now.month + months,
+                                now.day,
+                              );
+                              return targetDate.year == due.year &&
+                                  targetDate.month == due.month &&
+                                  targetDate.day == due.day;
+                            }(),
                             onSelected: (_) {
                               final now = DateTime.now();
                               setSheetState(
