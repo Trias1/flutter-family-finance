@@ -440,8 +440,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return isId ? '$diff hari lagi' : '$diff days left';
   }
 
+  /// The calendar hands out UTC dates while the day totals are keyed by
+  /// local dates, and Dart never treats those as equal; look up by the day.
+  static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
+
   Widget _buildCalendar(DashboardData data, bool isId) {
-    final summary = data.dailySummary[_selectedDay];
+    final summary = data.dailySummary[_day(_selectedDay)];
 
     return Container(
       decoration: BoxDecoration(
@@ -474,6 +478,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             focusedDay: _focusedDay,
             selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
             calendarFormat: CalendarFormat.month,
+            // Room under each date for the day's money in and out.
+            rowHeight: 62,
             headerStyle: HeaderStyle(
               formatButtonVisible: false,
               titleCentered: true,
@@ -512,8 +518,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             ),
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, date, events) {
-                final daySummary = data.dailySummary[date];
-                final dayBills = data.billsByDate[date];
+                final daySummary = data.dailySummary[_day(date)];
+                final dayBills = data.billsByDate[_day(date)];
                 final hasBill =
                     dayBills != null &&
                     dayBills.any((b) => b.status != BillStatus.paid);
@@ -539,9 +545,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       Text(
                         '+${_shortAmount(daySummary.totalIncome, isId)}',
                         style: const TextStyle(
-                          fontSize: 7,
+                          fontSize: 9,
                           color: AppTheme.incomeColor,
-                          height: 1.1,
+                          height: 1.15,
                           fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
@@ -554,9 +560,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       Text(
                         '-${_shortAmount(daySummary.totalExpense, isId)}',
                         style: const TextStyle(
-                          fontSize: 7,
+                          fontSize: 9,
                           color: AppTheme.expenseColor,
-                          height: 1.1,
+                          height: 1.15,
                           fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
@@ -742,7 +748,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         .where((i) => i.date.month == now.month && i.date.year == now.year)
         .toList();
     final monthExpenses = data.allExpenses
-        .where((e) => e.date.month == now.month && e.date.year == now.year)
+        .where(
+          (e) =>
+              e.date.month == now.month &&
+              e.date.year == now.year &&
+              e.category != 'Tabungan' &&
+              e.category != 'Savings',
+        )
         .toList();
     final monthIncome = monthIncomes.fold<double>(0.0, (s, i) => s + i.amount);
     final monthExpense = monthExpenses.fold<double>(
@@ -942,19 +954,23 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   String _shortAmount(double amount, bool isId) {
-    if (amount >= 1000000000) {
-      return '${(amount / 1000000000).toStringAsFixed(1)}${isId ? 'M' : 'B'}';
-    } else if (amount >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(amount >= 10000000 ? 0 : 1)}${isId ? 'JT' : 'M'}';
-    } else if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(0)}${isId ? 'RB' : 'K'}';
+    String n(double v, int digits) {
+      final t = v.toStringAsFixed(digits).replaceAll(RegExp(r'\.0$'), '');
+      return isId ? t.replaceAll('.', ',') : t;
     }
+
+    if (amount >= 1000000000)
+      return '${n(amount / 1000000000, 1)}${isId ? 'M' : 'B'}';
+    if (amount >= 1000000) {
+      return '${n(amount / 1000000, amount >= 10000000 ? 0 : 1)}${isId ? 'jt' : 'M'}';
+    }
+    if (amount >= 1000) return '${n(amount / 1000, 0)}${isId ? 'rb' : 'K'}';
     return amount.toStringAsFixed(0);
   }
 
   void _showDayTransactions(DashboardData data, DateTime day, bool isId) {
-    final summary = data.dailySummary[day];
-    final dayBills = data.billsByDate[day];
+    final summary = data.dailySummary[_day(day)];
+    final dayBills = data.billsByDate[_day(day)];
     final hasAny =
         (summary != null &&
             (summary.incomes.isNotEmpty || summary.expenses.isNotEmpty)) ||
