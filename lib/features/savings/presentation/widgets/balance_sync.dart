@@ -40,6 +40,12 @@ Future<bool> offerBalanceUpdate(
   final ordered = [...atBank, ...goals.where((g) => !atBank.contains(g))];
   var chosen =
       preselect ?? (atBank.length == 1 ? atBank.first : null) ?? ordered.first;
+  // Screens with pockets (Neo: total, Tabungan Neo, Neo NOW) show each one;
+  // the pocket named in the goal is picked until the user picks another.
+  BalanceLine pocketFor(SavingModel g) =>
+      reading.lineFor(g.name) ?? reading.lines.first;
+  var line = pocketFor(chosen);
+  var pickedPocket = false;
 
   final result = await showDialog<SavingModel?>(
     context: context,
@@ -56,12 +62,37 @@ Future<bool> offerBalanceUpdate(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                CurrencyFormatter.format(reading.amount),
+                CurrencyFormatter.format(line.amount),
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              if (reading.lines.length > 1) ...[
+                const SizedBox(height: 10),
+                Text(
+                  isId ? 'Saldo yang mana?' : 'Which balance?',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final l in reading.lines)
+                      ChoiceChip(
+                        label: Text(
+                          '${l.label} · ${CurrencyFormatter.format(l.amount)}',
+                        ),
+                        selected: identical(l, line),
+                        onSelected: (_) => setState(() {
+                          line = l;
+                          pickedPocket = true;
+                        }),
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 isId
@@ -75,7 +106,10 @@ Future<bool> offerBalanceUpdate(
               const SizedBox(height: 8),
               RadioGroup<SavingModel>(
                 groupValue: chosen,
-                onChanged: (g) => setState(() => chosen = g ?? chosen),
+                onChanged: (g) => setState(() {
+                  chosen = g ?? chosen;
+                  if (!pickedPocket) line = pocketFor(chosen);
+                }),
                 child: Column(
                   children: [
                     for (final g in ordered)
@@ -119,7 +153,7 @@ Future<bool> offerBalanceUpdate(
         .read(savingRepositoryProvider)
         .updateSaving(
           result.copyWith(
-            currentAmount: reading.amount,
+            currentAmount: line.amount,
             balanceSyncedAt: DateTime.now(),
           ),
         );
@@ -128,8 +162,8 @@ Future<bool> offerBalanceUpdate(
         SnackBar(
           content: Text(
             isId
-                ? 'Saldo ${result.name} jadi ${CurrencyFormatter.format(reading.amount)}.'
-                : '${result.name} balance set to ${CurrencyFormatter.format(reading.amount)}.',
+                ? 'Saldo ${result.name} jadi ${CurrencyFormatter.format(line.amount)}.'
+                : '${result.name} balance set to ${CurrencyFormatter.format(line.amount)}.',
           ),
           backgroundColor: AppTheme.incomeColor,
         ),

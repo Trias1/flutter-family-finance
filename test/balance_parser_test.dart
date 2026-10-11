@@ -52,16 +52,68 @@ Oktober 2026
 
   test('payments, transfers and receipts are not balance screens', () {
     expect(
-      BalanceParser.parse('Transfer Berhasil\nRp500.000\nSisa saldo Rp2.000.000'),
+      BalanceParser.parse(
+        'Transfer Berhasil\nRp500.000\nSisa saldo Rp2.000.000',
+      ),
       isNull,
     );
     expect(
-      BalanceParser.parse('INDOMARET\nTOTAL BELANJA 20.300\nKEMBALI 0\nSaldo Rp 100.000'),
+      BalanceParser.parse(
+        'INDOMARET\nTOTAL BELANJA 20.300\nKEMBALI 0\nSaldo Rp 100.000',
+      ),
       isNull,
     );
   });
 
   test('a hidden balance gives nothing', () {
     expect(BalanceParser.parse('BCA\nSaldo\nRp ••••••'), isNull);
+  });
+
+  neoTests();
+}
+
+// Bank Neo's account screen: one total and a balance per pocket. OCR reads
+// the two-column Neo NOW row left column first.
+const _neoAccounts = '''
+10.14
+Rekening
+Total Saldo
+Rp281,643.20
+Est. bunga kemarin
++Rp5.10
+Tabungan Neo
+Saldo
+Rp200,226.51
+5859000000000000
+Neo NOW
+Saldo
+Bunga kemarin
+Rp81,416.69
++Rp5.10
+Lainnya
+Tambah Dana
+Neo WOW Deposito
+Maksimum 8% p.a.
+Total Pokok Deposito
+Rp0.00
+''';
+
+void neoTests() {
+  test('Neo: every pocket is read, each balance once', () {
+    final r = BalanceParser.parse(_neoAccounts)!;
+    expect(r.bank, 'Bank Neo');
+    expect(r.lines.map((l) => '${l.label}=${l.amount}').toList(), [
+      'Total Saldo=281643.2',
+      'Tabungan Neo=200226.51',
+      'Neo NOW=81416.69',
+    ]);
+    expect(r.amount, 281643.2);
+  });
+
+  test('a pocket is matched to the goal named after it', () {
+    final r = BalanceParser.parse(_neoAccounts)!;
+    expect(r.lineFor('Dana darurat Neo NOW')?.label, 'Neo NOW');
+    expect(r.lineFor('Tabungan Neo')?.label, 'Tabungan Neo');
+    expect(r.lineFor('Kontrakan'), isNull);
   });
 }

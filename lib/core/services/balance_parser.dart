@@ -1,15 +1,62 @@
 import 'package:family_finance_manager/core/services/receipt_parser.dart';
 
-/// A savings balance read from a bank app screenshot.
-class BalanceReading {
+/// One balance on an account screen: "Tabungan Neo  Rp200.226".
+class BalanceLine {
+  final String label;
   final double amount;
+  const BalanceLine(this.label, this.amount);
+}
+
+/// The balances read from a bank app screenshot. Most screens show one;
+/// some (Bank Neo, Jago, Seabank) show a total and one per pocket.
+class BalanceReading {
+  final List<BalanceLine> lines;
 
   /// Bank or e-wallet named on the screen, when there is one.
   final String? bank;
-  const BalanceReading(this.amount, this.bank);
+  const BalanceReading(this.lines, this.bank);
+
+  /// The first balance on the screen.
+  double get amount => lines.first.amount;
+
+  /// The pocket named in [goalName] ("Dana darurat Neo NOW" -> "Neo NOW"):
+  /// every distinctive word of the pocket's label is in the goal's name; the
+  /// most specific pocket wins ("Neo NOW" over "Tabungan Neo").
+  BalanceLine? lineFor(String goalName) {
+    final goal = _words(goalName);
+    BalanceLine? best;
+    var bestWords = 0;
+    for (final line in lines) {
+      final words = _words(line.label).difference(_generic);
+      if (words.length > bestWords && goal.containsAll(words)) {
+        best = line;
+        bestWords = words.length;
+      }
+    }
+    return best;
+  }
+
+  static const _generic = {
+    'saldo',
+    'total',
+    'tabungan',
+    'rekening',
+    'balance',
+    'aktif',
+    'efektif',
+    'tersedia',
+    'available',
+    'bank',
+  };
+
+  static Set<String> _words(String s) => s
+      .toLowerCase()
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((w) => w.isNotEmpty)
+      .toSet();
 }
 
-/// Reads the balance off a bank app's account screen ("Saldo Aktif
+/// Reads the balances off a bank app's account screen ("Saldo Aktif
 /// Rp3.000.000", "Tabungan Rp 3,000,000.00"). Screens that are a payment,
 /// a transfer receipt or a shop receipt give null, so they keep going to the
 /// transaction flows. Pure Dart and unit tested; the user confirms every
@@ -18,6 +65,14 @@ class BalanceParser {
   static final _balanceLabel = RegExp(
     r'\b(saldo aktif|saldo efektif|saldo tersedia|total saldo|saldo|'
     r'available balance|total balance|balance|tabungan|total aset)\b',
+    caseSensitive: false,
+  );
+
+  // A label that says "balance" and nothing else; the pocket's name is then
+  // the heading above it.
+  static final _bareLabel = RegExp(
+    r'^(saldo|saldo aktif|saldo efektif|saldo tersedia|balance|'
+    r'available balance)\s*:?$',
     caseSensitive: false,
   );
 
@@ -41,6 +96,7 @@ class BalanceParser {
         .map((l) => l.trim())
         .where((l) => l.isNotEmpty)
         .toList();
+    final found = <BalanceLine>[];
     for (var i = 0; i < lines.length; i++) {
       final label = _balanceLabel.firstMatch(lines[i]);
       if (label == null) continue;
@@ -52,13 +108,40 @@ class BalanceParser {
       ];
       for (final c in candidates) {
         final value = _firstAmount(c);
-        if (value != null && value > 0) {
-          return BalanceReading(value, ReceiptParser.bankIn(text));
+        if (value == null || value <= 0) continue;
+        // "Tabungan Neo" and the "Saldo" under it read the same number.
+        if (!found.any((f) => f.amount == value)) {
+          found.add(BalanceLine(_nameFor(lines, i), value));
         }
+        break;
       }
     }
-    return null;
+    if (found.isEmpty) return null;
+    return BalanceReading(found, ReceiptParser.bankIn(text));
   }
+
+  /// "Tabungan Neo" for its own row; for a bare "Saldo", the heading above
+  /// it ("Neo NOW"), else "Saldo".
+  static String _nameFor(List<String> lines, int i) {
+    final own = _withoutAmounts(lines[i]);
+    if (!_bareLabel.hasMatch(own)) return own;
+    for (var k = i - 1; k >= 0 && k >= i - 2; k--) {
+      final heading = lines[k];
+      if (RegExp(r'\d').hasMatch(heading) ||
+          _bareLabel.hasMatch(heading) ||
+          heading.length > 40) {
+        continue;
+      }
+      return heading;
+    }
+    return own.replaceAll(RegExp(r'\s*:$'), '');
+  }
+
+  static String _withoutAmounts(String line) => line
+      .replaceAll(_amount, '')
+      .replaceAll(RegExp(r'\b(rp\.?|idr)\b', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 
   static double? _firstAmount(String s) {
     for (final m in _amount.allMatches(s)) {
