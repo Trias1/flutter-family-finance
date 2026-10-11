@@ -111,22 +111,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   const SizedBox(height: 16),
                   _buildCalendar(data, isId),
                 ],
-                // Where the money went and the 30-day outlook come before
-                // the menu; debts follow it.
-                if (dashboardSections['insights'] ?? true) ...[
-                  const SizedBox(height: 16),
-                  CategoryBreakdownCard(expenses: data.allExpenses, isId: isId),
-                  if (data.prediction != null &&
-                      (data.allIncomes.isNotEmpty ||
-                          data.allExpenses.isNotEmpty)) ...[
-                    const SizedBox(height: 16),
-                    ForecastCard(
-                      prediction: data.prediction!,
-                      currentBalance: data.totalBalance,
-                      isId: isId,
-                    ),
-                  ],
-                ],
+                // Where the money went and the 30-day outlook live in the
+                // month details (tap the balance card): Spending, Outlook.
                 if (dashboardSections['menu'] ?? true) ...[
                   const SizedBox(height: 16),
                   _buildMenuGrid(isId),

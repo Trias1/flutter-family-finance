@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
@@ -78,6 +79,7 @@ class MonthDetailSheet extends ConsumerWidget {
         isId ? 'Pemasukan' : 'Income',
         _CategoryTab(groups: _groupIncomes(incomes), income: true, isId: isId),
       ),
+      (isId ? 'Perkiraan' : 'Outlook', _OutlookTab(data: data, isId: isId)),
       if (familyMode)
         (
           isId ? 'Per anggota' : 'By member',
@@ -499,6 +501,179 @@ class _MemberTab extends StatelessWidget {
                   ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Where the overall balance is heading over the next 30 days if the last
+/// three months repeat: a headline number, the path, and the daily averages.
+class _OutlookTab extends StatelessWidget {
+  final DashboardData data;
+  final bool isId;
+  const _OutlookTab({required this.data, required this.isId});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final p = data.prediction;
+    if (p == null ||
+        p.dailyBalances.isEmpty ||
+        (data.allIncomes.isEmpty && data.allExpenses.isEmpty)) {
+      return _empty(
+        context,
+        isId
+            ? 'Belum cukup data untuk perkiraan. Catat beberapa transaksi dulu.'
+            : 'Not enough data for an outlook yet. Record a few transactions first.',
+      );
+    }
+    final now = data.totalBalance;
+    final end = p.predictedEndBalance;
+    final change = end - now;
+    final up = change >= 0;
+    // The theme's own primary reads on both light and dark surfaces.
+    final line = scheme.primary;
+    final spots = [
+      for (var i = 0; i < p.dailyBalances.length; i++)
+        FlSpot(i.toDouble(), p.dailyBalances[i]),
+    ];
+    final last = (p.dailyBalances.length - 1).toDouble();
+
+    String dayLabel(int day) {
+      if (day == 0) return isId ? 'Hari ini' : 'Today';
+      return isId ? '$day hari' : '$day days';
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      children: [
+        Text(
+          isId ? 'Saldo 30 hari lagi' : 'Balance in 30 days',
+          style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          CurrencyFormatter.format(end),
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(
+              up ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+              size: 18,
+              color: up ? AppTheme.incomeColor : AppTheme.expenseColor,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                isId
+                    ? '${up ? 'Naik' : 'Turun'} ${CurrencyFormatter.format(change.abs())} dari sekarang'
+                    : '${up ? 'Up' : 'Down'} ${CurrencyFormatter.format(change.abs())} from now',
+                style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 180,
+          child: LineChart(
+            LineChartData(
+              minX: 0,
+              maxX: last,
+              gridData: FlGridData(
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (_) => FlLine(
+                  color: scheme.outlineVariant.withValues(alpha: 0.35),
+                  strokeWidth: 1,
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles: const AxisTitles(),
+                rightTitles: const AxisTitles(),
+                topTitles: const AxisTitles(),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 24,
+                    interval: 1,
+                    getTitlesWidget: (value, meta) {
+                      final day = value.round();
+                      if (day != 0 && day != 15 && day != last.round()) {
+                        return const SizedBox.shrink();
+                      }
+                      return SideTitleWidget(
+                        meta: meta,
+                        fitInside: SideTitleFitInsideData.fromTitleMeta(meta),
+                        child: Text(
+                          dayLabel(day == last.round() ? 30 : day),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (_) => scheme.inverseSurface,
+                  getTooltipItems: (touched) => [
+                    for (final t in touched)
+                      LineTooltipItem(
+                        '${dayLabel(t.x.round())}\n${CurrencyFormatter.format(t.y)}',
+                        TextStyle(
+                          color: scheme.onInverseSurface,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  preventCurveOverShooting: true,
+                  color: line,
+                  barWidth: 2,
+                  dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: line.withValues(alpha: 0.10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            _Total(
+              label: isId ? 'Rata-rata masuk / hari' : 'Avg in / day',
+              amount: p.averageDailyIncome,
+              color: AppTheme.incomeColor,
+            ),
+            _Total(
+              label: isId ? 'Rata-rata keluar / hari' : 'Avg out / day',
+              amount: p.averageDailyExpense,
+              color: AppTheme.expenseColor,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          isId
+              ? 'Perkiraan sederhana: rata-rata 3 bulan terakhir diulang. Ketuk grafik untuk lihat saldo per hari.'
+              : 'A simple outlook: the last three months repeated. Touch the chart for each day.',
+          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
         ),
       ],
     );

@@ -55,9 +55,7 @@ class DashboardSettingsPage extends ConsumerWidget {
           _SectionSwitch('menu', id ? 'Menu utama' : 'Main menu', values),
           _SectionSwitch(
             'insights',
-            id
-                ? 'Ringkasan (kategori, hutang, perkiraan)'
-                : 'Insights (categories, debts, outlook)',
+            id ? 'Ringkasan utang' : 'Debts summary',
             values,
           ),
         ],
