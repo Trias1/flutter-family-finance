@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class AppThemePreset {
   final String id;
   final String name;
+
   /// Short description shown under the preset name (Indonesian / English).
   final String vibe;
   final String vibeEn;
@@ -94,7 +96,7 @@ class AppTheme {
     id: 'mochaBrown',
     name: 'Mocha Brown',
     vibe: 'Cokelat hangat, nyaman di mata',
-      vibeEn: 'Warm brown, easy on the eyes',
+    vibeEn: 'Warm brown, easy on the eyes',
     primary: Color(0xFF6B4430),
     background: Color(0xFFF8F5F0),
     accent: Color(0xFFA0763F),
@@ -136,31 +138,34 @@ class AppTheme {
     labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
   );
 
+  /// Pages slide in from the right with the previous one easing aside, like
+  /// Telegram, instead of Android's default zoom.
+  static const _pageTransitions = PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    },
+  );
+
   static ThemeData lightTheme([AppThemePreset preset = defaultPreset]) {
     _activePreset = preset;
     return ThemeData(
       useMaterial3: true,
       fontFamily: fontFamily,
       textTheme: _textTheme,
+      pageTransitionsTheme: _pageTransitions,
       colorScheme: ColorScheme.fromSeed(
         seedColor: preset.primary,
         brightness: Brightness.light,
       ),
       scaffoldBackgroundColor: preset.background,
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-      ),
+      appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
       cardTheme: CardThemeData(
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -174,10 +179,7 @@ class AppTheme {
             fontWeight: FontWeight.w600,
           ),
           elevation: 0,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -196,6 +198,7 @@ class AppTheme {
       useMaterial3: true,
       fontFamily: fontFamily,
       textTheme: _textTheme,
+      pageTransitionsTheme: _pageTransitions,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
@@ -210,14 +213,10 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -231,10 +230,7 @@ class AppTheme {
             fontWeight: FontWeight.w600,
           ),
           elevation: 0,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

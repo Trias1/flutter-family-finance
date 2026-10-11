@@ -284,7 +284,6 @@ class _MainShellState extends ConsumerState<MainShell> {
                   child: isTab
                       ? PageView(
                           controller: _pageController,
-                          physics: const BouncingScrollPhysics(),
                           onPageChanged: _onPageChanged,
                           children: List.generate(
                             _tabPages.length,
@@ -897,35 +896,30 @@ class _SmallAddOption extends StatelessWidget {
   }
 }
 
-class _AnimatedPageView extends AnimatedWidget {
-  final int index;
+/// A tab page in the swipeable PageView, kept alive so swiping back does
+/// not rebuild it. Tabs slide plainly, like WhatsApp and Telegram: fading and
+/// scaling a whole page every frame was the costliest effect on screen.
+class _AnimatedPageView extends StatefulWidget {
   final Widget child;
-
   const _AnimatedPageView({
     required PageController controller,
-    required this.index,
+    required int index,
     required this.child,
-  }) : super(listenable: controller);
+  });
+
+  @override
+  State<_AnimatedPageView> createState() => _AnimatedPageViewState();
+}
+
+class _AnimatedPageViewState extends State<_AnimatedPageView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
-    final controller = listenable as PageController;
-    if (!controller.hasClients) return child;
-
-    final page = controller.page ?? index.toDouble();
-    final distance = (page - index).abs().clamp(0.0, 1.0);
-
-    final scale = 1.0 - (distance * 0.15);
-    final opacity = 1.0 - (distance * 0.6);
-
-    return Opacity(
-      opacity: opacity,
-      child: Transform.scale(
-        scale: scale,
-        alignment: Alignment.center,
-        child: child,
-      ),
-    );
+    super.build(context);
+    return RepaintBoundary(child: widget.child);
   }
 }
 
