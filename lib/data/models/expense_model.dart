@@ -10,6 +10,9 @@ class ExpenseModel {
   final String? note;
   final String? attachment;
   final String? recurringId;
+
+  /// The goal this expense pays from (or deposits into, for Tabungan).
+  final String? savingId;
   final DateTime date;
   final DateTime createdAt;
 
@@ -22,6 +25,7 @@ class ExpenseModel {
     this.note,
     this.attachment,
     this.recurringId,
+    this.savingId,
     required this.date,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -37,6 +41,7 @@ class ExpenseModel {
       note: data['note'],
       attachment: data['attachment'],
       recurringId: data['recurringId'],
+      savingId: data['savingId'],
       date: (data['date'] as Timestamp).toDate(),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
@@ -51,6 +56,7 @@ class ExpenseModel {
       'note': note,
       'attachment': attachment,
       'recurringId': recurringId,
+      if (savingId != null) 'savingId': savingId,
       'date': Timestamp.fromDate(date),
       'createdAt': Timestamp.fromDate(createdAt),
     };
