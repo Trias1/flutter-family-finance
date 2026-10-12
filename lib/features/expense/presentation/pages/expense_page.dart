@@ -19,6 +19,7 @@ import 'package:family_finance_manager/features/transactions/presentation/provid
 import 'package:family_finance_manager/core/utils/duplicate_check.dart';
 import 'package:family_finance_manager/features/family/presentation/providers/family_provider.dart';
 import 'package:family_finance_manager/core/services/receipt_parser.dart';
+import 'package:family_finance_manager/core/services/expense_effects.dart';
 
 class ExpensePage extends ConsumerWidget {
   const ExpensePage({super.key});
@@ -300,7 +301,10 @@ class ExpensePage extends ConsumerWidget {
       text: expense?.note ?? draft?.noteFor(isId: draftIsId) ?? '',
     );
     DateTime selectedDate = expense?.date ?? draft?.date ?? DateTime.now();
-    String? selectedSavingId;
+    String? selectedSavingId = expense?.savingId;
+    // "Sumber uang": paid from a goal instead of a budget.
+    bool fromSavings =
+        expense?.savingId != null && !isSavingsDeposit(expense!.category);
     bool isSaving = false;
 
     if (!context.mounted) return;
@@ -380,44 +384,76 @@ class ExpensePage extends ConsumerWidget {
                       }
                       setSheetState(() {
                         selectedCategory = v ?? categories.first;
-                        selectedSavingId = null;
+                        if (!fromSavings) selectedSavingId = null;
                       });
                     },
                   ),
-                  if (selectedCategory == 'Tabungan') ...[
+                  if (selectedCategory != 'Tabungan' &&
+                      savings.any((s) => !s.isGoldInvestment)) ...[
+                    const SizedBox(height: 16),
+                    SegmentedButton<bool>(
+                      segments: [
+                        const ButtonSegment(
+                          value: false,
+                          icon: Icon(Icons.account_balance_wallet_outlined),
+                          label: Text('Budget'),
+                        ),
+                        ButtonSegment(
+                          value: true,
+                          icon: const Icon(Icons.savings_outlined),
+                          label: Text(isId ? 'Tabungan' : 'Savings'),
+                        ),
+                      ],
+                      selected: {fromSavings},
+                      onSelectionChanged: (s) => setSheetState(() {
+                        fromSavings = s.first;
+                        if (!fromSavings) selectedSavingId = null;
+                      }),
+                    ),
+                  ],
+                  if (selectedCategory == 'Tabungan' || fromSavings) ...[
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: selectedSavingId,
+                      value: savings.any((s) => s.id == selectedSavingId)
+                          ? selectedSavingId
+                          : null,
+                      isExpanded: true,
                       decoration: InputDecoration(
-                        labelText: isId
-                            ? 'Pilih Target Tabungan'
-                            : 'Choose Savings Goal',
+                        labelText: selectedCategory == 'Tabungan'
+                            ? (isId ? 'Setor ke tabungan' : 'Deposit into')
+                            : (isId
+                                  ? 'Bayar dari tabungan'
+                                  : 'Pay from savings'),
                         prefixIcon: const Icon(Icons.savings),
                       ),
                       items: savings
+                          .where((s) => !s.isGoldInvestment)
                           .map(
                             (s) => DropdownMenuItem(
                               value: s.id,
-                              child: Text(s.name),
+                              child: Text(
+                                '${s.name} · ${CurrencyFormatter.format(s.currentAmount)}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           )
                           .toList(),
-                      onChanged: (v) {
-                        setSheetState(() {
-                          selectedSavingId = v;
-                          final match = savings
-                              .where((s) => s.id == v)
-                              .firstOrNull;
-                          if (match != null && noteController.text.isEmpty) {
-                            noteController.text = match.name;
-                          }
-                        });
+                      onChanged: (v) =>
+                          setSheetState(() => selectedSavingId = v),
+                      validator: (v) {
+                        if (v == null) {
+                          return isId ? 'Pilih tabungan' : 'Choose a goal';
+                        }
+                        if (selectedCategory == 'Tabungan') return null;
+                        final g = savings.firstWhere((s) => s.id == v);
+                        final amount =
+                            double.tryParse(amountController.text) ?? 0;
+                        return canPayFromGoal(g, amount, editing: expense)
+                            ? null
+                            : (isId
+                                  ? 'Saldo ${g.name} tidak cukup'
+                                  : 'Not enough in ${g.name}');
                       },
-                      validator: (v) => v == null
-                          ? (isId
-                                ? 'Pilih target tabungan'
-                                : 'Choose a savings goal')
-                          : null,
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -512,6 +548,11 @@ class ExpensePage extends ConsumerWidget {
                                 note: noteController.text.isEmpty
                                     ? null
                                     : noteController.text,
+                                savingId:
+                                    selectedCategory == 'Tabungan' ||
+                                        fromSavings
+                                    ? selectedSavingId
+                                    : null,
                                 date: selectedDate,
                               );
                               String? error;

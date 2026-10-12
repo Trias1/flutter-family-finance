@@ -9,11 +9,9 @@ import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/widgets/empty_widget.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
-import 'package:family_finance_manager/data/models/expense_model.dart';
 import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
-import 'package:family_finance_manager/features/expense/presentation/providers/expense_provider.dart';
 import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
 import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
 import 'package:family_finance_manager/features/savings/presentation/widgets/balance_sync.dart';
@@ -945,25 +943,10 @@ class SavingsPage extends ConsumerWidget {
                         await ref
                             .read(savingNotifierProvider.notifier)
                             .withdrawFromSaving(saving.id, amount);
+                        // Taking money out of savings is not spending. (It
+                        // used to also record a Tabungan expense naming the
+                        // goal, which put the amount straight back.)
                         final fId = ref.read(financeScopeIdProvider);
-                        final uid =
-                            ref
-                                .read(firebaseAuthDataSourceProvider)
-                                .currentUser
-                                ?.uid ??
-                            '';
-                        final expense = ExpenseModel(
-                          id: '',
-                          familyId: fId,
-                          userId: uid,
-                          amount: amount,
-                          category: 'Tabungan',
-                          note: 'Penarikan - ${saving.name}',
-                          date: DateTime.now(),
-                        );
-                        await ref
-                            .read(expenseNotifierProvider.notifier)
-                            .addExpense(expense);
                         ref.invalidate(savingStreamProvider(fId));
                         ref.invalidate(dashboardProvider);
                         ref.invalidate(reportProvider(fId));
