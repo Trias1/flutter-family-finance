@@ -99,3 +99,11 @@ double budgetSpent(List<ExpenseModel> expenses, String category, String month) {
       .where((fx) => fx.budgetCategory == category && key(fx.date) == month)
       .fold<double>(0, (sum, fx) => sum + fx.budgetDelta);
 }
+
+/// Rows for one goal's history: linked by id, or old Tabungan entries that
+/// name the goal in the note.
+bool belongsToGoal(ExpenseModel e, SavingModel goal) {
+  if (e.savingId != null) return e.savingId == goal.id;
+  return isSavingsDeposit(e.category) &&
+      (e.note ?? '').toLowerCase().contains(goal.name.toLowerCase());
+}

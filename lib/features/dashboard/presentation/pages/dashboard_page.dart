@@ -5,11 +5,11 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/amount_privacy.dart';
+import 'package:family_finance_manager/features/savings/presentation/widgets/goal_history_sheet.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/data/models/bill_model.dart';
-import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/pages/dashboard_settings_page.dart';
@@ -786,7 +786,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               .take(3)
               .map(
                 (s) => InkWell(
-                  onTap: () => _showSavingHistory(data, s, isId),
+                  onTap: () => showGoalHistory(
+                    context,
+                    goal: s,
+                    expenses: data.allExpenses,
+                    incomes: data.allIncomes,
+                    isId: isId,
+                  ),
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -854,202 +860,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
               ),
         ],
-      ),
-    );
-  }
-
-  void _showSavingHistory(DashboardData data, SavingModel saving, bool isId) {
-    // Filter transactions related to this saving (category "Tabungan" or "Savings")
-    // For expenses: show all Tabungan/Savings category (not filtered by saving name)
-    final relatedIncomes = data.allIncomes
-        .where((i) => (i.category == 'Tabungan' || i.category == 'Savings'))
-        .toList();
-    final relatedExpenses = data.allExpenses
-        .where((e) => (e.category == 'Tabungan' || e.category == 'Savings'))
-        .toList();
-
-    // Combine and sort by date
-    final allTransactions = <Map<String, dynamic>>[];
-    for (final income in relatedIncomes) {
-      allTransactions.add({
-        'type': 'income',
-        'date': income.date,
-        'amount': income.amount,
-        'note': income.note,
-      });
-    }
-    for (final expense in relatedExpenses) {
-      allTransactions.add({
-        'type': 'expense',
-        'date': expense.date,
-        'amount': expense.amount,
-        'note': expense.note,
-      });
-    }
-    allTransactions.sort(
-      (a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime),
-    );
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    ctx,
-                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(
-                  Icons.flag_rounded,
-                  size: 18,
-                  color: AppTheme.savingsColor,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    saving.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isId ? 'Saldo Saat Ini:' : 'Current Balance:',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                Text(
-                  CurrencyFormatter.format(saving.currentAmount),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.savingsColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              isId ? 'Histori Transaksi' : 'Transaction History',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            if (allTransactions.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: Text(
-                    isId ? 'Belum ada transaksi' : 'No transactions yet',
-                    style: TextStyle(
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              )
-            else
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(ctx).size.height * 0.4,
-                ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: allTransactions.length,
-                  itemBuilder: (_, index) {
-                    final txn = allTransactions[index];
-                    final isIncome = txn['type'] == 'income';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color:
-                                  (isIncome
-                                          ? AppTheme.incomeColor
-                                          : AppTheme.expenseColor)
-                                      .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Icon(
-                              isIncome ? Icons.add : Icons.remove,
-                              size: 14,
-                              color: isIncome
-                                  ? AppTheme.incomeColor
-                                  : AppTheme.expenseColor,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isIncome
-                                      ? (isId ? 'Setoran' : 'Deposit')
-                                      : (isId ? 'Penarikan' : 'Withdrawal'),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  DateFormatter.format(txn['date'] as DateTime),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Theme.of(
-                                      ctx,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            '${isIncome ? '+' : '-'}${CurrencyFormatter.format(txn['amount'] as double)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isIncome
-                                  ? AppTheme.incomeColor
-                                  : AppTheme.expenseColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

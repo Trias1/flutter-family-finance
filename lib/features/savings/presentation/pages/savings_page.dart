@@ -15,6 +15,9 @@ import 'package:family_finance_manager/features/dashboard/presentation/providers
 import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
 import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
 import 'package:family_finance_manager/features/savings/presentation/widgets/balance_sync.dart';
+import 'package:family_finance_manager/features/expense/presentation/providers/expense_provider.dart';
+import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
+import 'package:family_finance_manager/features/savings/presentation/widgets/goal_history_sheet.dart';
 
 class SavingsPage extends ConsumerWidget {
   const SavingsPage({super.key});
@@ -37,6 +40,9 @@ class SavingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final familyId = ref.watch(financeScopeIdProvider);
     final savingsAsync = ref.watch(savingStreamProvider(familyId));
+    // Loaded for each goal's history (tap a goal).
+    ref.watch(expenseStreamProvider(familyId));
+    ref.watch(incomeStreamProvider(familyId));
     final locale = Localizations.localeOf(context);
     final isId = locale.languageCode == 'id';
     final s = AppStrings(locale);
@@ -87,245 +93,264 @@ class SavingsPage extends ConsumerWidget {
                         }
                         final saving = savings[index - 1];
                         final progress = saving.progress;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => showGoalHistory(
+                            context,
+                            goal: saving,
+                            expenses:
+                                ref
+                                    .read(expenseStreamProvider(familyId))
+                                    .valueOrNull ??
+                                const [],
+                            incomes:
+                                ref
+                                    .read(incomeStreamProvider(familyId))
+                                    .valueOrNull ??
+                                const [],
+                            isId: isId,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        _GoalBankBadge(
-                                          bankName: saving.bankName,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                saving.name,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              if (saving.bankName != null)
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          _GoalBankBadge(
+                                            bankName: saving.bankName,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
                                                 Text(
-                                                  saving.bankName!,
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
+                                                  saving.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                 ),
-                                            ],
+                                                if (saving.bankName != null)
+                                                  Text(
+                                                    saving.bankName!,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                              ],
+                                            ),
                                           ),
+                                        ],
+                                      ),
+                                    ),
+                                    _CircularGoalProgress(progress: progress),
+                                    PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        if (value == 'edit')
+                                          _showSavingForm(
+                                            context,
+                                            ref,
+                                            saving: saving,
+                                          );
+                                        else if (value == 'add')
+                                          _showAddMoneyDialog(
+                                            context,
+                                            ref,
+                                            saving,
+                                          );
+                                        else if (value == 'withdraw')
+                                          _showWithdrawDialog(
+                                            context,
+                                            ref,
+                                            saving,
+                                          );
+                                        else if (value == 'sync')
+                                          syncGoalFromScreenshot(
+                                            context,
+                                            ref,
+                                            saving,
+                                          );
+                                        else if (value == 'delete')
+                                          ref
+                                              .read(
+                                                savingNotifierProvider.notifier,
+                                              )
+                                              .deleteSaving(saving.id);
+                                      },
+                                      itemBuilder: (ctx) => [
+                                        if (!saving.isGoldInvestment)
+                                          PopupMenuItem(
+                                            value: 'sync',
+                                            child: Text(
+                                              isId
+                                                  ? 'Perbarui saldo dari screenshot'
+                                                  : 'Update balance from screenshot',
+                                            ),
+                                          ),
+                                        PopupMenuItem(
+                                          value: 'add',
+                                          child: Text(
+                                            isId ? 'Tambah Goals' : 'Add Money',
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'withdraw',
+                                          child: Text(
+                                            isId ? 'Tarik Goals' : 'Withdraw',
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text(
+                                            isId ? 'Edit Target' : 'Edit Goal',
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Text(s.delete),
                                         ),
                                       ],
                                     ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: LinearProgressIndicator(
+                                    value: progress / 100,
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHighest,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      progress >= 100
+                                          ? AppTheme.incomeColor
+                                          : AppTheme.savingsColor,
+                                    ),
+                                    minHeight: 10,
                                   ),
-                                  _CircularGoalProgress(progress: progress),
-                                  PopupMenuButton<String>(
-                                    onSelected: (value) {
-                                      if (value == 'edit')
-                                        _showSavingForm(
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      saving.isGoldInvestment &&
+                                              saving.goldGrams != null
+                                          ? '${saving.goldGrams!.toStringAsFixed(2)} gram'
+                                          : '${moneyText(hidden, saving.currentAmount)} / ${moneyText(hidden, saving.targetAmount)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(
                                           context,
-                                          ref,
-                                          saving: saving,
-                                        );
-                                      else if (value == 'add')
-                                        _showAddMoneyDialog(
-                                          context,
-                                          ref,
-                                          saving,
-                                        );
-                                      else if (value == 'withdraw')
-                                        _showWithdrawDialog(
-                                          context,
-                                          ref,
-                                          saving,
-                                        );
-                                      else if (value == 'sync')
-                                        syncGoalFromScreenshot(
-                                          context,
-                                          ref,
-                                          saving,
-                                        );
-                                      else if (value == 'delete')
-                                        ref
-                                            .read(
-                                              savingNotifierProvider.notifier,
-                                            )
-                                            .deleteSaving(saving.id);
-                                    },
-                                    itemBuilder: (ctx) => [
-                                      if (!saving.isGoldInvestment)
-                                        PopupMenuItem(
-                                          value: 'sync',
-                                          child: Text(
-                                            isId
-                                                ? 'Perbarui saldo dari screenshot'
-                                                : 'Update balance from screenshot',
-                                          ),
-                                        ),
-                                      PopupMenuItem(
-                                        value: 'add',
-                                        child: Text(
-                                          isId ? 'Tambah Goals' : 'Add Money',
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    Text(
+                                      saving.isGoldInvestment
+                                          ? (hidden
+                                                ? hiddenDigits
+                                                : '${saving.goldProfitLoss >= 0 ? '+' : ''}${CurrencyFormatter.format(saving.goldProfitLoss)}')
+                                          : '${progress.toStringAsFixed(0)}%',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: saving.isGoldInvestment
+                                            ? (saving.goldProfitLoss >= 0
+                                                  ? AppTheme.incomeColor
+                                                  : AppTheme.expenseColor)
+                                            : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                if (saving.isGoldInvestment) ...[
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '${saving.goldType ?? (isId ? 'Emas' : 'Gold')} • ${saving.purchaseSource != null ? _sourceLabel(saving.purchaseSource!, isId) : '-'}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                       ),
-                                      PopupMenuItem(
-                                        value: 'withdraw',
-                                        child: Text(
-                                          isId ? 'Tarik Goals' : 'Withdraw',
+                                      Text(
+                                        '${saving.goldProfitLossPercent >= 0 ? '+' : ''}${saving.goldProfitLossPercent.toStringAsFixed(1)}%',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: saving.goldProfitLoss >= 0
+                                              ? AppTheme.incomeColor
+                                              : AppTheme.expenseColor,
                                         ),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'edit',
-                                        child: Text(
-                                          isId ? 'Edit Target' : 'Edit Goal',
-                                        ),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text(s.delete),
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: LinearProgressIndicator(
-                                  value: progress / 100,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerHighest,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    progress >= 100
-                                        ? AppTheme.incomeColor
-                                        : AppTheme.savingsColor,
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '${isId ? 'Beli' : 'Bought'}: ${CurrencyFormatter.format(saving.purchasePricePerGram ?? 0)}/g',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${isId ? 'Sekarang' : 'Now'}: ${CurrencyFormatter.format(saving.currentPricePerGram ?? 0)}/g',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  minHeight: 10,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    saving.isGoldInvestment &&
-                                            saving.goldGrams != null
-                                        ? '${saving.goldGrams!.toStringAsFixed(2)} gram'
-                                        : '${moneyText(hidden, saving.currentAmount)} / ${moneyText(hidden, saving.targetAmount)}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
+                                ] else
+                                  _GoalPlan(
+                                    saving: saving,
+                                    isId: isId,
+                                    hidden: hidden,
                                   ),
-                                  Text(
-                                    saving.isGoldInvestment
-                                        ? (hidden
-                                              ? hiddenDigits
-                                              : '${saving.goldProfitLoss >= 0 ? '+' : ''}${CurrencyFormatter.format(saving.goldProfitLoss)}')
-                                        : '${progress.toStringAsFixed(0)}%',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: saving.isGoldInvestment
-                                          ? (saving.goldProfitLoss >= 0
-                                                ? AppTheme.incomeColor
-                                                : AppTheme.expenseColor)
-                                          : null,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              if (saving.isGoldInvestment) ...[
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '${saving.goldType ?? (isId ? 'Emas' : 'Gold')} • ${saving.purchaseSource != null ? _sourceLabel(saving.purchaseSource!, isId) : '-'}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${saving.goldProfitLossPercent >= 0 ? '+' : ''}${saving.goldProfitLossPercent.toStringAsFixed(1)}%',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: saving.goldProfitLoss >= 0
-                                            ? AppTheme.incomeColor
-                                            : AppTheme.expenseColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '${isId ? 'Beli' : 'Bought'}: ${CurrencyFormatter.format(saving.purchasePricePerGram ?? 0)}/g',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${isId ? 'Sekarang' : 'Now'}: ${CurrencyFormatter.format(saving.currentPricePerGram ?? 0)}/g',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ] else
-                                _GoalPlan(
-                                  saving: saving,
-                                  isId: isId,
-                                  hidden: hidden,
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       },

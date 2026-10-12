@@ -113,4 +113,14 @@ void main() {
     ];
     expect(budgetSpent(list, 'Transportasi', '2026-10'), 50000);
   });
+
+  test('goal history: linked by id, or old Tabungan entries naming it', () {
+    final g = goal('g1', 'Neo NOW', 0);
+    expect(belongsToGoal(exp(1, 'Makanan', savingId: 'g1'), g), isTrue);
+    expect(belongsToGoal(exp(1, 'Tabungan', savingId: 'g1'), g), isTrue);
+    expect(belongsToGoal(exp(1, 'Tabungan', savingId: 'g2'), g), isFalse);
+    expect(belongsToGoal(exp(1, 'Tabungan', note: 'setor neo now'), g), isTrue);
+    expect(belongsToGoal(exp(1, 'Tabungan', note: 'Haji'), g), isFalse);
+    expect(belongsToGoal(exp(1, 'Makanan', note: 'Neo NOW'), g), isFalse);
+  });
 }
