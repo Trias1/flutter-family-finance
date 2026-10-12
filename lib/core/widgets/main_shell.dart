@@ -31,6 +31,7 @@ import 'package:family_finance_manager/core/widgets/shell_bell.dart';
 import 'package:family_finance_manager/core/widgets/account_actions.dart';
 import 'package:family_finance_manager/core/services/session_service.dart';
 import 'package:family_finance_manager/core/services/balance_parser.dart';
+import 'package:family_finance_manager/core/services/opening_balance.dart';
 import 'package:family_finance_manager/features/savings/presentation/widgets/balance_sync.dart';
 import 'package:family_finance_manager/core/services/bank_inbox.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
@@ -485,13 +486,22 @@ class _MainShellState extends ConsumerState<MainShell> {
       );
       return;
     }
-    // A bank's account screen ("Saldo Rp3.000.000"): offer to set the goal
-    // kept at that bank. "Not a savings balance" falls through to the
-    // transaction flows below.
+    // A bank's account screen ("Saldo Rp3.000.000"): record it as money in
+    // ("Saldo awal", for Tabungan/Transport/...) or set a goal's balance.
+    // A balance is money the user has, so it never becomes spending.
     final reading = BalanceParser.parse(scan.text);
     if (reading != null) {
-      final handled = await offerBalanceUpdate(context, ref, reading);
-      if (handled || !mounted) return;
+      final choice = await showBalanceDialog(context, ref, reading);
+      if (choice.action != BalanceAction.income || !mounted) return;
+      final purpose = await IncomePage.openFromReceipt(
+        context,
+        ref,
+        openingBalanceDraft(reading, choice.line, isId: isId),
+      );
+      if (isSavingsPurpose(purpose) && mounted) {
+        await offerGoalForSavings(context, ref, reading, choice.line);
+      }
+      return;
     }
     final draft = scan.draft;
     if (draft.isEmpty) {

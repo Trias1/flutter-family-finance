@@ -11,6 +11,7 @@ import 'package:family_finance_manager/data/models/income_model.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/pages/categories_page.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
+import 'package:family_finance_manager/core/services/opening_balance.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
 import 'package:family_finance_manager/features/reports/presentation/providers/report_provider.dart';
@@ -23,7 +24,9 @@ class IncomePage extends ConsumerWidget {
   const IncomePage({super.key});
 
   /// Opens the form filled from a scanned "money received" screenshot.
-  static Future<void> openFromReceipt(
+  /// Opens the form filled from a scan. Returns what the money is for
+  /// ("Untuk") once saved: '' when none was picked, null when not saved.
+  static Future<String?> openFromReceipt(
     BuildContext context,
     WidgetRef ref,
     ReceiptDraft draft,
@@ -34,6 +37,7 @@ class IncomePage extends ConsumerWidget {
     const wanted = {
       'salary': ['gaji', 'salary', 'upah'],
       'transfer_in': ['transfer', 'lain', 'other'],
+      'opening_balance': ['saldo awal'],
     };
     for (final word in wanted[hint] ?? const <String>[]) {
       for (final c in categories) {
@@ -264,7 +268,7 @@ class IncomePage extends ConsumerWidget {
     );
   }
 
-  Future<void> _showIncomeForm(
+  Future<String?> _showIncomeForm(
     BuildContext context,
     WidgetRef ref, {
     IncomeModel? income,
@@ -298,8 +302,17 @@ class IncomePage extends ConsumerWidget {
     bool isSaving = false;
     final isId = Localizations.localeOf(context).languageCode == 'id';
     final s = AppStrings(Localizations.localeOf(context));
+    // Scanned money in: what it is for (Tabungan, Transportasi, ...), kept
+    // in front of the note.
+    final purposes = draft == null
+        ? const <String>[]
+        : ref
+              .read(effectiveExpenseCategoriesProvider(familyId))
+              .where((c) => c != 'Lainnya')
+              .toList();
+    String? purpose;
 
-    await showModalBottomSheet(
+    return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
@@ -375,6 +388,27 @@ class IncomePage extends ConsumerWidget {
                       );
                     },
                   ),
+                  if (purposes.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      isId ? 'Untuk (opsional)' : 'For (optional)',
+                      style: Theme.of(ctx).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final p in purposes)
+                          ChoiceChip(
+                            label: Text(p),
+                            selected: purpose == p,
+                            onSelected: (on) =>
+                                setSheetState(() => purpose = on ? p : null),
+                          ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: noteController,
@@ -464,9 +498,11 @@ class IncomePage extends ConsumerWidget {
                                 userId: uid,
                                 amount: double.parse(amountController.text),
                                 category: selectedCategory,
-                                note: noteController.text.isEmpty
-                                    ? null
-                                    : noteController.text,
+                                note: noteWithPurpose(
+                                  noteController.text,
+                                  purpose,
+                                  isId: isId,
+                                ),
                                 date: selectedDate,
                               );
                               String? error;
@@ -501,7 +537,7 @@ class IncomePage extends ConsumerWidget {
                                     backgroundColor: AppTheme.incomeColor,
                                   ),
                                 );
-                                Navigator.pop(ctx);
+                                Navigator.pop(ctx, purpose ?? '');
                               }
                             } catch (e) {
                               setSheetState(() => isSaving = false);

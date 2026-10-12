@@ -76,11 +76,12 @@ class BalanceParser {
     caseSensitive: false,
   );
 
-  // Words of a single transaction rather than an account screen.
+  // Words of a finished transaction (a receipt) rather than an account
+  // screen. Menu buttons a bank's home screen shows ("Transfer", "Bayar",
+  // "Pembayaran") and "Selamat datang kembali" are not among them.
   static final _transaction = RegExp(
-    r'\b(berhasil|sukses|successful|transfer ke|transfer berhasil|'
-    r'pembayaran|bayar|payment|total belanja|kembali|kembalian|'
-    r'no\.? ?ref|referensi|reference|struk|kasir)\b',
+    r'\b(berhasil|sukses|successful|transfer berhasil|total belanja|'
+    r'kembalian|no\.? ?ref|referensi|reference|struk|kasir)\b',
     caseSensitive: false,
   );
 

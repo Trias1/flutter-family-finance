@@ -48,7 +48,10 @@ class ReceiptDraft {
         ? (isQris ? 'QRIS' : null)
         : (isQris ? 'QRIS $paidWith' : paidWith);
     String? what = merchant;
-    if (isIncoming) {
+    if (isIncoming && categoryHint == 'opening_balance') {
+      // "Saldo Bank Neo · Neo NOW", set by openingBalanceDraft.
+      what = merchant;
+    } else if (isIncoming) {
       // e.g. "Gaji dari PT MAJU JAYA · BCA" / "Transfer masuk dari BUDI · BRI".
       final label = categoryHint == 'salary'
           ? (isId ? 'Gaji' : 'Salary')

@@ -69,6 +69,23 @@ Oktober 2026
     expect(BalanceParser.parse('BCA\nSaldo\nRp ••••••'), isNull);
   });
 
+  test('a bank home screen with Transfer/Bayar menu buttons is a balance', () {
+    final r = BalanceParser.parse('''
+livin' by mandiri
+Halo, TRIAS
+Rekening Tabungan
+Saldo Rekening
+Rp 1.500.000,00
+Transfer
+Bayar
+Top-up
+Pembayaran
+QRIS
+''')!;
+    expect(r.amount, 1500000);
+    expect(r.bank, 'Mandiri');
+  });
+
   neoTests();
 }
 
