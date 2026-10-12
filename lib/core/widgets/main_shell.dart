@@ -33,6 +33,9 @@ import 'package:family_finance_manager/core/services/session_service.dart';
 import 'package:family_finance_manager/core/services/balance_parser.dart';
 import 'package:family_finance_manager/core/services/opening_balance.dart';
 import 'package:family_finance_manager/features/savings/presentation/widgets/balance_sync.dart';
+import 'package:family_finance_manager/features/budget/presentation/widgets/budget_from_balance.dart';
+import 'package:family_finance_manager/data/models/income_model.dart';
+import 'package:family_finance_manager/features/income/presentation/providers/income_provider.dart';
 import 'package:family_finance_manager/core/services/bank_inbox.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:family_finance_manager/features/bank_notifications/presentation/widgets/bank_inbox_banner.dart';
@@ -486,22 +489,55 @@ class _MainShellState extends ConsumerState<MainShell> {
       );
       return;
     }
-    // A bank's account screen ("Saldo Rp3.000.000"): record it as money in
-    // ("Saldo awal", for Tabungan/Transport/...) or set a goal's balance.
-    // A balance is money the user has, so it never becomes spending.
+    // A bank's account screen ("Saldo Rp3.000.000"): put it in a Budget or
+    // set a goal's balance, optionally also recorded as money in ("Saldo
+    // awal"). A balance is money the user has, so it never becomes spending.
     final reading = BalanceParser.parse(scan.text);
     if (reading != null) {
-      final choice = await showBalanceDialog(context, ref, reading);
-      if (choice.action != BalanceAction.income || !mounted) return;
-      final purpose = await IncomePage.openFromReceipt(
+      final fId = ref.read(financeScopeIdProvider);
+      // The income list may not be loaded yet (e.g. opened from a share);
+      // wait briefly so a re-scan does not default to recording "In" twice.
+      final incomes = await ref
+          .read(incomeStreamProvider(fId).future)
+          .timeout(const Duration(seconds: 5))
+          .catchError((_) => const <IncomeModel>[]);
+      if (!mounted) return;
+      final choice = await showBalanceDialog(
         context,
         ref,
-        openingBalanceDraft(reading, choice.line, isId: isId),
+        reading,
+        incomeDefault: (line) => recordIncomeByDefault(
+          incomes,
+          source:
+              openingBalanceDraft(
+                reading,
+                line,
+                isId: isId,
+              ).noteFor(isId: isId) ??
+              '',
+          amount: line.amount,
+          now: DateTime.now(),
+        ),
       );
-      if (isSavingsPurpose(purpose) && mounted) {
-        await offerGoalForSavings(context, ref, reading, choice.line);
+      if (!mounted) return;
+      String? purpose;
+      if (choice.action == BalanceAction.budget) {
+        purpose = await allocateToBudget(context, ref, choice.line.amount);
+      } else if (choice.action == BalanceAction.goalUpdated) {
+        purpose = 'Tabungan ${choice.goalName ?? ''}'.trim();
       }
-      return;
+      if (purpose != null && choice.recordIncome && mounted) {
+        await _saveOpeningBalance(
+          choice.line.amount,
+          openingBalanceNote(
+            reading,
+            choice.line,
+            purpose: purpose,
+            isId: isId,
+          ),
+        );
+      }
+      return; // a balance never becomes spending
     }
     final draft = scan.draft;
     if (draft.isEmpty) {
@@ -521,6 +557,46 @@ class _MainShellState extends ConsumerState<MainShell> {
     } else {
       await ExpensePage.openFromReceipt(context, ref, draft);
     }
+  }
+
+  /// Saves a scanned balance as money in under "Saldo awal" with [note]
+  /// ("Untuk Transportasi · Saldo Bank Neo · Neo NOW").
+  Future<void> _saveOpeningBalance(double amount, String note) async {
+    final uid = ref.read(firebaseAuthDataSourceProvider).currentUser?.uid ?? '';
+    final fId = ref.read(financeScopeIdProvider);
+    final error = await ref
+        .read(incomeNotifierProvider.notifier)
+        .addIncome(
+          IncomeModel(
+            id: '',
+            familyId: fId,
+            userId: uid,
+            amount: amount,
+            category: 'Saldo awal',
+            note: note,
+            date: DateTime.now(),
+          ),
+        );
+    ref.invalidate(incomeStreamProvider(fId));
+    ref.invalidate(dashboardProvider);
+    if (!mounted) return;
+    final isId = ref.read(localeProvider).languageCode == 'id';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null
+              ? (isId
+                    ? 'Pemasukan Saldo awal tercatat.'
+                    : 'Opening balance recorded as income.')
+              : (isId
+                    ? 'Pemasukan gagal disimpan.'
+                    : "Couldn't save the income."),
+        ),
+        backgroundColor: error == null
+            ? AppTheme.incomeColor
+            : AppTheme.errorColor,
+      ),
+    );
   }
 
   /// "Active now" for the admin panel, like the web: every 60 seconds while

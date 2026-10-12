@@ -23,27 +23,37 @@ bool goalAtBank(SavingModel goal, String? bank) {
   return ReceiptParser.bankIn(goal.bankName!) == bank;
 }
 
-enum BalanceAction { cancel, goalUpdated, income }
+enum BalanceAction { cancel, goalUpdated, budget }
 
-/// What the user did with a balance read from a screenshot, and which of
-/// its balances (pockets) they picked.
+/// What the user did with a balance read from a screenshot, which of its
+/// balances (pockets) they picked, and whether it should also be recorded
+/// as money in ("Saldo awal").
 class BalanceChoice {
   final BalanceAction action;
   final BalanceLine line;
-  const BalanceChoice(this.action, this.line);
+  final bool recordIncome;
+  final String? goalName;
+  const BalanceChoice(
+    this.action,
+    this.line, {
+    this.recordIncome = false,
+    this.goalName,
+  });
 }
 
 /// The balance read from a bank screen. The user picks the balance (when
-/// the screen has pockets) and either records it as money in or sets a
-/// goal's balance to it; with [allowIncome] false only the goal update is
-/// offered. A balance is never recorded as spending.
+/// the screen has pockets) and where it goes: a Budget (the caller asks
+/// which category) or a goal, whose balance is set to it right here. With
+/// [allowBudget] false only the goal update is offered. "Also record as
+/// income" starts as [incomeDefault] says for the picked pocket. A balance
+/// is never recorded as spending.
 Future<BalanceChoice> showBalanceDialog(
   BuildContext context,
   WidgetRef ref,
   BalanceReading reading, {
   SavingModel? preselect,
-  BalanceLine? fixedLine,
-  bool allowIncome = true,
+  bool allowBudget = true,
+  bool Function(BalanceLine line)? incomeDefault,
 }) async {
   final isId = ref.read(localeProvider).languageCode == 'id';
   final goals = _cashGoals(ref);
@@ -57,10 +67,19 @@ Future<BalanceChoice> showBalanceDialog(
   // the pocket named in the goal is picked until the user picks another.
   BalanceLine pocketFor(SavingModel? g) =>
       (g == null ? null : reading.lineFor(g.name)) ?? reading.lines.first;
-  var line = fixedLine ?? pocketFor(chosen);
-  var pickedPocket = fixedLine != null;
+  var line = pocketFor(chosen);
+  var pickedPocket = false;
+  // Follows the pocket (off when it was already recorded this month) until
+  // the user ticks or unticks it.
+  var recordIncome = incomeDefault?.call(line) ?? true;
+  var touchedIncome = false;
+  void showPocket(BalanceLine l) {
+    line = l;
+    if (!touchedIncome) recordIncome = incomeDefault?.call(l) ?? true;
+  }
+
   final cancelled = BalanceChoice(BalanceAction.cancel, line);
-  if (!allowIncome && goals.isEmpty) return cancelled;
+  if (!allowBudget && goals.isEmpty) return cancelled;
 
   final action = await showDialog<BalanceAction>(
     context: context,
@@ -85,7 +104,7 @@ Future<BalanceChoice> showBalanceDialog(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (reading.lines.length > 1 && fixedLine == null) ...[
+                if (reading.lines.length > 1) ...[
                   const SizedBox(height: 10),
                   Text(
                     isId ? 'Saldo yang mana?' : 'Which balance?',
@@ -103,35 +122,24 @@ Future<BalanceChoice> showBalanceDialog(
                           ),
                           selected: identical(l, line),
                           onSelected: (_) => setState(() {
-                            line = l;
+                            showPocket(l);
                             pickedPocket = true;
                           }),
                         ),
                     ],
                   ),
                 ],
-                if (allowIncome) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    isId
-                        ? 'Catat pemasukan: masuk sebagai "Saldo awal", lalu pilih untuk apa (Tabungan, Transport, Makan...).'
-                        : 'Record as income: saved as "Saldo awal"; then pick what it is for.',
-                    style: TextStyle(fontSize: 13, color: muted),
-                  ),
-                ],
                 if (goals.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
-                    isId
-                        ? 'Atau jadikan saldo goal (tidak dicatat sebagai transaksi):'
-                        : 'Or set a goal balance (no transaction recorded):',
+                    isId ? 'Tabungan:' : 'Savings:',
                     style: TextStyle(fontSize: 13, color: muted),
                   ),
                   RadioGroup<SavingModel>(
                     groupValue: chosen,
                     onChanged: (g) => setState(() {
                       chosen = g ?? chosen;
-                      if (!pickedPocket) line = pocketFor(chosen);
+                      if (!pickedPocket) showPocket(pocketFor(chosen));
                     }),
                     child: Column(
                       children: [
@@ -153,6 +161,25 @@ Future<BalanceChoice> showBalanceDialog(
                     ),
                   ),
                 ],
+                if (allowBudget)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: recordIncome,
+                    onChanged: (v) => setState(() {
+                      recordIncome = v ?? false;
+                      touchedIncome = true;
+                    }),
+                    title: Text(
+                      isId
+                          ? 'Catat juga sebagai pemasukan (Saldo awal)'
+                          : 'Also record as income (Saldo awal)',
+                    ),
+                    subtitle: Text(
+                      isId
+                          ? 'Matikan kalau ini cuma update saldo.'
+                          : 'Turn off for a balance update.',
+                    ),
+                  ),
               ],
             ),
           ),
@@ -161,20 +188,20 @@ Future<BalanceChoice> showBalanceDialog(
               onPressed: () => Navigator.pop(ctx, BalanceAction.cancel),
               child: Text(isId ? 'Batal' : 'Cancel'),
             ),
-            if (goals.isNotEmpty && allowIncome)
+            if (goals.isNotEmpty && allowBudget)
               TextButton(
                 onPressed: () => Navigator.pop(ctx, BalanceAction.goalUpdated),
-                child: Text(isId ? 'Perbarui goal' : 'Update goal'),
+                child: Text(isId ? 'Tabungan' : 'Savings'),
               )
             else if (goals.isNotEmpty)
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, BalanceAction.goalUpdated),
                 child: Text(isId ? 'Perbarui saldo' : 'Update balance'),
               ),
-            if (allowIncome)
+            if (allowBudget)
               FilledButton(
-                onPressed: () => Navigator.pop(ctx, BalanceAction.income),
-                child: Text(isId ? 'Catat pemasukan' : 'Record income'),
+                onPressed: () => Navigator.pop(ctx, BalanceAction.budget),
+                child: const Text('Budget'),
               ),
           ],
         );
@@ -184,32 +211,32 @@ Future<BalanceChoice> showBalanceDialog(
   if (action == null || action == BalanceAction.cancel) {
     return BalanceChoice(BalanceAction.cancel, line);
   }
-  if (action == BalanceAction.income) {
-    return BalanceChoice(BalanceAction.income, line);
+  final income = allowBudget && recordIncome;
+  if (action == BalanceAction.budget) {
+    return BalanceChoice(BalanceAction.budget, line, recordIncome: income);
   }
   final goal = chosen;
   if (goal == null || !context.mounted) return cancelled;
-  await _setGoalBalance(context, ref, goal, line.amount, isId: isId);
-  return BalanceChoice(BalanceAction.goalUpdated, line);
+  final saved = await _setGoalBalance(
+    context,
+    ref,
+    goal,
+    line.amount,
+    isId: isId,
+  );
+  // A goal that could not be saved records no income either.
+  if (!saved) return BalanceChoice(BalanceAction.cancel, line);
+  return BalanceChoice(
+    BalanceAction.goalUpdated,
+    line,
+    recordIncome: income,
+    goalName: goal.name,
+  );
 }
 
-/// After a balance was recorded as income "Untuk Tabungan": offer to set a
-/// goal's balance to the same amount.
-Future<void> offerGoalForSavings(
-  BuildContext context,
-  WidgetRef ref,
-  BalanceReading reading,
-  BalanceLine line,
-) => showBalanceDialog(
-  context,
-  ref,
-  reading,
-  fixedLine: line,
-  allowIncome: false,
-);
-
 /// Only the goal's balance changes; nothing is recorded as spending.
-Future<void> _setGoalBalance(
+/// Returns whether it was saved.
+Future<bool> _setGoalBalance(
   BuildContext context,
   WidgetRef ref,
   SavingModel goal,
@@ -234,6 +261,7 @@ Future<void> _setGoalBalance(
         ),
       );
     }
+    return true;
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -247,6 +275,7 @@ Future<void> _setGoalBalance(
         ),
       );
     }
+    return false;
   }
 }
 
@@ -284,6 +313,6 @@ Future<void> syncGoalFromScreenshot(
     ref,
     reading,
     preselect: goal,
-    allowIncome: false,
+    allowBudget: false,
   );
 }
