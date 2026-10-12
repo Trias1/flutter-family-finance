@@ -1,6 +1,6 @@
 # Budget, Tabungan & Tagihan dari scan — desain
 
-Tanggal: 12 Okt 2026 · Status: menunggu review user
+Tanggal: 12 Okt 2026 · Status: disetujui user; Bagian 1–3 dikerjakan dulu
 
 ## Tujuan
 
@@ -97,6 +97,11 @@ Pemasukan tetap ada untuk struk transfer masuk.
   Cocok → "Ini bayar tagihan **Internet** Rp X?" → Iya: satu pengeluaran
   (kategori tagihan, sumber Budget/Tabungan) + tagihan lunas. Tidak → alur
   pengeluaran biasa (tidak berubah).
+- Nominal **tetap** vs **berubah-ubah** (pilihan di form Tagihan). Contoh
+  user: Internet/wifi tetap; Listrik naik-turun sesuai pemakaian. Tagihan
+  berubah-ubah dicocokkan dari kata kunci saja (nominal tidak dipakai),
+  pengeluaran memakai nominal di struk, dan nominal tagihan diperbarui jadi
+  perkiraan bulan berikutnya. Tagihan tetap boleh dicocokkan dari nominal.
 - Tandai lunas manual di halaman Tagihan → "Catat sebagai pengeluaran?"
   (nominal terisi). Satu aksi, satu catatan.
 - Tagihan **bulanan/mingguan/tahunan** yang lunas pindah ke jatuh tempo
