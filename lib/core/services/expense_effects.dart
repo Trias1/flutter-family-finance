@@ -89,3 +89,13 @@ bool canPayFromGoal(SavingModel goal, double amount, {ExpenseModel? editing}) {
       : 0.0;
   return amount <= goal.currentAmount + back;
 }
+
+/// What the budget of [category] in [month] ("2026-10") has used: expenses
+/// that cut a budget (not deposits, not paid from savings).
+double budgetSpent(List<ExpenseModel> expenses, String category, String month) {
+  String key(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}';
+  return expenses
+      .map(effectsOf)
+      .where((fx) => fx.budgetCategory == category && key(fx.date) == month)
+      .fold<double>(0, (sum, fx) => sum + fx.budgetDelta);
+}

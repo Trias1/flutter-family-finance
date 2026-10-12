@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:family_finance_manager/data/datasources/firestore_datasource.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
+import 'package:family_finance_manager/core/services/expense_effects.dart';
 
 class BudgetRepository {
   final FirestoreDataSource _dataSource;
@@ -66,9 +67,7 @@ class BudgetRepository {
   ) async {
     if (isSavingsCategory(category)) return 0;
     final expenses = await _dataSource.getExpenses(familyId);
-    return expenses
-        .where((e) => e.category == category && monthKey(e.date) == month)
-        .fold<double>(0, (sum, e) => sum + e.amount);
+    return budgetSpent(expenses, category, month);
   }
 
   Future<void> rolloverIfNeeded(String familyId) async {

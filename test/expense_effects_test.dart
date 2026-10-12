@@ -104,4 +104,13 @@ void main() {
     expect(data['savingId'], 'g1');
     expect(exp(1000, 'Makanan').toFirestore().containsKey('savingId'), isFalse);
   });
+
+  test('only budget-paid expenses count as budget spending', () {
+    final list = [
+      exp(50000, 'Transportasi'),
+      exp(30000, 'Transportasi', savingId: 'g1'),
+      exp(20000, 'Makanan'),
+    ];
+    expect(budgetSpent(list, 'Transportasi', '2026-10'), 50000);
+  });
 }

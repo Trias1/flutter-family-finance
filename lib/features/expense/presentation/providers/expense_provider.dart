@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/data/models/expense_model.dart';
-import 'package:family_finance_manager/data/models/saving_model.dart';
+import 'package:family_finance_manager/core/services/expense_effects.dart';
 import 'package:family_finance_manager/data/repositories/budget_repository.dart';
 import 'package:family_finance_manager/data/repositories/saving_repository.dart';
 import 'package:family_finance_manager/data/repositories/transaction_repository.dart';
@@ -36,45 +36,6 @@ Future<void> _updateBudgetForExpense(
   return budgetRepo.applyExpense(familyId, category, amount, date);
 }
 
-Future<void> _updateGoalsForExpense(
-  SavingRepository savingRepo,
-  String familyId,
-  String note,
-  double amount,
-) async {
-  // If expense is Tabungan/Savings category, add amount to matching Goals by name in note
-  final savings = await savingRepo.getSavings(familyId);
-  final noteLower = note.toLowerCase();
-  final match = savings
-      .where((s) => noteLower.contains(s.name.toLowerCase()))
-      .firstOrNull;
-  if (match == null) return;
-
-  final updated = match.copyWith(currentAmount: match.currentAmount + amount);
-  await savingRepo.updateSaving(updated);
-}
-
-Future<void> _reverseGoalsForExpense(
-  SavingRepository savingRepo,
-  String familyId,
-  String note,
-  double amount,
-) async {
-  // Reverse goals effect: subtract amount from matching Goals (clamp at 0)
-  final savings = await savingRepo.getSavings(familyId);
-  final noteLower = note.toLowerCase();
-  final match = savings
-      .where((s) => noteLower.contains(s.name.toLowerCase()))
-      .firstOrNull;
-  if (match == null) return;
-
-  final newAmount = (match.currentAmount - amount)
-      .clamp(0, double.infinity)
-      .toDouble();
-  final updated = match.copyWith(currentAmount: newAmount);
-  await savingRepo.updateSaving(updated);
-}
-
 class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   final TransactionRepository _repository;
   final BudgetRepository _budgetRepo;
@@ -83,136 +44,62 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   ExpenseNotifier(this._repository, this._budgetRepo, this._savingRepo)
     : super(const AsyncValue.data(null));
 
-  Future<String?> addExpense(ExpenseModel expense) async {
-    state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() async {
-      await _repository.createExpense(expense);
+  /// Applies [fx] to the budget and the goal it names.
+  Future<void> _apply(String familyId, ExpenseEffects fx) async {
+    if (fx.budgetCategory != null && fx.budgetDelta != 0) {
       await _updateBudgetForExpense(
         _budgetRepo,
-        expense.familyId,
-        expense.category,
-        expense.amount,
-        expense.date,
+        familyId,
+        fx.budgetCategory!,
+        fx.budgetDelta,
+        fx.date,
       );
-
-      if ((expense.category == 'Tabungan' || expense.category == 'Savings') &&
-          expense.note != null &&
-          expense.note!.isNotEmpty) {
-        await _updateGoalsForExpense(
-          _savingRepo,
-          expense.familyId,
-          expense.note!,
-          expense.amount,
-        );
-      }
-    });
-    state = result.error != null
-        ? AsyncValue<void>.error(result.error!, result.stackTrace!)
-        : const AsyncValue.data(null);
-    return result.error?.toString();
+    }
+    if (fx.goalDelta == 0 || (fx.savingId == null && fx.goalNote == null)) {
+      return;
+    }
+    final goals = await _savingRepo.getSavings(familyId);
+    final goal = fx.savingId != null
+        ? goals.where((g) => g.id == fx.savingId).firstOrNull
+        : legacyGoalFor(fx.goalNote!, goals);
+    if (goal == null) return;
+    await _savingRepo.updateSaving(
+      goal.copyWith(
+        currentAmount: goalAmountAfter(goal.currentAmount, fx.goalDelta),
+      ),
+    );
   }
 
-  Future<String?> updateExpense(ExpenseModel expense) async {
+  Future<String?> _run(Future<void> Function() body) async {
     state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() async {
-      final old = await _repository.getExpense(expense.id);
-      await _repository.updateExpense(expense);
-      if (old == null) return;
-
-      final wasSavings =
-          old.category == 'Tabungan' || old.category == 'Savings';
-      final isSavings =
-          expense.category == 'Tabungan' || expense.category == 'Savings';
-
-      // Goals: reverse old effect, then apply new effect
-      if (wasSavings && old.note != null && old.note!.isNotEmpty) {
-        await _reverseGoalsForExpense(
-          _savingRepo,
-          expense.familyId,
-          old.note!,
-          old.amount,
-        );
-      }
-      if (isSavings && expense.note != null && expense.note!.isNotEmpty) {
-        await _updateGoalsForExpense(
-          _savingRepo,
-          expense.familyId,
-          expense.note!,
-          expense.amount,
-        );
-      }
-
-      // Budget update (skip Tabungan/Savings)
-      if (old.category == expense.category) {
-        if (!isSavings) {
-          final diff = expense.amount - old.amount;
-          if (diff != 0)
-            await _updateBudgetForExpense(
-              _budgetRepo,
-              expense.familyId,
-              expense.category,
-              diff,
-              expense.date,
-            );
-        }
-      } else {
-        if (!wasSavings) {
-          await _updateBudgetForExpense(
-            _budgetRepo,
-            expense.familyId,
-            old.category,
-            -old.amount,
-            old.date,
-          );
-        }
-        if (!isSavings) {
-          await _updateBudgetForExpense(
-            _budgetRepo,
-            expense.familyId,
-            expense.category,
-            expense.amount,
-            expense.date,
-          );
-        }
-      }
-    });
+    final result = await AsyncValue.guard(body);
     state = result.error != null
         ? AsyncValue<void>.error(result.error!, result.stackTrace!)
         : const AsyncValue.data(null);
     return result.error?.toString();
   }
 
-  Future<String?> deleteExpense(String id) async {
-    state = const AsyncValue.loading();
-    final result = await AsyncValue.guard(() async {
-      final expense = await _repository.getExpense(id);
-      await _repository.deleteExpense(id);
-      if (expense == null) return;
+  Future<String?> addExpense(ExpenseModel expense) => _run(() async {
+    await _repository.createExpense(expense);
+    await _apply(expense.familyId, effectsOf(expense));
+  });
 
-      if (expense.category == 'Tabungan' || expense.category == 'Savings') {
-        if (expense.note != null && expense.note!.isNotEmpty) {
-          await _reverseGoalsForExpense(
-            _savingRepo,
-            expense.familyId,
-            expense.note!,
-            expense.amount,
-          );
-        }
-      } else {
-        await _updateBudgetForExpense(
-          _budgetRepo,
-          expense.familyId,
-          expense.category,
-          -expense.amount,
-          expense.date,
-        );
-      }
-    });
-    state = result.error != null
-        ? AsyncValue<void>.error(result.error!, result.stackTrace!)
-        : const AsyncValue.data(null);
-    return result.error?.toString();
-  }
+  /// Undoes what the old version did to budgets and goals, then applies the
+  /// new one (so Budget <-> Tabungan or another goal stays right).
+  Future<String?> updateExpense(ExpenseModel expense) => _run(() async {
+    final old = await _repository.getExpense(expense.id);
+    await _repository.updateExpense(expense);
+    if (old == null) return;
+    await _apply(expense.familyId, effectsOf(old).reversed);
+    await _apply(expense.familyId, effectsOf(expense));
+  });
+
+  Future<String?> deleteExpense(String id) => _run(() async {
+    final expense = await _repository.getExpense(id);
+    await _repository.deleteExpense(id);
+    if (expense == null) return;
+    await _apply(expense.familyId, effectsOf(expense).reversed);
+  });
 }
 
 final expenseNotifierProvider =
