@@ -10,6 +10,7 @@ import 'package:family_finance_manager/data/models/income_model.dart';
 import 'package:family_finance_manager/data/models/saving_model.dart';
 import 'package:family_finance_manager/data/repositories/budget_repository.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
+import 'package:family_finance_manager/core/services/expense_effects.dart';
 
 class DailySummary {
   final double totalIncome;
@@ -202,7 +203,8 @@ Future<DashboardData> _loadDashboard(
   final debts = results[5] as List<DebtModel>;
 
   final totalIncome = incomes.fold<double>(0, (sum, e) => sum + e.amount);
-  final totalExpense = expenses.fold<double>(0, (sum, e) => sum + e.amount);
+  // Spending paid from a goal left the wallet already, at the deposit.
+  final totalExpense = walletSpent(expenses);
   final totalSavings = savings.fold<double>(
     0,
     (sum, e) => sum + e.currentAmount,

@@ -56,7 +56,8 @@ class ExpenseModel {
       'note': note,
       'attachment': attachment,
       'recurringId': recurringId,
-      if (savingId != null) 'savingId': savingId,
+      // Always written, so editing back to Budget clears the goal link.
+      'savingId': savingId,
       'date': Timestamp.fromDate(date),
       'createdAt': Timestamp.fromDate(createdAt),
     };

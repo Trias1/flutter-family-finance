@@ -221,14 +221,13 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
           error = await ref
               .read(expenseNotifierProvider.notifier)
               .addExpense(
-                ExpenseModel(
-                  id: '',
-                  familyId: _scope,
-                  userId: uid,
+                importedSavingsExpense(
+                  scope: _scope,
+                  uid: uid,
                   amount: r.item.amount,
-                  category: 'Tabungan',
-                  note: goal == null ? desc : '${goal.name} · $desc',
                   date: date,
+                  description: desc,
+                  goal: goal,
                 ),
               );
         case RowKind.internal:
@@ -667,3 +666,23 @@ class _RowTile extends StatelessWidget {
     );
   }
 }
+
+/// A statement row moved into savings: a Tabungan deposit linked to [goal]
+/// by id (the goal's name stays in the note for reading).
+ExpenseModel importedSavingsExpense({
+  required String scope,
+  required String uid,
+  required double amount,
+  required DateTime date,
+  required String description,
+  SavingModel? goal,
+}) => ExpenseModel(
+  id: '',
+  familyId: scope,
+  userId: uid,
+  amount: amount,
+  category: 'Tabungan',
+  note: goal == null ? description : '${goal.name} · $description',
+  savingId: goal?.id,
+  date: date,
+);

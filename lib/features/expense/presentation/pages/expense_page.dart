@@ -159,9 +159,23 @@ class ExpensePage extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    onDismissed: (_) => ref
-                        .read(expenseNotifierProvider.notifier)
-                        .deleteExpense(expense.id),
+                    onDismissed: (_) async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final error = await ref
+                          .read(expenseNotifierProvider.notifier)
+                          .deleteExpense(expense.id);
+                      if (error != null) {
+                        // Refused (e.g. the goal's money was spent): it
+                        // comes back in the list; say why.
+                        ref.invalidate(expenseStreamProvider(familyId));
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(_friendlyError(error, isId)),
+                            backgroundColor: AppTheme.errorColor,
+                          ),
+                        );
+                      }
+                    },
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
@@ -676,6 +690,13 @@ class ExpensePage extends ConsumerWidget {
   }
 
   String _friendlyError(dynamic e, bool isId) {
+    final over = RegExp(r'goal-overdrawn:(.+)$').firstMatch(e.toString());
+    if (over != null) {
+      final goal = over[1]!.trim();
+      return isId
+          ? 'Uang di tabungan $goal sudah terpakai. Ubah/hapus dulu pengeluaran yang dibayar dari $goal.'
+          : 'The money in $goal was already spent. Change or delete the spending paid from $goal first.';
+    }
     final msg = e.toString().toLowerCase();
     if (msg.contains('network-request-failed')) {
       return isId ? 'Tidak ada koneksi internet' : 'No internet connection';

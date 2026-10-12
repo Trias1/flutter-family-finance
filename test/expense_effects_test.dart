@@ -102,7 +102,11 @@ void main() {
   test('savingId round-trips through Firestore data', () {
     final data = exp(1000, 'Makanan', savingId: 'g1').toFirestore();
     expect(data['savingId'], 'g1');
-    expect(exp(1000, 'Makanan').toFirestore().containsKey('savingId'), isFalse);
+    // Written as null too: an edit back to Budget must clear the old link
+    // (Firestore update() keeps fields that are left out).
+    final cleared = exp(1000, 'Makanan').toFirestore();
+    expect(cleared.containsKey('savingId'), isTrue);
+    expect(cleared['savingId'], isNull);
   });
 
   test('only budget-paid expenses count as budget spending', () {
@@ -122,6 +126,29 @@ void main() {
     expect(belongsToGoal(exp(1, 'Tabungan', note: 'setor neo now'), g), isTrue);
     expect(belongsToGoal(exp(1, 'Tabungan', note: 'Haji'), g), isFalse);
     expect(belongsToGoal(exp(1, 'Makanan', note: 'Neo NOW'), g), isFalse);
+  });
+
+  test('undoing a deposit that was already spent is refused', () {
+    // Deposit 100k into the goal, then 100k paid from it: goal is at 0.
+    final undo = effectsOf(exp(100000, 'Tabungan', savingId: 'g1')).reversed;
+    expect(overdrawnGoal([undo], [goal('g1', 'Neo NOW', 0)]), 'Neo NOW');
+    expect(overdrawnGoal([undo], [goal('g1', 'Neo NOW', 100000)]), isNull);
+    // An edit counts the net change: 50k - 100k + 60k = 10k left.
+    final redo = effectsOf(exp(60000, 'Tabungan', savingId: 'g1'));
+    expect(overdrawnGoal([undo, redo], [goal('g1', 'Neo NOW', 50000)]), isNull);
+    // Old entries matched by name are checked the same way.
+    final legacy = effectsOf(exp(100000, 'Tabungan', note: 'Neo NOW')).reversed;
+    expect(overdrawnGoal([legacy], [goal('g1', 'Neo NOW', 0)]), 'Neo NOW');
+  });
+
+  test('overall balance: money left the wallet once, at the deposit', () {
+    // Deposit 1jt into a goal, then 1jt paid from it: the wallet lost 1jt.
+    final list = [
+      exp(1000000, 'Tabungan', savingId: 'g1'),
+      exp(1000000, 'Makanan', savingId: 'g1'),
+      exp(50000, 'Transportasi'),
+    ];
+    expect(walletSpent(list), 1050000);
   });
 
   test('budget sheet lists only budget-paid spending of that month', () {

@@ -123,3 +123,40 @@ List<ExpenseModel> budgetExpenses(
       .toList()
     ..sort((a, b) => b.date.compareTo(a.date));
 }
+
+/// The name of a goal these effects would take below zero (e.g. deleting a
+/// deposit whose money was already spent from the goal), or null.
+String? overdrawnGoal(List<ExpenseEffects> effects, List<SavingModel> goals) {
+  final net = <String, double>{};
+  for (final fx in effects) {
+    if (fx.goalDelta == 0) continue;
+    final goal = fx.savingId != null
+        ? goals.where((g) => g.id == fx.savingId).firstOrNull
+        : fx.goalNote == null
+        ? null
+        : legacyGoalFor(fx.goalNote!, goals);
+    if (goal == null) continue;
+    net[goal.id] = (net[goal.id] ?? 0) + fx.goalDelta;
+  }
+  for (final g in goals) {
+    final delta = net[g.id];
+    if (delta != null && g.currentAmount + delta < -0.005) return g.name;
+  }
+  return null;
+}
+
+/// Refused change: it would take [goal] below zero.
+class GoalOverdrawn implements Exception {
+  final String goal;
+  const GoalOverdrawn(this.goal);
+
+  @override
+  String toString() => 'goal-overdrawn:$goal';
+}
+
+/// Money that left the wallet: everything except spending paid from a goal
+/// (that money already left at the deposit). "Saldo keseluruhan" is income
+/// minus this.
+double walletSpent(List<ExpenseModel> expenses) => expenses
+    .where((e) => e.savingId == null || isSavingsDeposit(e.category))
+    .fold<double>(0, (sum, e) => sum + e.amount);

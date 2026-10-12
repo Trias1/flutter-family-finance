@@ -70,6 +70,15 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
     );
   }
 
+  /// Refuses a change that would take a goal below zero (e.g. deleting a
+  /// deposit whose money was already spent from that goal).
+  Future<void> _guard(String familyId, List<ExpenseEffects> effects) async {
+    if (effects.every((fx) => fx.goalDelta == 0)) return;
+    final goals = await _savingRepo.getSavings(familyId);
+    final name = overdrawnGoal(effects, goals);
+    if (name != null) throw GoalOverdrawn(name);
+  }
+
   Future<String?> _run(Future<void> Function() body) async {
     state = const AsyncValue.loading();
     final result = await AsyncValue.guard(body);
@@ -80,6 +89,7 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<String?> addExpense(ExpenseModel expense) => _run(() async {
+    await _guard(expense.familyId, [effectsOf(expense)]);
     await _repository.createExpense(expense);
     await _apply(expense.familyId, effectsOf(expense));
   });
@@ -88,6 +98,12 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   /// new one (so Budget <-> Tabungan or another goal stays right).
   Future<String?> updateExpense(ExpenseModel expense) => _run(() async {
     final old = await _repository.getExpense(expense.id);
+    if (old != null) {
+      await _guard(expense.familyId, [
+        effectsOf(old).reversed,
+        effectsOf(expense),
+      ]);
+    }
     await _repository.updateExpense(expense);
     if (old == null) return;
     await _apply(expense.familyId, effectsOf(old).reversed);
@@ -96,6 +112,9 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
 
   Future<String?> deleteExpense(String id) => _run(() async {
     final expense = await _repository.getExpense(id);
+    if (expense != null) {
+      await _guard(expense.familyId, [effectsOf(expense).reversed]);
+    }
     await _repository.deleteExpense(id);
     if (expense == null) return;
     await _apply(expense.familyId, effectsOf(expense).reversed);
