@@ -107,3 +107,19 @@ bool belongsToGoal(ExpenseModel e, SavingModel goal) {
   return isSavingsDeposit(e.category) &&
       (e.note ?? '').toLowerCase().contains(goal.name.toLowerCase());
 }
+
+/// The spending a budget of [category] in [month] ("2026-10") is made of,
+/// newest first.
+List<ExpenseModel> budgetExpenses(
+  List<ExpenseModel> all,
+  String category,
+  String month,
+) {
+  String key(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}';
+  return all
+      .where(
+        (e) => effectsOf(e).budgetCategory == category && key(e.date) == month,
+      )
+      .toList()
+    ..sort((a, b) => b.date.compareTo(a.date));
+}

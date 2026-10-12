@@ -14,6 +14,8 @@ import 'package:family_finance_manager/features/auth/presentation/providers/auth
 import 'package:family_finance_manager/features/budget/presentation/providers/budget_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
 import 'package:family_finance_manager/features/dashboard/presentation/providers/dashboard_provider.dart';
+import 'package:family_finance_manager/features/expense/presentation/providers/expense_provider.dart';
+import 'package:family_finance_manager/features/budget/presentation/widgets/budget_expenses_sheet.dart';
 
 class BudgetPage extends ConsumerWidget {
   const BudgetPage({super.key});
@@ -22,6 +24,8 @@ class BudgetPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final familyId = ref.watch(financeScopeIdProvider);
     final budgetsAsync = ref.watch(budgetsByMonthProvider(familyId));
+    // Loaded for each budget's spending list (tap a budget).
+    ref.watch(expenseStreamProvider(familyId));
     final isId = Localizations.localeOf(context).languageCode == 'id';
     final s = AppStrings(Localizations.localeOf(context));
     final router = GoRouter.of(context);
@@ -103,167 +107,183 @@ class BudgetPage extends ConsumerWidget {
                       final budget = budgets[index - 1];
                       final isExceeded = budget.isExceeded;
                       final isWarning = budget.isAlmostExceeded;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => showBudgetExpenses(
+                          context,
+                          category: budget.category,
+                          month: budget.month,
+                          expenses:
+                              ref
+                                  .read(expenseStreamProvider(familyId))
+                                  .valueOrNull ??
+                              const [],
+                          isId: isId,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: isExceeded
-                                              ? AppTheme.errorColor.withValues(
-                                                  alpha: 0.1,
-                                                )
-                                              : isWarning
-                                              ? AppTheme.warningColor
-                                                    .withValues(alpha: 0.1)
-                                              : AppTheme.incomeColor.withValues(
-                                                  alpha: 0.1,
-                                                ),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: isExceeded
+                                                ? AppTheme.errorColor
+                                                      .withValues(alpha: 0.1)
+                                                : isWarning
+                                                ? AppTheme.warningColor
+                                                      .withValues(alpha: 0.1)
+                                                : AppTheme.incomeColor
+                                                      .withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            isExceeded
+                                                ? Icons.warning_rounded
+                                                : isWarning
+                                                ? Icons.info_rounded
+                                                : Icons.check_circle_rounded,
+                                            color: isExceeded
+                                                ? AppTheme.errorColor
+                                                : isWarning
+                                                ? AppTheme.warningColor
+                                                : AppTheme.incomeColor,
+                                            size: 20,
                                           ),
                                         ),
-                                        child: Icon(
-                                          isExceeded
-                                              ? Icons.warning_rounded
-                                              : isWarning
-                                              ? Icons.info_rounded
-                                              : Icons.check_circle_rounded,
-                                          color: isExceeded
-                                              ? AppTheme.errorColor
-                                              : isWarning
-                                              ? AppTheme.warningColor
-                                              : AppTheme.incomeColor,
-                                          size: 20,
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            budget.category,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'edit')
+                                        _showBudgetForm(
+                                          context,
+                                          ref,
+                                          budget: budget,
+                                        );
+                                      else if (value == 'delete')
+                                        ref
+                                            .read(
+                                              budgetNotifierProvider.notifier,
+                                            )
+                                            .deleteBudget(budget.id);
+                                    },
+                                    itemBuilder: (ctx) => [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text(s.edit),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          budget.category,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text(s.delete),
                                       ),
                                     ],
                                   ),
-                                ),
-                                PopupMenuButton<String>(
-                                  onSelected: (value) {
-                                    if (value == 'edit')
-                                      _showBudgetForm(
-                                        context,
-                                        ref,
-                                        budget: budget,
-                                      );
-                                    else if (value == 'delete')
-                                      ref
-                                          .read(budgetNotifierProvider.notifier)
-                                          .deleteBudget(budget.id);
-                                  },
-                                  itemBuilder: (ctx) => [
-                                    PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text(s.edit),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text(s.delete),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            TweenAnimationBuilder<double>(
-                              tween: Tween(
-                                begin: 0,
-                                end: budget.percentage / 100,
+                                ],
                               ),
-                              duration: const Duration(milliseconds: 800),
-                              curve: Curves.easeOutCubic,
-                              builder: (context, value, _) => ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: LinearProgressIndicator(
-                                  value: value.clamp(0.0, 1.0),
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerHighest,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    isExceeded
-                                        ? AppTheme.errorColor
-                                        : isWarning
-                                        ? AppTheme.warningColor
-                                        : AppTheme.incomeColor,
-                                  ),
-                                  minHeight: 10,
+                              const SizedBox(height: 16),
+                              TweenAnimationBuilder<double>(
+                                tween: Tween(
+                                  begin: 0,
+                                  end: budget.percentage / 100,
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '${isId ? 'Terpakai' : 'Used'}: ${CurrencyFormatter.format(budget.usedAmount)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Theme.of(
+                                duration: const Duration(milliseconds: 800),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, value, _) => ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: LinearProgressIndicator(
+                                    value: value.clamp(0.0, 1.0),
+                                    backgroundColor: Theme.of(
                                       context,
-                                    ).colorScheme.onSurfaceVariant,
+                                    ).colorScheme.surfaceContainerHighest,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      isExceeded
+                                          ? AppTheme.errorColor
+                                          : isWarning
+                                          ? AppTheme.warningColor
+                                          : AppTheme.incomeColor,
+                                    ),
+                                    minHeight: 10,
                                   ),
                                 ),
-                                Text(
-                                  '${isId ? 'Sisa' : 'Left'}: ${CurrencyFormatter.format(budget.remaining)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: isExceeded
-                                        ? AppTheme.errorColor
-                                        : AppTheme.incomeColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              budget.rolloverAmount > 0
-                                  ? (isId
-                                        ? 'Anggaran: ${CurrencyFormatter.format(budget.effectiveBudget)} (+${CurrencyFormatter.format(budget.rolloverAmount)} sisa bulan lalu)'
-                                        : 'Budget: ${CurrencyFormatter.format(budget.effectiveBudget)} (+${CurrencyFormatter.format(budget.rolloverAmount)} left from last month)')
-                                  : '${isId ? 'Anggaran' : 'Budget'}: ${CurrencyFormatter.format(budget.budgetAmount)}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
                               ),
-                            ),
-                            // rolloverAmount hidden from current budget, shown in history
-                          ],
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${isId ? 'Terpakai' : 'Used'}: ${CurrencyFormatter.format(budget.usedAmount)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${isId ? 'Sisa' : 'Left'}: ${CurrencyFormatter.format(budget.remaining)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isExceeded
+                                          ? AppTheme.errorColor
+                                          : AppTheme.incomeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                budget.rolloverAmount > 0
+                                    ? (isId
+                                          ? 'Anggaran: ${CurrencyFormatter.format(budget.effectiveBudget)} (+${CurrencyFormatter.format(budget.rolloverAmount)} sisa bulan lalu)'
+                                          : 'Budget: ${CurrencyFormatter.format(budget.effectiveBudget)} (+${CurrencyFormatter.format(budget.rolloverAmount)} left from last month)')
+                                    : '${isId ? 'Anggaran' : 'Budget'}: ${CurrencyFormatter.format(budget.budgetAmount)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              // rolloverAmount hidden from current budget, shown in history
+                            ],
+                          ),
                         ),
                       );
                     },

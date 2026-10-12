@@ -123,4 +123,21 @@ void main() {
     expect(belongsToGoal(exp(1, 'Tabungan', note: 'Haji'), g), isFalse);
     expect(belongsToGoal(exp(1, 'Makanan', note: 'Neo NOW'), g), isFalse);
   });
+
+  test('budget sheet lists only budget-paid spending of that month', () {
+    final list = [
+      exp(50000, 'Transportasi'),
+      exp(30000, 'Transportasi', savingId: 'g1'),
+      ExpenseModel(
+        id: 'x',
+        familyId: 'f',
+        userId: 'u',
+        amount: 9,
+        category: 'Transportasi',
+        date: DateTime(2026, 9, 30),
+      ),
+    ];
+    final rows = budgetExpenses(list, 'Transportasi', '2026-10');
+    expect(rows.map((e) => e.amount), [50000]);
+  });
 }

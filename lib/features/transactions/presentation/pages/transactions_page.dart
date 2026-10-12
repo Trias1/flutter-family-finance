@@ -11,6 +11,9 @@ import 'package:family_finance_manager/features/categories/presentation/provider
 import 'package:family_finance_manager/features/expense/presentation/pages/expense_page.dart';
 import 'package:family_finance_manager/features/income/presentation/pages/income_page.dart';
 import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
+import 'package:family_finance_manager/core/services/expense_effects.dart';
+import 'package:family_finance_manager/data/models/saving_model.dart';
+import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
 
 enum _SortOrder { newest, oldest, highestAmount, lowestAmount }
 
@@ -143,6 +146,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   @override
   Widget build(BuildContext context) {
     final familyId = ref.watch(financeScopeIdProvider);
+    // Goal names for the "Tabungan · <goal>" source label.
+    final goalNames = {
+      for (final g
+          in ref.watch(savingStreamProvider(familyId)).valueOrNull ??
+              const <SavingModel>[])
+        g.id: g.name,
+    };
     final itemsAsync = ref.watch(transactionHistoryProvider);
     final incomeCategories = ref.watch(
       effectiveIncomeCategoriesProvider(familyId),
@@ -310,6 +320,28 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                                           ),
                                         ),
                                       ),
+                                      if (!isIncome &&
+                                          !isSavingsDeposit(item.category)) ...[
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            item.savingId == null
+                                                ? 'Budget'
+                                                : '${isId ? 'Tabungan' : 'Savings'} · ${goalNames[item.savingId] ?? ''}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w600,
+                                              color: item.savingId == null
+                                                  ? Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant
+                                                  : AppTheme.savingsColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                   if (item.note != null) ...[

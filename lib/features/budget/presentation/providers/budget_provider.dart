@@ -9,20 +9,34 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
   return BudgetRepository(dataSource: ref.watch(firestoreDataSourceProvider));
 });
 
-final budgetStreamProvider = StreamProvider.family<List<BudgetModel>, String>((ref, familyId) {
+final budgetStreamProvider = StreamProvider.family<List<BudgetModel>, String>((
+  ref,
+  familyId,
+) {
   // No scope yet (profile still loading): skip a query the rules would deny.
   if (familyId.isEmpty) return Stream.value(const <BudgetModel>[]);
-  return ref.watch(budgetRepositoryProvider).streamBudgets(familyId).map(
-    (snapshot) => snapshot.docs.map((doc) => BudgetModel.fromFirestore(doc)).toList(),
-  );
+  return ref
+      .watch(budgetRepositoryProvider)
+      .streamBudgets(familyId)
+      .map(
+        (snapshot) =>
+            snapshot.docs.map((doc) => BudgetModel.fromFirestore(doc)).toList(),
+      );
 });
 
-final budgetsByMonthProvider = FutureProvider.family<List<BudgetModel>, String>((ref, familyId) async {
-  final month = '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
+final budgetsByMonthProvider = FutureProvider.family<List<BudgetModel>, String>((
+  ref,
+  familyId,
+) async {
+  final month =
+      '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
   return ref.watch(budgetRepositoryProvider).getBudgetsByMonth(familyId, month);
 });
 
-final budgetHistoryProvider = FutureProvider.family<List<BudgetModel>, String>((ref, familyId) {
+final budgetHistoryProvider = FutureProvider.family<List<BudgetModel>, String>((
+  ref,
+  familyId,
+) {
   return ref.watch(budgetRepositoryProvider).getAllBudgets(familyId);
 });
 
@@ -57,6 +71,7 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
   }
 }
 
-final budgetNotifierProvider = StateNotifierProvider<BudgetNotifier, AsyncValue<void>>((ref) {
-  return BudgetNotifier(ref.watch(budgetRepositoryProvider));
-});
+final budgetNotifierProvider =
+    StateNotifierProvider<BudgetNotifier, AsyncValue<void>>((ref) {
+      return BudgetNotifier(ref.watch(budgetRepositoryProvider));
+    });
