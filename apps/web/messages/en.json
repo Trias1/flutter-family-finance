@@ -441,20 +441,40 @@
     "footer": "Built for families in Indonesia.",
     "features": {
       "overview": {
-        "title": "Monthly summary",
-        "desc": "Balance, income, spending, and remaining budget for the month on one screen."
+        "title": "Summary & calendar",
+        "desc": "What's left this month, a calendar with each day's amounts, the month's details, and a 30-day outlook."
       },
-      "transactions": {
-        "title": "Transaction history",
-        "desc": "Search and filter by month, type, or category."
+      "scan": {
+        "title": "Scan receipts & transfers",
+        "desc": "Receipts, QRIS payments and transfer slips are read on your phone. Spending and income fill themselves in; check and save. Works from Share in your gallery or bank app too."
+      },
+      "statement": {
+        "title": "Import statements",
+        "desc": "A screenshot of your bank statement becomes a list of transactions. Moves between your own accounts and refunds are skipped so nothing is counted twice."
+      },
+      "balance": {
+        "title": "Balances from screenshots",
+        "desc": "Account balances (per pocket too, like Neo NOW) go into a budget or a savings goal. A balance is never recorded as spending."
       },
       "budget": {
-        "title": "Budgets and savings",
-        "desc": "Per-category limits, alerts when one is nearly spent, and savings goals."
+        "title": "Budgets per category",
+        "desc": "Limits for transport, food, electricity and more, with alerts when one is nearly spent, carry-over to next month, and each budget's spending list."
+      },
+      "savings": {
+        "title": "Savings & goals",
+        "desc": "Goals with a deadline, like rent or hajj, with a monthly amount to save, gold investments, and spending paid from savings with its history."
+      },
+      "bills": {
+        "title": "Bills & debts",
+        "desc": "Due-date reminders for bills, plus debts owed and lent with their installments."
+      },
+      "sheets": {
+        "title": "Google Sheets recap & backup",
+        "desc": "An automatic recap in a spreadsheet in your own Google Drive (a tab per month, with charts), plus backup and restore."
       },
       "privacy": {
-        "title": "Your family's data",
-        "desc": "Access is scoped to your family through Firebase Auth and database rules."
+        "title": "Family privacy",
+        "desc": "Only your family can see the data. Hide amounts with the eye button and sign out other devices remotely."
       }
     },
     "preview": {

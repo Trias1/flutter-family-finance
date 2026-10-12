@@ -3,7 +3,17 @@ import PublicNavbar from "@/components/public/PublicNavbar"
 import { Link } from "@/lib/i18n"
 import { getTranslations } from "next-intl/server"
 
-const featureKeys = ["overview", "transactions", "budget", "privacy"] as const
+const featureKeys = [
+  "overview",
+  "scan",
+  "statement",
+  "balance",
+  "budget",
+  "savings",
+  "bills",
+  "sheets",
+  "privacy",
+] as const
 const howKeys = ["s1", "s2", "s3"] as const
 const factKeys = ["a", "b", "c"] as const
 
@@ -62,7 +72,7 @@ export default async function HomePage() {
       <section id="features" className="scroll-mt-16 border-t" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
         <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
           <h2 className="text-2xl font-semibold tracking-[-0.01em]" style={{ color: "var(--text-primary)" }}>{t("featuresTitle")}</h2>
-          <div className="mt-10 grid gap-px overflow-hidden rounded-lg border sm:grid-cols-2" style={{ borderColor: "var(--border)", backgroundColor: "var(--border)" }}>
+          <div className="mt-10 grid gap-px overflow-hidden rounded-lg border sm:grid-cols-2 lg:grid-cols-3" style={{ borderColor: "var(--border)", backgroundColor: "var(--border)" }}>
             {featureKeys.map((key) => (
               <div key={key} className="p-7" style={{ backgroundColor: "var(--bg-card)" }}>
                 <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>{t(`features.${key}.title`)}</h3>

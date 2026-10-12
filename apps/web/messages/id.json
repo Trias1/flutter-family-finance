@@ -441,20 +441,40 @@
     "footer": "Dibuat untuk keluarga di Indonesia.",
     "features": {
       "overview": {
-        "title": "Ringkasan bulanan",
-        "desc": "Saldo, pemasukan, pengeluaran, dan sisa budget bulan ini dalam satu layar."
+        "title": "Ringkasan & kalender",
+        "desc": "Sisa uang bulan ini, kalender dengan nominal per hari, rincian bulan, dan perkiraan 30 hari ke depan."
       },
-      "transactions": {
-        "title": "Riwayat transaksi",
-        "desc": "Cari dan saring transaksi per bulan, jenis, atau kategori."
+      "scan": {
+        "title": "Scan struk & bukti transfer",
+        "desc": "Foto struk, QRIS, atau bukti transfer dibaca langsung di HP. Pengeluaran dan pemasukan terisi sendiri, tinggal cek dan simpan. Bisa juga lewat Share dari galeri atau app bank."
+      },
+      "statement": {
+        "title": "Impor mutasi",
+        "desc": "Screenshot mutasi rekening jadi daftar transaksi. Pindah uang antar rekening sendiri dan refund dilewati supaya tidak dobel."
+      },
+      "balance": {
+        "title": "Saldo dari screenshot",
+        "desc": "Saldo rekening (termasuk per kantong, misalnya Neo NOW) dimasukkan ke Budget atau Tabungan. Saldo tidak pernah tercatat sebagai pengeluaran."
       },
       "budget": {
-        "title": "Budget dan tabungan",
-        "desc": "Batas per kategori, peringatan saat hampir habis, dan target tabungan."
+        "title": "Budget per kategori",
+        "desc": "Batas Transportasi, Makan, Listrik, dan lainnya. Ada peringatan saat hampir habis, sisa dibawa ke bulan depan, dan daftar pengeluaran tiap budget."
+      },
+      "savings": {
+        "title": "Tabungan & target",
+        "desc": "Target berjangka seperti kontrakan atau haji dengan saran nabung per bulan, investasi emas, dan bayar pengeluaran dari tabungan lengkap dengan riwayatnya."
+      },
+      "bills": {
+        "title": "Tagihan & utang",
+        "desc": "Pengingat jatuh tempo tagihan, catatan utang dan piutang, serta cicilannya."
+      },
+      "sheets": {
+        "title": "Rekap Google Sheets & backup",
+        "desc": "Rekap otomatis ke spreadsheet di Google Drive milikmu sendiri (tab per bulan dan grafik), plus backup dan restore."
       },
       "privacy": {
-        "title": "Data milik keluarga",
-        "desc": "Akses dibatasi per keluarga lewat Firebase Auth dan aturan database."
+        "title": "Privasi keluarga",
+        "desc": "Data hanya untuk anggota keluarga. Sembunyikan nominal dengan ikon mata, dan keluarkan perangkat lain dari jarak jauh."
       }
     },
     "preview": {
