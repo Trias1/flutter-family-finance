@@ -87,7 +87,7 @@ class SettingsPage extends ConsumerWidget {
               onTap: () async {
                 final lang = locale.languageCode == 'id' ? 'id' : 'en';
                 final uri = Uri.parse(
-                  'https://family-finance.tzm.web.id/$lang/guide',
+                  'https://finance.west-solutions.web.id/$lang/guide',
                 );
                 // canLaunchUrl needs a <queries> entry on Android 11+ and
                 // silently said "no"; just try and report a failure.

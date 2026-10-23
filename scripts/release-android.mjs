@@ -24,7 +24,7 @@ import { join, resolve } from "node:path"
 const ROOT = resolve(import.meta.dirname, "..")
 const PROJECT = "tabunganapps"
 const VERCEL_SCOPE = "team_HGdecLy9KyOetb6vsPOpAWxj"
-const APK_URL = "https://family-finance.tzm.web.id/FamilyFinance.apk"
+const APK_URL = "https://finance.west-solutions.web.id/FamilyFinance.apk"
 const BUILT_APK = join(ROOT, "build", "app", "outputs", "flutter-apk", "app-release.apk")
 const PUBLIC_APK = join(ROOT, "apps", "web", "public", "FamilyFinance.apk")
 const APP_INFO = join(ROOT, "apps", "web", "src", "lib", "app-info.ts")

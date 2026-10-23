@@ -6,7 +6,7 @@ import { APP_VERSION_CODE, APP_VERSION_NAME } from "@/lib/app-info"
 
 export const runtime = "nodejs"
 
-const APK_URL = "https://family-finance.tzm.web.id/FamilyFinance.apk"
+const APK_URL = "https://finance.west-solutions.web.id/FamilyFinance.apk"
 /**
  * Publishes the APK hosted with this deployment as the latest Android
  * release. scripts/release-android.mjs writes app-info.ts and copies the

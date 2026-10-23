@@ -44,7 +44,7 @@ class AppUpdateService {
   AppUpdateService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  static const _apkUrl = 'https://family-finance.tzm.web.id/FamilyFinance.apk';
+  static const _apkUrl = 'https://finance.west-solutions.web.id/FamilyFinance.apk';
   static const _playStoreUrl = null;
   final FirebaseFirestore _firestore;
 

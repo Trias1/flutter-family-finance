@@ -2,7 +2,7 @@
 
 A family money app: every member records income and spending on Android, and the whole family follows the same numbers on a web dashboard. Built with Flutter, Firebase (Auth + Firestore) and a Next.js companion site.
 
-- Production web: https://family-finance.tzm.web.id (also https://finance-family-prod.vercel.app)
+- Production web: https://finance.west-solutions.web.id (also https://finance-family-prod.vercel.app)
 - Firebase project: `tabunganapps`
 - Current Android version: 1.1.13+17
 

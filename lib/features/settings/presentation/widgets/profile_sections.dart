@@ -430,7 +430,7 @@ class ProfileMoreGroups extends ConsumerWidget {
               subtitle: isId ? 'Cara pakai aplikasi' : 'How to use the app',
               onTap: () => launchUrl(
                 Uri.parse(
-                  'https://family-finance.tzm.web.id/${isId ? 'id' : 'en'}/guide',
+                  'https://finance.west-solutions.web.id/${isId ? 'id' : 'en'}/guide',
                 ),
                 mode: LaunchMode.externalApplication,
               ),

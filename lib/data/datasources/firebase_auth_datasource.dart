@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 /// Account deletion runs on the server (it removes data across collections
 /// and the Auth user), shared with the web app.
 const accountDeleteEndpoint =
-    'https://family-finance.tzm.web.id/api/account/delete';
+    'https://finance.west-solutions.web.id/api/account/delete';
 
 class FirebaseAuthDataSource {
   final FirebaseAuth _auth = FirebaseAuth.instance;
