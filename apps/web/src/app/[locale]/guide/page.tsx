@@ -4,7 +4,7 @@ import { join } from "node:path"
 import GuideToc from "@/components/public/GuideToc"
 import PublicNavbar from "@/components/public/PublicNavbar"
 import { Link } from "@/lib/i18n"
-import { getTranslations } from "next-intl/server"
+import { getTranslations, setRequestLocale } from "next-intl/server"
 
 const steps = [
   { n: 1, details: 3 },
@@ -26,7 +26,9 @@ function apkSizeLabel() {
   }
 }
 
-export default async function GuidePage() {
+export default async function GuidePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  setRequestLocale(locale)
   const t = await getTranslations()
   const apkSize = apkSizeLabel()
   const toc = [

@@ -1,7 +1,7 @@
 import AppPhonePreview from "@/components/public/AppPhonePreview"
 import PublicNavbar from "@/components/public/PublicNavbar"
 import { Link } from "@/lib/i18n"
-import { getTranslations } from "next-intl/server"
+import { getTranslations, setRequestLocale } from "next-intl/server"
 
 const featureKeys = [
   "overview",
@@ -17,7 +17,9 @@ const featureKeys = [
 const howKeys = ["s1", "s2", "s3"] as const
 const factKeys = ["a", "b", "c"] as const
 
-export default async function HomePage() {
+export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params
+  setRequestLocale(locale)
   const t = await getTranslations("home")
   return (
     <main className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>
