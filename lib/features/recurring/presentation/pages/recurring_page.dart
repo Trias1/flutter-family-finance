@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:family_finance_manager/core/constants/app_constants.dart';
+import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/utils/date_formatter.dart';
@@ -24,23 +24,30 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
   Widget build(BuildContext context) {
     final familyId = ref.watch(financeScopeIdProvider);
     final recurringsAsync = ref.watch(recurringStreamProvider(familyId));
+    final isId = Localizations.localeOf(context).languageCode == 'id';
 
     if (familyId.isEmpty) return const SizedBox();
 
     return Stack(
       children: [
         recurringsAsync.when(
-          loading: () =>
-              const LoadingWidget(message: 'Memuat transaksi berulang...'),
-          error: (e, _) =>
-              AppErrorWidget(
-                message: 'Gagal memuat: $e',
-                onRetry: () => ref.invalidate(recurringStreamProvider(familyId)),
-              ),
+          loading: () => LoadingWidget(
+            message: isId
+                ? 'Memuat transaksi berulang...'
+                : 'Loading recurring transactions...',
+          ),
+          error: (e, _) => AppErrorWidget(
+            message: isId
+                ? 'Transaksi berulang belum bisa dimuat. Coba lagi ya.'
+                : "Couldn't load recurring transactions. Try again.",
+            onRetry: () => ref.invalidate(recurringStreamProvider(familyId)),
+          ),
           data: (list) {
             if (list.isEmpty) {
-              return const EmptyWidget(
-                message: 'Belum ada transaksi berulang',
+              return EmptyWidget(
+                message: isId
+                    ? 'Belum ada transaksi berulang'
+                    : 'No recurring transactions yet',
               );
             }
             return RefreshIndicator(
@@ -58,6 +65,7 @@ class _RecurringPageState extends ConsumerState<RecurringPage> {
           bottom: 16,
           child: FloatingActionButton(
             backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
             onPressed: () => _showAddSheet(context),
             child: const Icon(Icons.add),
           ),
@@ -86,7 +94,9 @@ class _RecurringCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isIncome = recurring.type == 'income';
     final color = isIncome ? AppTheme.incomeColor : AppTheme.expenseColor;
-    final freqLabel = _frequencyLabel(recurring);
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
+    final freqLabel = _frequencyLabel(recurring, isId);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -146,7 +156,9 @@ class _RecurringCard extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      recurring.isActive ? 'Aktif' : 'Nonaktif',
+                      recurring.isActive
+                          ? (isId ? 'Aktif' : 'Active')
+                          : (isId ? 'Nonaktif' : 'Paused'),
                       style: TextStyle(
                         fontSize: 11,
                         color: recurring.isActive
@@ -168,7 +180,7 @@ class _RecurringCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Berikutnya: ${DateFormatter.format(recurring.nextDate)}',
+                  '${isId ? 'Berikutnya' : 'Next'}: ${DateFormatter.format(recurring.nextDate)}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -190,18 +202,33 @@ class _RecurringCard extends ConsumerWidget {
     );
   }
 
-  String _frequencyLabel(RecurringModel r) {
-    final prefix = r.interval > 1 ? 'Setiap ${r.interval} ' : 'Setiap ';
+  String _frequencyLabel(RecurringModel r, bool isId) {
+    final n = r.interval;
+    final many = n > 1;
+    if (isId) {
+      final prefix = many ? 'Setiap $n ' : 'Setiap ';
+      switch (r.frequency) {
+        case RecurringFrequency.daily:
+          return '${prefix}hari';
+        case RecurringFrequency.weekly:
+          return '${prefix}minggu';
+        case RecurringFrequency.monthly:
+          final day = r.dayOfMonth ?? r.startDate.day;
+          return '${prefix}bulan (tanggal $day)';
+        case RecurringFrequency.yearly:
+          return '${prefix}tahun';
+      }
+    }
     switch (r.frequency) {
       case RecurringFrequency.daily:
-        return '${prefix}harian';
+        return many ? 'Every $n days' : 'Every day';
       case RecurringFrequency.weekly:
-        return '${prefix}minggu';
+        return many ? 'Every $n weeks' : 'Every week';
       case RecurringFrequency.monthly:
         final day = r.dayOfMonth ?? r.startDate.day;
-        return '${prefix}bulan (tanggal $day)';
+        return '${many ? 'Every $n months' : 'Every month'} (day $day)';
       case RecurringFrequency.yearly:
-        return '${prefix}tahun';
+        return many ? 'Every $n years' : 'Every year';
     }
   }
 }
@@ -245,6 +272,8 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
     if (_category.isEmpty || !categories.contains(_category)) {
       _category = categories.isNotEmpty ? categories.first : '';
     }
+    final s = AppStrings(Localizations.localeOf(context));
+    final isId = s.locale.languageCode == 'id';
 
     return Padding(
       padding: EdgeInsets.only(
@@ -271,23 +300,25 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Tambah Transaksi Berulang',
+                isId
+                    ? 'Tambah Transaksi Berulang'
+                    : 'Add Recurring Transaction',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               SegmentedButton<String>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: 'expense',
-                    label: Text('Pengeluaran'),
-                    icon: Icon(Icons.trending_down),
+                    label: Text(s.expense),
+                    icon: const Icon(Icons.trending_down),
                   ),
                   ButtonSegment(
                     value: 'income',
-                    label: Text('Pemasukan'),
-                    icon: Icon(Icons.trending_up),
+                    label: Text(s.income),
+                    icon: const Icon(Icons.trending_up),
                   ),
                 ],
                 selected: {_type},
@@ -297,15 +328,15 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
               TextFormField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Jumlah',
-                  prefixIcon: Icon(Icons.money),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Jumlah' : 'Amount',
+                  prefixIcon: const Icon(Icons.money),
                 ),
                 validator: (v) {
                   final n = double.tryParse(
                     v?.replaceAll('.', '').replaceAll(',', '.') ?? '',
                   );
-                  if (n == null || n <= 0) return 'Jumlah harus valid';
+                  if (n == null || n <= 0) return s.invalidAmount;
                   return null;
                 },
               ),
@@ -314,9 +345,9 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
                 value: categories.contains(_category)
                     ? _category
                     : (categories.isNotEmpty ? categories.first : null),
-                decoration: const InputDecoration(
-                  labelText: 'Kategori',
-                  prefixIcon: Icon(Icons.category),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Kategori' : 'Category',
+                  prefixIcon: const Icon(Icons.category),
                 ),
                 items: categories
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
@@ -325,26 +356,26 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
               ),
               const SizedBox(height: 12),
               SegmentedButton<RecurringFrequency>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: RecurringFrequency.daily,
-                    label: Text('Harian'),
-                    icon: Icon(Icons.today, size: 16),
+                    label: Text(s.daily),
+                    icon: const Icon(Icons.today, size: 16),
                   ),
                   ButtonSegment(
                     value: RecurringFrequency.weekly,
-                    label: Text('Mingguan'),
-                    icon: Icon(Icons.date_range, size: 16),
+                    label: Text(s.weekly),
+                    icon: const Icon(Icons.date_range, size: 16),
                   ),
                   ButtonSegment(
                     value: RecurringFrequency.monthly,
-                    label: Text('Bulanan'),
-                    icon: Icon(Icons.calendar_month, size: 16),
+                    label: Text(s.monthly),
+                    icon: const Icon(Icons.calendar_month, size: 16),
                   ),
                   ButtonSegment(
                     value: RecurringFrequency.yearly,
-                    label: Text('Tahunan'),
-                    icon: Icon(Icons.event, size: 16),
+                    label: Text(s.yearly),
+                    icon: const Icon(Icons.event, size: 16),
                   ),
                 ],
                 selected: {_frequency},
@@ -359,15 +390,15 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
                   value: _dayOfMonth ?? DateTime.now().day,
-                  decoration: const InputDecoration(
-                    labelText: 'Tanggal',
-                    prefixIcon: Icon(Icons.calendar_today),
+                  decoration: InputDecoration(
+                    labelText: isId ? 'Tanggal' : 'Day of month',
+                    prefixIcon: const Icon(Icons.calendar_today),
                   ),
                   items: List.generate(
                     31,
                     (i) => DropdownMenuItem(
                       value: i + 1,
-                      child: Text('Tanggal ${i + 1}'),
+                      child: Text(isId ? 'Tanggal ${i + 1}' : 'Day ${i + 1}'),
                     ),
                   ),
                   onChanged: (v) => setState(() => _dayOfMonth = v),
@@ -376,9 +407,9 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _noteController,
-                decoration: const InputDecoration(
-                  labelText: 'Catatan (opsional)',
-                  prefixIcon: Icon(Icons.note),
+                decoration: InputDecoration(
+                  labelText: isId ? 'Catatan (opsional)' : 'Note (optional)',
+                  prefixIcon: const Icon(Icons.note),
                 ),
               ),
               const SizedBox(height: 20),
@@ -400,7 +431,7 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Simpan'),
+                      : Text(s.save),
                 ),
               ),
             ],
@@ -479,7 +510,12 @@ class _AddRecurringSheetState extends ConsumerState<_AddRecurringSheet> {
       if (err != null) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: AppTheme.errorColor),
+          SnackBar(
+            content: Text(
+              AppStrings(Localizations.localeOf(context)).saveFailed,
+            ),
+            backgroundColor: AppTheme.errorColor,
+          ),
         );
         return;
       }

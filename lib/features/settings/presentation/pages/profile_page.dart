@@ -1,15 +1,24 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:family_finance_manager/features/settings/presentation/widgets/profile_sections.dart';
+import 'package:family_finance_manager/features/settings/presentation/pages/sessions_page.dart';
+import 'package:family_finance_manager/features/settings/presentation/widgets/delete_account_section.dart';
+import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/locale/app_strings.dart';
+import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/image_utils.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 
 class ProfilePage extends ConsumerWidget {
-  const ProfilePage({super.key});
+  /// False when shown as a bottom-nav tab: the shell already has an app bar.
+  final bool showAppBar;
+
+  const ProfilePage({super.key, this.showAppBar = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,75 +26,104 @@ class ProfilePage extends ConsumerWidget {
     final familyAsync = ref.watch(familyProvider);
     final locale = Localizations.localeOf(context);
     final strings = AppStrings(locale);
+    final id = locale.languageCode == 'id';
+    final devices = ref.watch(sessionDevicesProvider).valueOrNull ?? const [];
+    final activity = ref.watch(activityStatsProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(strings.user),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
+      appBar: showAppBar
+          ? AppBar(
+              title: Text(strings.user),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.pop(),
+              ),
+            )
+          : null,
       body: authState.when(
-        data: (user) => SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              _ProfilePhoto(user: user),
-              const SizedBox(height: 24),
-              _InfoTile(
-                icon: Icons.person_outline,
-                label: 'Nama',
-                value: user?.name ?? '',
-              ),
-              const SizedBox(height: 8),
-              _InfoTile(
-                icon: Icons.email_outlined,
-                label: 'Email',
-                value: user?.email ?? '',
-              ),
-              if (user?.familyId != null) ...[
-                const SizedBox(height: 8),
-                familyAsync.when(
-                  data: (family) => _InfoTile(
-                    icon: Icons.family_restroom_rounded,
-                    label: 'Keluarga',
-                    value: family?.name ?? 'Keluarga',
+        data: (user) => ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            Center(child: _ProfilePhoto(user: user)),
+            const SizedBox(height: 12),
+            Text(
+              user?.name ?? '',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              user?.email ?? '',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            MenuGroup(
+              children: [
+                MenuRow(
+                  icon: Icons.person_rounded,
+                  color: MenuColors.blue,
+                  title: id ? 'Akun' : 'Account',
+                  subtitle: id
+                      ? 'Nama, password, cara masuk'
+                      : 'Name, password, sign-in method',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AccountPage(),
+                    ),
                   ),
-                  loading: () => _InfoTile(
-                    icon: Icons.family_restroom_rounded,
-                    label: 'Keluarga',
-                    value: 'Memuat...',
+                ),
+                MenuRow(
+                  icon: Icons.family_restroom_rounded,
+                  color: MenuColors.green,
+                  title: strings.family,
+                  subtitle: user?.familyId?.isNotEmpty == true
+                      ? familyAsync.valueOrNull?.name ?? strings.family
+                      : (id
+                            ? 'Buat atau gabung keluarga'
+                            : 'Create or join a family'),
+                  onTap: () => context.push('/family'),
+                ),
+                MenuRow(
+                  icon: Icons.local_fire_department_rounded,
+                  color: MenuColors.orange,
+                  title: id ? 'Aktivitas' : 'Activity',
+                  subtitle: activitySummary(activity, id),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ActivityPage(),
+                    ),
                   ),
-                  error: (_, __) => _InfoTile(
-                    icon: Icons.family_restroom_rounded,
-                    label: 'Keluarga',
-                    value: 'Keluarga',
+                ),
+                MenuRow(
+                  icon: Icons.devices_rounded,
+                  color: MenuColors.purple,
+                  title: id ? 'Perangkat aktif' : 'Active sessions',
+                  subtitle: id
+                      ? 'HP & browser yang masuk ke akunmu'
+                      : 'Phones and browsers signed in',
+                  value: devices.isEmpty ? null : '${devices.length}',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SessionsPage(),
+                    ),
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              _SectionTitle(title: 'Edit Profil'),
-              const SizedBox(height: 8),
-              _ActionButton(
-                icon: Icons.edit_rounded,
-                label: 'Ubah Nama',
-                color: AppTheme.primaryColor,
-                onTap: () => _showEditProfileDialog(context, ref, user),
-              ),
-              const SizedBox(height: 8),
-              _ActionButton(
-                icon: Icons.lock_outline_rounded,
-                label: 'Ubah Password',
-                color: AppTheme.warningColor,
-                onTap: () => _showChangePasswordDialog(context, ref),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 20),
+            const ProfileMoreGroups(),
+          ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(
+          child: Text(
+            Localizations.localeOf(context).languageCode == 'id'
+                ? 'Profil belum bisa dimuat. Coba lagi nanti.'
+                : "Couldn't load your profile. Try again later.",
+          ),
+        ),
       ),
     );
   }
@@ -95,24 +133,26 @@ class ProfilePage extends ConsumerWidget {
     WidgetRef ref,
     dynamic user,
   ) {
+    final id = ref.read(localeProvider).languageCode == 'id';
     final nameController = TextEditingController(text: user?.name ?? '');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Profil'),
+        title: Text(id ? 'Ubah nama' : 'Change name'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Nama',
-            prefixIcon: Icon(Icons.person),
+          maxLength: 60,
+          decoration: InputDecoration(
+            labelText: id ? 'Nama' : 'Name',
+            prefixIcon: const Icon(Icons.person),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: Text(id ? 'Batal' : 'Cancel'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () async {
               if (nameController.text.trim().isEmpty) return;
               final err = await ref
@@ -130,11 +170,7 @@ class ProfilePage extends ConsumerWidget {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Simpan'),
+            child: Text(id ? 'Simpan' : 'Save'),
           ),
         ],
       ),
@@ -142,84 +178,359 @@ class ProfilePage extends ConsumerWidget {
   }
 
   void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
+    final id = ref.read(localeProvider).languageCode == 'id';
+    final hasPassword =
+        FirebaseAuth.instance.currentUser?.providerData.any(
+          (p) => p.providerId == 'password',
+        ) ??
+        false;
+    if (!hasPassword) {
+      // Google-only accounts have no app password to change.
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(id ? 'Akun Google' : 'Google account'),
+          content: Text(
+            id
+                ? 'Kamu masuk dengan Google, jadi tidak ada password khusus untuk aplikasi ini. Keamanan akunmu diatur di akun Google.'
+                : 'You sign in with Google, so this app has no separate password. Your account security is managed in your Google account.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final formKey = GlobalKey<FormState>();
     final currentController = TextEditingController();
     final newController = TextEditingController();
     final confirmController = TextEditingController();
+    String? error;
+    var busy = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Ubah Password'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: currentController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password Saat Ini',
-                  prefixIcon: Icon(Icons.lock_outline),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(id ? 'Ubah password' : 'Change password'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: currentController,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.password],
+                  decoration: InputDecoration(
+                    labelText: id ? 'Password saat ini' : 'Current password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                  ),
+                  validator: (v) => v == null || v.isEmpty
+                      ? (id
+                            ? 'Masukkan password saat ini'
+                            : 'Enter your current password')
+                      : null,
                 ),
-                validator: (v) => v == null || v.isEmpty
-                    ? 'Masukkan password saat ini'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: newController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password Baru',
-                  prefixIcon: Icon(Icons.lock),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: newController,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: InputDecoration(
+                    labelText: id ? 'Password baru' : 'New password',
+                    prefixIcon: const Icon(Icons.lock),
+                  ),
+                  validator: (v) {
+                    if (v != null && v == currentController.text) {
+                      return id
+                          ? 'Password baru harus beda'
+                          : 'Choose a different password';
+                    }
+                    return Validators.newPassword(v);
+                  },
                 ),
-                validator: (v) =>
-                    v == null || v.length < 6 ? 'Minimal 6 karakter' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: confirmController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Konfirmasi Password Baru',
-                  prefixIcon: Icon(Icons.lock),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: confirmController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: id
+                        ? 'Ulangi password baru'
+                        : 'Repeat new password',
+                    prefixIcon: const Icon(Icons.lock),
+                  ),
+                  validator: (v) => v != newController.text
+                      ? (id ? 'Password tidak sama' : 'Passwords do not match')
+                      : null,
                 ),
-                validator: (v) =>
-                    v != newController.text ? 'Password tidak cocok' : null,
-              ),
-            ],
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    error!,
+                    style: const TextStyle(color: AppTheme.errorColor),
+                  ),
+                ],
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(ctx),
+              child: Text(id ? 'Batal' : 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setState(() {
+                        busy = true;
+                        error = null;
+                      });
+                      final err = await ref
+                          .read(authNotifierProvider.notifier)
+                          .changePassword(
+                            newController.text,
+                            currentPassword: currentController.text,
+                          );
+                      if (!ctx.mounted) return;
+                      if (err != null) {
+                        // Stay open so the user can correct and retry.
+                        setState(() {
+                          busy = false;
+                          error = err;
+                        });
+                        return;
+                      }
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            id
+                                ? 'Password berhasil diubah'
+                                : 'Password changed',
+                          ),
+                          backgroundColor: AppTheme.incomeColor,
+                        ),
+                      );
+                    },
+              child: Text(id ? 'Simpan' : 'Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Name, email, password and how the account signs in.
+class AccountPage extends ConsumerWidget {
+  const AccountPage({super.key});
+
+  /// New email + current password; Firebase mails a link to the new address
+  /// and the change happens when it is opened.
+  Future<void> _changeEmail(BuildContext context, WidgetRef ref) async {
+    final id = ref.read(localeProvider).languageCode == 'id';
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    String? error;
+    var busy = false;
+    final sentTo = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(id ? 'Ganti email' : 'Change email'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  id
+                      ? 'Kami kirim link ke email baru. Email baru dipakai setelah link itu diklik; sampai saat itu email lama tetap berlaku.'
+                      : "We'll send a link to the new address. It takes over once the link is opened; until then the old one still works.",
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailCtrl,
+                  enabled: !busy,
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [AutofillHints.email],
+                  decoration: InputDecoration(
+                    labelText: id ? 'Email baru' : 'New email',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: passCtrl,
+                  enabled: !busy,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: id ? 'Password sekarang' : 'Current password',
+                  ),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    error!,
+                    style: const TextStyle(color: AppTheme.errorColor),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(ctx),
+              child: Text(id ? 'Batal' : 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      final email = emailCtrl.text.trim();
+                      if (Validators.email(email) != null) {
+                        setState(
+                          () => error = id
+                              ? 'Format email tidak valid.'
+                              : 'That email address is not valid.',
+                        );
+                        return;
+                      }
+                      setState(() {
+                        busy = true;
+                        error = null;
+                      });
+                      try {
+                        await ref
+                            .read(firebaseAuthDataSourceProvider)
+                            .requestEmailChange(email, passCtrl.text);
+                        if (ctx.mounted) Navigator.pop(ctx, email);
+                      } on FirebaseAuthException catch (e) {
+                        setState(() {
+                          busy = false;
+                          error = switch (e.code) {
+                            'wrong-password' ||
+                            'invalid-credential' ||
+                            'invalid-login-credentials' =>
+                              id ? 'Password salah.' : 'Wrong password.',
+                            'email-already-in-use' =>
+                              id
+                                  ? 'Email itu sudah dipakai akun lain.'
+                                  : 'That email belongs to another account.',
+                            'invalid-email' =>
+                              id
+                                  ? 'Format email tidak valid.'
+                                  : 'That email address is not valid.',
+                            'too-many-requests' =>
+                              id
+                                  ? 'Terlalu sering. Coba lagi nanti.'
+                                  : 'Too many attempts. Try again later.',
+                            _ =>
+                              id
+                                  ? 'Gagal mengirim link. Coba lagi nanti.'
+                                  : "Couldn't send the link. Try again later.",
+                          };
+                        });
+                      } catch (_) {
+                        setState(() {
+                          busy = false;
+                          error = id
+                              ? 'Gagal mengirim link. Cek koneksi lalu coba lagi.'
+                              : "Couldn't send the link. Check your connection.";
+                        });
+                      }
+                    },
+              child: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(id ? 'Kirim link' : 'Send link'),
+            ),
+          ],
+        ),
+      ),
+    );
+    emailCtrl.dispose();
+    passCtrl.dispose();
+    if (sentTo == null || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(id ? 'Cek email baru' : 'Check your new inbox'),
+        content: Text(
+          id
+              ? 'Link sudah dikirim ke $sentTo. Buka link itu untuk menyelesaikan. Setelahnya kamu mungkin diminta masuk lagi dengan email baru.'
+              : 'We sent a link to $sentTo. Open it to finish. You may be asked to sign in again with the new email afterwards.',
+          style: const TextStyle(height: 1.4),
         ),
         actions: [
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: const Text('OK'),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              final err = await ref
-                  .read(authNotifierProvider.notifier)
-                  .changePassword(newController.text);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(err ?? 'Password berhasil diubah'),
-                    backgroundColor: err != null
-                        ? AppTheme.errorColor
-                        : AppTheme.incomeColor,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.warningColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Ubah Password'),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final id = ref.watch(localeProvider).languageCode == 'id';
+    final user = ref.watch(authNotifierProvider).valueOrNull;
+    final usesPassword = ref
+        .read(firebaseAuthDataSourceProvider)
+        .hasPasswordProvider;
+    const profile = ProfilePage();
+    return Scaffold(
+      appBar: AppBar(title: Text(id ? 'Akun' : 'Account')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          MenuGroup(
+            label: id ? 'Profil' : 'Profile',
+            children: [
+              MenuRow(
+                icon: Icons.badge_rounded,
+                color: MenuColors.blue,
+                title: id ? 'Nama' : 'Name',
+                subtitle: user?.name ?? '',
+                onTap: () => profile._showEditProfileDialog(context, ref, user),
+              ),
+              MenuRow(
+                icon: Icons.alternate_email_rounded,
+                color: MenuColors.teal,
+                title: 'Email',
+                subtitle: usesPassword
+                    ? user?.email ?? ''
+                    : '${user?.email ?? ''} · ${id ? 'mengikuti akun Google' : 'from your Google account'}',
+                onTap: usesPassword ? () => _changeEmail(context, ref) : null,
+              ),
+              if (usesPassword)
+                MenuRow(
+                  icon: Icons.lock_rounded,
+                  color: MenuColors.orange,
+                  title: id ? 'Ubah password' : 'Change password',
+                  onTap: () => profile._showChangePasswordDialog(context, ref),
+                ),
+            ],
           ),
+          const SizedBox(height: 20),
+          const AccountInfoGroup(),
+          const SizedBox(height: 32),
+          const DeleteAccountSection(),
         ],
       ),
     );
@@ -254,7 +565,11 @@ class _ProfilePhoto extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal upload foto: $e'),
+            content: Text(
+              Localizations.localeOf(context).languageCode == 'id'
+                  ? 'Foto gagal diunggah. Coba foto lain.'
+                  : "Couldn't upload the photo. Try another one.",
+            ),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -302,149 +617,6 @@ class _ProfilePhoto extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  const _SectionTitle({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        tileColor: Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        title: Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.chevron_right,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            size: 20,
-          ),
-        ),
-        onTap: onTap,
       ),
     );
   }

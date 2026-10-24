@@ -1,220 +1,439 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
-import { ArrowRight, LockKeyhole, Mail } from "lucide-react"
+import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from "react"
+import { Eye, EyeOff } from "lucide-react"
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signOut,
+  type User,
 } from "firebase/auth"
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
+import { useSearchParams } from "next/navigation"
+import { useTranslations } from "next-intl"
 
-import AppPhonePreview from "@/components/public/AppPhonePreview"
-import AppThemedBackground from "@/components/public/AppThemedBackground"
 import BrandMark from "@/components/public/BrandMark"
+import PublicTheme from "@/components/public/PublicTheme"
+import LocaleToggle from "@/components/LocaleToggle"
+import { needsEmailVerification } from "@/lib/auth-verify"
 import { auth, db } from "@/lib/firebase"
 import { Link, useRouter } from "@/lib/i18n"
-import { useTranslations } from "next-intl"
+import { clearFailures, getLockRemaining, recordFailure } from "@/lib/login-throttle"
+
+type Mode = "login" | "register" | "reset"
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function isStrongPassword(value: string) {
+  return value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value)
+}
+
+function errorCode(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error ? String((error as { code?: unknown }).code) : ""
+}
 
 function LoginForm() {
   const router = useRouter()
-  const t = useTranslations()
+  const t = useTranslations("auth")
+  const searchParams = useSearchParams()
+  const [mode, setMode] = useState<Mode>(() => (searchParams.get("register") === "1" ? "register" : "login"))
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isRegister, setIsRegister] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
+  // Signed out from the phone app ("sign out this device").
+  const [status, setStatus] = useState(() => (searchParams.get("revoked") === "1" ? t("revoked") : ""))
   const [submitting, setSubmitting] = useState(false)
+  const [lockSeconds, setLockSeconds] = useState(0)
+  // Signed in with an email that is not verified yet.
+  const [verifyUser, setVerifyUser] = useState<User | null>(null)
+  const [resendIn, setResendIn] = useState(0)
+
+  // Sent here by the dashboard (?verify=1), or a reload while unverified.
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u) => {
+      if (u && needsEmailVerification(u) && searchParams.get("verify") === "1") setVerifyUser(u)
+    })
+  }, [searchParams])
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-    const params = new URLSearchParams(window.location.search)
-    setIsRegister(params.get("register") === "1")
+    if (resendIn <= 0) return
+    const id = window.setTimeout(() => setResendIn((s) => s - 1), 1000)
+    return () => window.clearTimeout(id)
+  }, [resendIn])
+
+  // Reads the stored lock after mount and ticks the countdown so the button
+  // re-enables on its own.
+  useEffect(() => {
+    const tick = () => setLockSeconds(getLockRemaining())
+    const first = window.setTimeout(tick, 0)
+    const id = window.setInterval(tick, 1000)
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(id)
+    }
   }, [])
 
-  const ensureUserDoc = async (uid: string, userEmail: string, displayName?: string | null) => {
-    const ref = doc(db, "users", uid)
-    const snap = await getDoc(ref)
-    const fallbackName = displayName || userEmail.split("@")[0] || "User"
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        name: fallbackName,
-        email: userEmail,
-        role: "member",
-        createdAt: serverTimestamp(),
-      })
-    }
-    await setDoc(doc(db, "user_public", uid), {
-      name: snap.data()?.name ?? fallbackName,
-      createdAt: snap.data()?.createdAt ?? serverTimestamp(),
-    }, { merge: true })
-    return getDoc(ref)
+  const safeEmail = normalizeEmail(email)
+  const emailReady = emailPattern.test(safeEmail)
+  const locked = lockSeconds > 0
+
+  const switchMode = (next: Mode) => {
+    setMode(next)
+    setError("")
+    setStatus("")
+    setPassword("")
   }
 
-  const handleEmailAuth = async () => {
+  const failWith = (message: string) => {
+    setLockSeconds(recordFailure())
+    setError(message)
+  }
+
+  const messageFor = (error: unknown) => {
+    const code = errorCode(error)
+    if (code.includes("too-many-requests")) return t("errors.tooMany")
+    if (code.includes("network-request-failed")) return t("errors.network")
+    if (code.includes("popup-closed-by-user") || code.includes("cancelled-popup-request")) return ""
+    if (mode === "register") return t("errors.registerFailed")
+    return t("errors.invalidCredentials")
+  }
+
+  // Creates the profile on first sign-in. Role is never taken from the client:
+  // new users are always plain members, admins are promoted server-side.
+  const ensureUserDoc = async (user: User) => {
+    const ref = doc(db, "users", user.uid)
+    let snap = await getDoc(ref)
+    const fallbackName = user.displayName || (user.email ?? "").split("@")[0] || "User"
+    if (!snap.exists()) {
+      await setDoc(ref, { name: fallbackName, email: user.email ?? "", role: "member", createdAt: serverTimestamp() })
+      await setDoc(doc(db, "user_public", user.uid), { name: fallbackName, createdAt: serverTimestamp() }, { merge: true })
+      snap = await getDoc(ref)
+    }
+    return snap
+  }
+
+  const finishSignIn = async (user: User) => {
+    if (needsEmailVerification(user)) {
+      // The profile doc may be created now; finance data waits for the link.
+      await ensureUserDoc(user).catch(() => {})
+      setStatus("")
+      setVerifyUser(user)
+      return
+    }
+    setStatus(t("redirecting"))
+    try {
+      const snap = await ensureUserDoc(user)
+      router.push(snap.data()?.systemRole === "superadmin" ? "/admin" : "/dashboard")
+    } catch {
+      // Signed in, but profile sync failed; the dashboard retries it.
+      router.push("/dashboard")
+    }
+  }
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (submitting) return
     setError("")
+    setStatus("")
+
+    if (!emailReady) {
+      setError(t("errors.invalidEmail"))
+      return
+    }
+    if (mode !== "reset" && getLockRemaining() > 0) {
+      setLockSeconds(getLockRemaining())
+      return
+    }
+
+    if (mode === "reset") {
+      setSubmitting(true)
+      try {
+        await sendPasswordResetEmail(auth, safeEmail)
+      } catch {
+        // Same answer whether or not the email exists.
+      }
+      setStatus(t("resetSent"))
+      setSubmitting(false)
+      return
+    }
+
+    if (mode === "register" && !isStrongPassword(password)) {
+      setError(t("errors.weakPassword"))
+      return
+    }
+    if (mode === "login" && password.length === 0) {
+      setError(t("errors.invalidCredentials"))
+      return
+    }
+
     setSubmitting(true)
     try {
-      const cred = isRegister
-        ? await createUserWithEmailAndPassword(auth, email, password)
-        : await signInWithEmailAndPassword(auth, email, password)
-      const userSnap = await ensureUserDoc(cred.user.uid, email, cred.user.displayName)
-      router.push(userSnap.data()?.systemRole === "superadmin" ? "/admin" : "/dashboard")
-    } catch (e: any) {
-      setError(e.message)
+      if (mode === "register") {
+        const cred = await createUserWithEmailAndPassword(auth, safeEmail, password)
+        clearFailures()
+        sendEmailVerification(cred.user).catch(() => {})
+        await finishSignIn(cred.user)
+      } else {
+        const cred = await signInWithEmailAndPassword(auth, safeEmail, password)
+        clearFailures()
+        await finishSignIn(cred.user)
+      }
+    } catch (err) {
+      failWith(messageFor(err))
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleGoogleAuth = async () => {
+  const handleGoogle = async () => {
+    if (submitting || locked) return
     setError("")
+    setStatus("")
     setSubmitting(true)
     try {
       const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({ prompt: "select_account" })
       const cred = await signInWithPopup(auth, provider)
-      const userSnap = await ensureUserDoc(cred.user.uid, cred.user.email ?? "", cred.user.displayName)
-      router.push(userSnap.data()?.systemRole === "superadmin" ? "/admin" : "/dashboard")
-    } catch (e: any) {
-      setError(e.message)
+      clearFailures()
+      await finishSignIn(cred.user)
+    } catch (err) {
+      const message = messageFor(err)
+      if (message) setError(t("errors.googleFailed"))
     } finally {
       setSubmitting(false)
     }
   }
 
-  return (
-    <div className="relative min-h-screen overflow-hidden bg-black px-4 py-8">
-      <AppThemedBackground compact />
-      <div className="fixed inset-0 bg-black/10 backdrop-blur-sm" />
+  const checkVerified = async () => {
+    const user = auth.currentUser
+    if (!user || submitting) return
+    setSubmitting(true)
+    setError("")
+    setStatus("")
+    try {
+      // Fresh token first so the Firestore rules see email_verified.
+      await user.getIdToken(true)
+      await user.reload()
+      const fresh = auth.currentUser
+      if (fresh && !needsEmailVerification(fresh)) {
+        setVerifyUser(null)
+        await finishSignIn(fresh)
+      } else {
+        setError(t("verify.notYet"))
+      }
+    } catch {
+      setError(t("errors.network"))
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
-      <div className="relative z-10 mx-auto flex min-h-[650px] w-full max-w-[1040px] flex-col overflow-hidden rounded-[2.5rem] border border-gray-200 bg-white shadow-[0_40px_120px_rgba(0,0,0,0.35)] lg:flex-row">
-        <div className="relative min-h-[260px] lg:min-h-full lg:w-[45%]">
-          <div className="absolute inset-4 overflow-hidden rounded-[2rem] bg-[#0c0c0e]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(217,119,6,0.24),_transparent_34%),linear-gradient(180deg,_#2A1C14_0%,_#17100C_48%,_#050505_100%)]" />
-            <AppPhonePreview variant="dashboard" className="absolute left-1/2 top-8 -translate-x-1/2 scale-[0.95] rotate-[-5deg]" />
-            <AppPhonePreview variant="reports" className="absolute -bottom-10 right-[-18px] scale-[0.72] rotate-[12deg] opacity-90" />
-          </div>
-        </div>
+  const resendVerification = async () => {
+    const user = auth.currentUser
+    if (!user || resendIn > 0) return
+    setError("")
+    try {
+      await sendEmailVerification(user)
+      setStatus(t("verify.resent"))
+      setResendIn(60)
+    } catch (err) {
+      setError(errorCode(err).includes("too-many-requests") ? t("errors.tooMany") : t("verify.resendFailed"))
+    }
+  }
 
-        <div className="relative flex flex-1 flex-col justify-between px-6 py-8 sm:px-10 lg:w-[55%] lg:px-14 lg:py-12">
-          <div className="absolute left-0 top-0 h-64 w-64 rounded-full blur-[80px]" style={{ background: "linear-gradient(135deg, rgba(255,81,47,0.2), rgba(240,152,25,0.2))" }} />
+  const leaveVerify = async () => {
+    await signOut(auth).catch(() => {})
+    setVerifyUser(null)
+    setError("")
+    setStatus("")
+    setPassword("")
+  }
 
-          <div className="relative z-10">
-            <Link href="/" className="mx-auto mb-8 flex w-fit items-center gap-2 rounded-full border border-gray-200 bg-white/70 px-4 py-2 text-sm font-semibold text-[#111111] backdrop-blur-sm">
-              <BrandMark dark />
-              Family Finance
-            </Link>
+  if (verifyUser) {
+    return (
+      <main className="auth-page min-h-screen px-4 py-6 sm:py-10">
+        <header className="mx-auto flex w-full max-w-md items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            <BrandMark dark />
+            Family Finance
+          </Link>
+          <LocaleToggle />
+        </header>
+        <PublicTheme />
 
-            <div className="text-center">
-              <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-[#111111] sm:text-[40px]">
-                {isRegister ? t("auth.createYourAccount") : t("auth.welcomeBack")}
-              </h1>
-              <p className="mt-2 text-sm text-gray-500">
-                {isRegister ? t("auth.secureWorkspace") : t("auth.signInToAccount")}
-              </p>
-            </div>
+        <section className="auth-card mx-auto mt-8 w-full max-w-md p-6 sm:p-8">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>{t("verify.title")}</h1>
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
+            {t.rich("verify.desc", {
+              email: verifyUser.email ?? "",
+              strong: (chunks) => <strong style={{ color: "var(--text-primary)" }}>{chunks}</strong>,
+            })}
+          </p>
+          <p className="mt-3 text-xs leading-5" style={{ color: "var(--text-muted)" }}>{t("verify.why")}</p>
 
-            <div className="mt-8 grid gap-3">
-              <SocialButton label={t("auth.continueWithGoogle")} onClick={handleGoogleAuth}>
-                <GoogleLogo />
-              </SocialButton>
-            </div>
-
-            <div className="my-7 flex items-center gap-3">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-gray-200" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-gray-400">{t("auth.or")}</span>
-              <div className="h-px flex-1 bg-gradient-to-l from-transparent via-gray-200 to-gray-200" />
-            </div>
-
-            <div className="space-y-4">
-              <div className="group rounded-[1.25rem] border border-gray-200 bg-gray-50 p-2 transition-all focus-within:border-gray-400 focus-within:bg-white">
-                <div className="flex items-center gap-3">
-                  <div className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] px-3 py-2.5">
-                    <Mail className="h-4.5 w-4.5 text-gray-400" />
-                    <div className="min-w-0 flex-1 text-left">
-                      <p className="text-[11px] font-medium text-gray-500">{t("auth.email")}</p>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder={t("auth.enterEmail")}
-                        className="w-full bg-transparent text-sm text-[#111111] outline-none placeholder:text-gray-400"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleEmailAuth}
-                    disabled={submitting}
-                    className="group/submit relative flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full"
-                  >
-                    <span className="absolute inset-0 rounded-full bg-[conic-gradient(#00c6ff,#0072ff,#ff007a,#ff8a00,#00c6ff)] p-[3px] transition-transform duration-500 group-hover/submit:animate-spin">
-                      <span className="block h-full w-full rounded-full bg-white" />
-                    </span>
-                    <span className="absolute inset-[-8px] rounded-full bg-[conic-gradient(#00c6ff,#0072ff,#ff007a,#ff8a00,#00c6ff)] opacity-0 blur-md transition-opacity duration-300 group-hover/submit:animate-spin group-hover/submit:opacity-100" />
-                    <span className="relative z-10 flex h-[46px] w-[46px] items-center justify-center rounded-full bg-[#111111] shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),inset_0_-4px_8px_rgba(0,0,0,0.4)]">
-                      <ArrowRight className="h-4.5 w-4.5 text-white transition-transform duration-200 group-hover/submit:translate-x-0.5" />
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-[1.25rem] border border-gray-200 bg-gray-50 px-4 py-3 transition-all focus-within:border-gray-400 focus-within:bg-white">
-                <div className="flex items-center gap-3">
-                  <LockKeyhole className="h-4.5 w-4.5 text-gray-400" />
-                  <div className="min-w-0 flex-1 text-left">
-                      <p className="text-[11px] font-medium text-gray-500">{t("auth.password")}</p>
-                      <input
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                        placeholder={t("auth.enterPassword")}
-                      className="w-full bg-transparent text-sm text-[#111111] outline-none placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {error && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
+          <div className="mt-6 space-y-3">
+            <button type="button" onClick={checkVerified} disabled={submitting} className="auth-btn-primary">
+              {submitting ? t("loading") : t("verify.done")}
+            </button>
+            <button type="button" onClick={resendVerification} disabled={resendIn > 0} className="auth-btn-secondary">
+              {resendIn > 0 ? t("verify.resendIn", { seconds: resendIn }) : t("verify.resend")}
+            </button>
           </div>
 
-          <p className="relative z-10 mt-8 text-center text-sm text-gray-500">
-            {isRegister ? t("auth.haveAccount") : t("auth.noAccount")}{" "}
-            <button
-              type="button"
-              onClick={() => setIsRegister((value) => !value)}
-              className="bg-gradient-to-r from-[#FF512F] to-[#F09819] bg-clip-text font-semibold text-transparent"
-            >
-              {isRegister ? t("auth.loginLink") : t("auth.registerLink")}
+          <div aria-live="polite">
+            {status && <p className="auth-notice auth-notice-ok mt-4">{status}</p>}
+            {error && <p className="auth-notice auth-notice-error mt-4">{error}</p>}
+          </div>
+
+          <p className="mt-6 text-center text-sm">
+            <button type="button" onClick={leaveVerify} className="font-semibold" style={{ color: "var(--primary)" }}>
+              {t("verify.useAnother")}
             </button>
           </p>
+        </section>
+      </main>
+    )
+  }
+
+  const title = mode === "register" ? t("createYourAccount") : mode === "reset" ? t("resetTitle") : t("welcomeBack")
+  const subtitle = mode === "register" ? t("secureWorkspace") : mode === "reset" ? t("resetDesc") : t("signInToAccount")
+  const submitLabel = mode === "register" ? t("register") : mode === "reset" ? t("sendResetLink") : t("signIn")
+
+  return (
+    <main className="auth-page min-h-screen px-4 py-6 sm:py-10">
+      <header className="mx-auto flex w-full max-w-md items-center justify-between">
+        <Link href="/" className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          <BrandMark dark />
+          Family Finance
+        </Link>
+        <LocaleToggle />
+      </header>
+      <PublicTheme />
+
+      <section className="auth-card mx-auto mt-8 w-full max-w-md p-6 sm:p-8">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>{title}</h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{subtitle}</p>
+
+        {mode !== "reset" && (
+          <>
+            <button type="button" onClick={handleGoogle} disabled={submitting || locked} className="auth-btn-secondary mt-6">
+              <GoogleLogo />
+              {t("continueWithGoogle")}
+            </button>
+            <div className="my-5 flex items-center gap-3 text-xs" style={{ color: "var(--text-muted)" }}>
+              <span className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
+              {t("or")}
+              <span className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
+            </div>
+          </>
+        )}
+
+        <form onSubmit={handleSubmit} noValidate className={mode === "reset" ? "mt-6 space-y-4" : "space-y-4"}>
+          <Field id="email" label={t("email")}>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              inputMode="email"
+              maxLength={254}
+              placeholder={t("enterEmail")}
+              className="auth-input"
+              required
+            />
+          </Field>
+
+          {mode !== "reset" && (
+            <Field
+              id="password"
+              label={t("password")}
+              aside={mode === "login" ? (
+                <button type="button" onClick={() => switchMode("reset")} className="text-xs font-medium" style={{ color: "var(--primary)" }}>
+                  {t("forgotPassword")}
+                </button>
+              ) : null}
+            >
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete={mode === "register" ? "new-password" : "current-password"}
+                  maxLength={128}
+                  placeholder={t("enterPassword")}
+                  className="auth-input pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? t("hidePassword") : t("showPassword")}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {mode === "register" && <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>{t("passwordHint")}</p>}
+            </Field>
+          )}
+
+          <button type="submit" disabled={submitting || (locked && mode !== "reset")} className="auth-btn-primary">
+            {locked && mode !== "reset" ? t("lockedFor", { seconds: lockSeconds }) : submitting ? t("loading") : submitLabel}
+          </button>
+        </form>
+
+        <div aria-live="polite">
+          {status && <p className="auth-notice auth-notice-ok mt-4">{status}</p>}
+          {error && <p className="auth-notice auth-notice-error mt-4">{error}</p>}
         </div>
-      </div>
-    </div>
+
+        <p className="mt-6 text-center text-sm" style={{ color: "var(--text-secondary)" }}>
+          {mode === "reset" ? (
+            <button type="button" onClick={() => switchMode("login")} className="font-semibold" style={{ color: "var(--primary)" }}>
+              {t("backToLogin")}
+            </button>
+          ) : (
+            <>
+              {mode === "register" ? t("haveAccount") : t("noAccount")}{" "}
+              <button type="button" onClick={() => switchMode(mode === "register" ? "login" : "register")} className="font-semibold" style={{ color: "var(--primary)" }}>
+                {mode === "register" ? t("loginLink") : t("registerLink")}
+              </button>
+            </>
+          )}
+        </p>
+      </section>
+    </main>
   )
 }
 
-function SocialButton({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
+function Field({ id, label, aside, children }: { id: string; label: string; aside?: ReactNode; children: ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center justify-between rounded-[1.25rem] border border-gray-200 bg-gray-50 px-4 py-4 text-sm font-medium text-[#111111] transition-all hover:border-gray-300 hover:bg-white"
-    >
-      <span className="flex items-center gap-3">
-        <span className="flex h-5 w-5 items-center justify-center">{children}</span>
-        {label}
-      </span>
-      <ArrowRight className="h-4.5 w-4.5 text-gray-500 transition-colors group-hover:text-[#111111]" />
-    </button>
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <label htmlFor={id} className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{label}</label>
+        {aside}
+      </div>
+      {children}
+    </div>
   )
 }
 
 function GoogleLogo() {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5">
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" fill="#4285F4" />
       <path d="M12 23c2.97 0 5.46-.98 7.29-2.65l-3.57-2.77c-.99.66-2.24 1.06-3.72 1.06-2.86 0-5.28-1.93-6.15-4.52H2.18v2.84A11 11 0 0 0 12 23Z" fill="#34A853" />
       <path d="M5.85 14.12A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.43.35-2.12V7.04H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.96l2.87-2.84Z" fill="#FBBC05" />
@@ -225,7 +444,7 @@ function GoogleLogo() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+    <Suspense fallback={<div className="auth-page min-h-screen" />}>
       <LoginForm />
     </Suspense>
   )

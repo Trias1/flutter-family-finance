@@ -10,23 +10,27 @@ class BudgetAlertService {
   final Set<String> _notifiedExceeded = {};
   final Set<String> _notifiedAlmostExceeded = {};
 
-  void checkBudgets(List<BudgetModel> budgets) {
+  void checkBudgets(List<BudgetModel> budgets, {bool isIndonesian = true}) {
     for (final budget in budgets) {
-      if (budget.budgetAmount <= 0) continue;
+      if (budget.effectiveBudget <= 0) continue;
       if (budget.isExceeded && _notifiedExceeded.add(budget.id)) {
         NotificationService().show(
           id: budget.id.hashCode,
-          title: 'Anggaran Terlampaui!',
-          body:
-              'Kategori ${budget.category} sudah melebihi anggaran ${CurrencyFormatter.formatWithoutSymbol(budget.budgetAmount)}',
+          title: isIndonesian ? 'Anggaran Terlampaui!' : 'Budget Exceeded!',
+          body: isIndonesian
+              ? 'Kategori ${budget.category} sudah melebihi anggaran ${CurrencyFormatter.formatWithoutSymbol(budget.effectiveBudget)}'
+              : 'Category ${budget.category} has exceeded the budget of ${CurrencyFormatter.formatWithoutSymbol(budget.effectiveBudget)}',
         );
       } else if (budget.isAlmostExceeded &&
           _notifiedAlmostExceeded.add(budget.id)) {
         NotificationService().show(
           id: budget.id.hashCode,
-          title: 'Anggaran Hampir Habis',
-          body:
-              'Kategori ${budget.category} sudah mencapai ${budget.percentage.toStringAsFixed(0)}% dari anggaran',
+          title: isIndonesian
+              ? 'Anggaran Hampir Habis'
+              : 'Budget Almost Exhausted',
+          body: isIndonesian
+              ? 'Kategori ${budget.category} sudah mencapai ${budget.percentage.toStringAsFixed(0)}% dari anggaran'
+              : 'Category ${budget.category} has reached ${budget.percentage.toStringAsFixed(0)}% of the budget',
         );
       }
     }

@@ -17,22 +17,37 @@ class CurrencyFormatter {
     return _formatNumber(amount);
   }
 
+  /// Reads typed amounts. For decimal currencies a trailing ".50" or ",50"
+  /// is the fraction ("10.50" is 10.5, not 1050).
   static double parse(String value) {
-    final clean = value.replaceAll(RegExp(r'[^0-9]'), '');
-    return double.tryParse(clean) ?? 0;
+    final v = value.replaceAll(RegExp(r'[^0-9.,]'), '');
+    if (_currency.decimalDigits > 0) {
+      final m = RegExp(r'[.,](\d{1,2})$').firstMatch(v);
+      if (m != null) {
+        final whole = v.substring(0, m.start).replaceAll(RegExp(r'[.,]'), '');
+        return double.tryParse(
+              '${whole.isEmpty ? '0' : whole}.${m.group(1)}',
+            ) ??
+            0;
+      }
+    }
+    return double.tryParse(v.replaceAll(RegExp(r'[.,]'), '')) ?? 0;
   }
 
+  // Rupiah/Yen: 1.250.000. Decimal currencies: 1,250,000.50.
   static String _formatNumber(double amount) {
-    if (_currency.decimalDigits > 0) {
-      return amount.toStringAsFixed(_currency.decimalDigits);
-    }
-    String str = amount.toStringAsFixed(0);
-    String reversed = str.split('').reversed.join('');
+    final digits = _currency.decimalDigits;
+    final negative = amount < 0;
+    final fixed = amount.abs().toStringAsFixed(digits);
+    final parts = fixed.split('.');
+    final sep = digits > 0 ? ',' : '.';
+    final intPart = parts[0];
     final buffer = StringBuffer();
-    for (int i = 0; i < reversed.length; i++) {
-      if (i > 0 && i % 3 == 0) buffer.write('.');
-      buffer.write(reversed[i]);
+    for (int i = 0; i < intPart.length; i++) {
+      if (i > 0 && (intPart.length - i) % 3 == 0) buffer.write(sep);
+      buffer.write(intPart[i]);
     }
-    return buffer.toString().split('').reversed.join('');
+    final grouped = digits > 0 ? '$buffer.${parts[1]}' : buffer.toString();
+    return negative ? '-$grouped' : grouped;
   }
 }

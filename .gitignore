@@ -51,6 +51,7 @@ push-github.txt
 .env.*
 *.jks
 *.keystore
+key.properties
 tabunganapps-firebase-adminsdk-*.json
 
 # Local release artifacts
@@ -58,3 +59,8 @@ tabunganapps-firebase-adminsdk-*.json
 /apps/web/public/*.apk
 
 .vercel
+
+# Firestore rules tests
+firestore-tests/node_modules/
+firestore-debug.log
+

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
 import 'package:family_finance_manager/core/utils/image_utils.dart';
@@ -187,7 +188,7 @@ class ProfilePage extends ConsumerWidget {
                 controller: newController,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Password Baru', prefixIcon: Icon(Icons.lock)),
-                validator: (v) => v == null || v.length < 6 ? 'Minimal 6 karakter' : null,
+                validator: Validators.newPassword,
               ),
               const SizedBox(height: 12),
               TextFormField(

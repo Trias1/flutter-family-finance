@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:family_finance_manager/core/locale/locale_provider.dart';
 
 final dashboardSectionsProvider = FutureProvider<Map<String, bool>>((
   ref,
 ) async {
   final prefs = await SharedPreferences.getInstance();
   return {
-    'progress': prefs.getBool('dashboard_progress') ?? true,
     'calendar': prefs.getBool('dashboard_calendar') ?? true,
     'menu': prefs.getBool('dashboard_menu') ?? true,
-    'recent': prefs.getBool('dashboard_recent') ?? true,
+    'insights': prefs.getBool('dashboard_insights') ?? true,
   };
 });
 
@@ -20,24 +20,38 @@ class DashboardSettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sections = ref.watch(dashboardSectionsProvider);
+    final id = ref.watch(localeProvider).languageCode == 'id';
 
     return sections.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Gagal memuat: $e')),
+      error: (e, _) => Center(
+        child: Text(
+          id ? 'Pengaturan gagal dimuat.' : "Couldn't load settings.",
+        ),
+      ),
       data: (values) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Pilih bagian yang mau ditampilkan di Dashboard.',
+            id
+                ? 'Pilih bagian yang mau ditampilkan di Dashboard.'
+                : 'Choose what the Dashboard shows.',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
-          _SectionSwitch('progress', 'Progress Bulanan', values),
-          _SectionSwitch('calendar', 'Kalender Aktivitas', values),
-          _SectionSwitch('menu', 'Menu Utama', values),
-          _SectionSwitch('recent', 'Transaksi Terbaru', values),
+          _SectionSwitch(
+            'calendar',
+            id ? 'Kalender aktivitas' : 'Activity calendar',
+            values,
+          ),
+          _SectionSwitch('menu', id ? 'Menu utama' : 'Main menu', values),
+          _SectionSwitch(
+            'insights',
+            id ? 'Ringkasan utang' : 'Debts summary',
+            values,
+          ),
         ],
       ),
     );

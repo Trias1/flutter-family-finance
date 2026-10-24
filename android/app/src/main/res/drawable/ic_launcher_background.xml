@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Solid brand navy, same as the web mark; no gradient. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <gradient
-        android:type="linear"
-        android:startX="0"
-        android:startY="0"
-        android:endX="108"
-        android:endY="108"
-        android:startColor="#FF6B3F2A"
-        android:endColor="#FFD97706" />
+    <solid android:color="#FF2B4C6F" />
 </shape>

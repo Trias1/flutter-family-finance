@@ -54,9 +54,14 @@ class FirestoreDataSource {
     return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
   }
 
-  Future<void> updateUser(UserModel user) async {
+  /// [joinCode] must accompany any change of `familyId` to a family the user
+  /// does not own; Firestore rules check it against `family_invites`.
+  Future<void> updateUser(UserModel user, {String? joinCode}) async {
     final batch = _firestore.batch();
-    batch.update(_users.doc(user.id), user.toFirestore());
+    batch.update(_users.doc(user.id), {
+      ...user.toFirestore(),
+      if (joinCode != null) 'joinCode': joinCode,
+    });
     batch.set(_userPublic.doc(user.id), {
       'name': user.name,
       'createdAt': Timestamp.fromDate(user.createdAt),
@@ -64,17 +69,45 @@ class FirestoreDataSource {
     await batch.commit();
   }
 
-  Future<FamilyModel> createFamily(FamilyModel family) {
-    return _families.add(family.toFirestore()).then((doc) {
-      return FamilyModel(
-        id: doc.id,
-        name: family.name,
-        photoUrl: family.photoUrl,
-        inviteCode: family.inviteCode,
-        createdBy: family.createdBy,
-        createdAt: family.createdAt,
-      );
+  CollectionReference<Map<String, dynamic>> get _familyInvites =>
+      _firestore.collection('family_invites');
+
+  Map<String, dynamic> _inviteData(FamilyModel family) => {
+    'familyId': family.id,
+    'familyName': family.name,
+    'createdBy': family.createdBy,
+  };
+
+  /// Creates the family and its invite lookup doc in one batch. Invite codes
+  /// live in `family_invites/{code}`, readable one code at a time, so codes
+  /// cannot be listed by other users.
+  Future<FamilyModel> createFamily(FamilyModel family) async {
+    final ref = _families.doc();
+    final created = FamilyModel(
+      id: ref.id,
+      name: family.name,
+      photoUrl: family.photoUrl,
+      inviteCode: family.inviteCode,
+      createdBy: family.createdBy,
+      createdAt: family.createdAt,
+    );
+    final batch = _firestore.batch();
+    batch.set(ref, created.toFirestore());
+    batch.set(_familyInvites.doc(created.inviteCode), _inviteData(created));
+    await batch.commit();
+    return created;
+  }
+
+  /// Used by the family owner. Touches only the two fields rules let an
+  /// owner change on another member's profile, and records a ban so the
+  /// member cannot rejoin with the old code.
+  Future<void> removeFamilyMember(String uid, String familyId) {
+    final batch = _firestore.batch();
+    batch.update(_users.doc(uid), {'familyId': null, 'role': 'member'});
+    batch.set(_families.doc(familyId).collection('banned').doc(uid), {
+      'bannedAt': FieldValue.serverTimestamp(),
     });
+    return batch.commit();
   }
 
   Future<FamilyModel?> getFamily(String id) async {
@@ -83,13 +116,28 @@ class FirestoreDataSource {
     return FamilyModel.fromFirestore(doc);
   }
 
+  /// Looks up an invite code. Returns a partial family (id, name, owner)
+  /// because non-members cannot read the family doc itself.
   Future<FamilyModel?> getFamilyByInviteCode(String code) async {
-    final snapshot = await _families
-        .where('inviteCode', isEqualTo: code)
-        .limit(1)
-        .get();
-    if (snapshot.docs.isEmpty) return null;
-    return FamilyModel.fromFirestore(snapshot.docs.first);
+    final doc = await _familyInvites.doc(code.trim().toUpperCase()).get();
+    final data = doc.data();
+    if (!doc.exists || data == null) return null;
+    return FamilyModel(
+      id: data['familyId'] as String? ?? '',
+      name: data['familyName'] as String? ?? '',
+      inviteCode: doc.id,
+      createdBy: data['createdBy'] as String? ?? '',
+    );
+  }
+
+  /// Families created before invite docs existed get one the first time
+  /// their owner opens the app.
+  Future<void> ensureFamilyInvite(FamilyModel family) async {
+    if (family.inviteCode.isEmpty) return;
+    final ref = _familyInvites.doc(family.inviteCode);
+    final existing = await ref.get();
+    if (existing.exists) return;
+    await ref.set(_inviteData(family));
   }
 
   Future<void> updateFamily(FamilyModel family) {
@@ -115,6 +163,12 @@ class FirestoreDataSource {
 
       transaction.update(newOwnerRef, {'role': 'admin'});
       transaction.update(familyRef, {'createdBy': newOwnerId});
+      final inviteCode = familyDoc.data()?['inviteCode'] as String?;
+      if (inviteCode != null && inviteCode.isNotEmpty) {
+        transaction.set(_familyInvites.doc(inviteCode), {
+          'createdBy': newOwnerId,
+        }, SetOptions(merge: true));
+      }
     });
   }
 
@@ -122,10 +176,20 @@ class FirestoreDataSource {
     return _incomes.add(income.toFirestore());
   }
 
-  Future<List<IncomeModel>> getIncomes(String familyId) async {
+  /// Fixed-id write: writing the same id twice cannot create a duplicate.
+  Future<void> setIncomeWithId(String id, IncomeModel income) {
+    return _incomes.doc(id).set(income.toFirestore());
+  }
+
+  /// [cacheOnly] reads what this phone already has, at once and offline;
+  /// the dashboard shows that first, then the server's answer.
+  Future<List<IncomeModel>> getIncomes(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
     final snapshot = await _incomes
         .where('familyId', isEqualTo: familyId)
-        .get();
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => IncomeModel.fromFirestore(doc))
         .toList();
@@ -155,10 +219,18 @@ class FirestoreDataSource {
     return _expenses.add(expense.toFirestore());
   }
 
-  Future<List<ExpenseModel>> getExpenses(String familyId) async {
+  /// Fixed-id write: writing the same id twice cannot create a duplicate.
+  Future<void> setExpenseWithId(String id, ExpenseModel expense) {
+    return _expenses.doc(id).set(expense.toFirestore());
+  }
+
+  Future<List<ExpenseModel>> getExpenses(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
     final snapshot = await _expenses
         .where('familyId', isEqualTo: familyId)
-        .get();
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => ExpenseModel.fromFirestore(doc))
         .toList();
@@ -194,10 +266,13 @@ class FirestoreDataSource {
     return SavingModel.fromFirestore(doc);
   }
 
-  Future<List<SavingModel>> getSavings(String familyId) async {
+  Future<List<SavingModel>> getSavings(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
     final snapshot = await _savings
         .where('familyId', isEqualTo: familyId)
-        .get();
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => SavingModel.fromFirestore(doc))
         .toList();
@@ -232,11 +307,12 @@ class FirestoreDataSource {
 
   Future<List<BudgetModel>> getBudgetsByMonth(
     String familyId,
-    String month,
-  ) async {
+    String month, {
+    bool cacheOnly = false,
+  }) async {
     final snapshot = await _budgets
         .where('familyId', isEqualTo: familyId)
-        .get();
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final all = snapshot.docs
         .map((doc) => BudgetModel.fromFirestore(doc))
         .toList();
@@ -249,17 +325,21 @@ class FirestoreDataSource {
   }
 
   Future<List<BudgetModel>> getAllBudgets(String familyId) async {
+    // Sorted here: familyId + orderBy(month) would need a composite index.
     final snapshot = await _budgets
         .where('familyId', isEqualTo: familyId)
-        .orderBy('month', descending: true)
         .get();
-    return snapshot.docs
-        .map((doc) => BudgetModel.fromFirestore(doc))
-        .toList();
+    return snapshot.docs.map((doc) => BudgetModel.fromFirestore(doc)).toList()
+      ..sort((a, b) => b.month.compareTo(a.month));
   }
 
   Future<void> updateBudget(BudgetModel budget) {
     return _budgets.doc(budget.id).update(budget.toFirestore());
+  }
+
+  /// Atomic, so two family members saving expenses at once both count.
+  Future<void> incrementBudgetUsed(String id, double delta) {
+    return _budgets.doc(id).update({'usedAmount': FieldValue.increment(delta)});
   }
 
   Future<void> deleteBudget(String id) {
@@ -275,8 +355,13 @@ class FirestoreDataSource {
     return _debts.add(debt.toFirestore());
   }
 
-  Future<List<DebtModel>> getDebts(String familyId) async {
-    final snapshot = await _debts.where('familyId', isEqualTo: familyId).get();
+  Future<List<DebtModel>> getDebts(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
+    final snapshot = await _debts
+        .where('familyId', isEqualTo: familyId)
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => DebtModel.fromFirestore(doc))
         .toList();
@@ -379,8 +464,13 @@ class FirestoreDataSource {
     return BillModel.fromFirestore(doc);
   }
 
-  Future<List<BillModel>> getBills(String familyId) async {
-    final snapshot = await _bills.where('familyId', isEqualTo: familyId).get();
+  Future<List<BillModel>> getBills(
+    String familyId, {
+    bool cacheOnly = false,
+  }) async {
+    final snapshot = await _bills
+        .where('familyId', isEqualTo: familyId)
+        .get(cacheOnly ? const GetOptions(source: Source.cache) : null);
     final list = snapshot.docs
         .map((doc) => BillModel.fromFirestore(doc))
         .toList();

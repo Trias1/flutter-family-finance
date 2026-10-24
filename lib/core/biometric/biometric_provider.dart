@@ -4,11 +4,15 @@ import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final localAuthProvider = Provider<LocalAuthentication>((ref) => LocalAuthentication());
+final localAuthProvider = Provider<LocalAuthentication>(
+  (ref) => LocalAuthentication(),
+);
 
-final biometricEnabledProvider = StateNotifierProvider<BiometricNotifier, bool>((ref) {
-  return BiometricNotifier();
-});
+final biometricEnabledProvider = StateNotifierProvider<BiometricNotifier, bool>(
+  (ref) {
+    return BiometricNotifier();
+  },
+);
 
 Future<String> _effectiveBioKey() async {
   final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -37,7 +41,8 @@ class BiometricNotifier extends StateNotifier<bool> {
     try {
       final isAvailable = await localAuth.canCheckBiometrics;
       final isSupported = await localAuth.isDeviceSupported();
-      if (!isAvailable || !isSupported) return 'Perangkat tidak mendukung fingerprint';
+      if (!isAvailable || !isSupported)
+        return 'Perangkat tidak mendukung fingerprint';
 
       if (!state) {
         final authenticated = await localAuth.authenticate(

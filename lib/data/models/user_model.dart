@@ -20,8 +20,8 @@ class UserModel {
     this.role = 'member',
     DateTime? createdAt,
     List<Map<String, String>>? familyHistory,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        familyHistory = familyHistory ?? [];
+  }) : createdAt = createdAt ?? DateTime.now(),
+       familyHistory = familyHistory ?? [];
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -34,7 +34,9 @@ class UserModel {
       familyId: data['familyId'],
       role: data['role'] ?? 'member',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
-      familyHistory: rawHistory.map((e) => Map<String, String>.from(e as Map)).toList(),
+      familyHistory: rawHistory
+          .map((e) => Map<String, String>.from(e as Map))
+          .toList(),
     );
   }
 

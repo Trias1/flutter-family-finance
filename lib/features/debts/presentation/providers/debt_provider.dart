@@ -9,6 +9,8 @@ final debtRepositoryProvider = Provider<DebtRepository>((ref) {
 });
 
 final debtStreamProvider = StreamProvider.family<List<DebtModel>, String>((ref, familyId) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <DebtModel>[]);
   return ref.watch(debtRepositoryProvider).streamDebts(familyId).map((snapshot) {
     final list = snapshot!.docs.map((doc) => DebtModel.fromFirestore(doc)).toList();
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));

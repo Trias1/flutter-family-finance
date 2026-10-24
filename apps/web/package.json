@@ -13,20 +13,24 @@
     "firebase": "^12.15.0",
     "firebase-admin": "^14.0.0",
     "lucide-react": "^1.21.0",
-    "next": "16.4.1",
+    "next": "^16.4.3",
     "next-intl": "^4.13.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.3.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.1",
-    "tailwindcss": "^4",
+    "eslint-config-next": "^16.4.3",
+    "tailwindcss": "^4.3.1",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.5",
+    "jwks-rsa": "3.2.2"
   }
 }

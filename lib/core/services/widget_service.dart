@@ -16,7 +16,10 @@ class WidgetService {
   }
 
   static Future<void> updateBalance(double balance) async {
-    await HomeWidget.saveWidgetData<String>('balance', CurrencyFormatter.format(balance));
+    await HomeWidget.saveWidgetData<String>(
+      'balance',
+      CurrencyFormatter.format(balance),
+    );
     await HomeWidget.updateWidget(name: _widgetName, iOSName: _widgetName);
   }
 }

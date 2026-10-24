@@ -43,11 +43,13 @@ class FcmService {
           .limit(1)
           .get();
       if (existing.docs.isEmpty) {
-        await FirebaseFirestore.instance.collection(FirestoreConstants.fcmTokens).add({
-          'token': token,
-          'uid': currentUser.uid,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        await FirebaseFirestore.instance
+            .collection(FirestoreConstants.fcmTokens)
+            .add({
+              'token': token,
+              'uid': currentUser.uid,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
       }
     } catch (_) {}
   }
@@ -55,7 +57,11 @@ class FcmService {
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
     final title = message.notification?.title ?? 'Family Finance';
     final body = message.notification?.body ?? '';
-    await NotificationService().show(id: DateTime.now().millisecondsSinceEpoch % 2147483647, title: title, body: body);
+    await NotificationService().show(
+      id: DateTime.now().millisecondsSinceEpoch % 2147483647,
+      title: title,
+      body: body,
+    );
   }
 
   Future<void> _handleMessageOpened(RemoteMessage message) async {}
@@ -65,6 +71,10 @@ class FcmService {
   static Future<void> onBackgroundMessage(RemoteMessage message) async {
     final title = message.notification?.title ?? 'Family Finance';
     final body = message.notification?.body ?? '';
-    await NotificationService().show(id: DateTime.now().millisecondsSinceEpoch % 2147483647, title: title, body: body);
+    await NotificationService().show(
+      id: DateTime.now().millisecondsSinceEpoch % 2147483647,
+      title: title,
+      body: body,
+    );
   }
 }

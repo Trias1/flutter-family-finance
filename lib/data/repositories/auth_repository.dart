@@ -43,6 +43,8 @@ class AuthRepository {
     final user = credential.user;
     if (user == null) throw Exception('Failed to create user');
     await user.updateDisplayName(name);
+    // Best effort: a failed send must not undo a successful sign-up.
+    await user.sendEmailVerification().catchError((_) {});
     final userModel = UserModel(
       id: user.uid,
       name: name,
@@ -98,8 +100,11 @@ class AuthRepository {
     }
   }
 
-  Future<void> changePassword(String newPassword) {
-    return _authDataSource.changePassword(newPassword);
+  Future<void> changePassword(String newPassword, {String? currentPassword}) {
+    return _authDataSource.changePassword(
+      newPassword,
+      currentPassword: currentPassword,
+    );
   }
 
   Future<void> sendPasswordResetEmail(String email) {
@@ -110,6 +115,7 @@ class AuthRepository {
     String familyId, {
     String? familyName,
     String role = 'member',
+    String? joinCode,
   }) async {
     final uid = _authDataSource.currentUser?.uid;
     if (uid == null) throw Exception('No user logged in');
@@ -130,10 +136,12 @@ class AuthRepository {
       role: role,
       createdAt: user.createdAt,
     );
-    await _firestoreDataSource.updateUser(updated);
+    await _firestoreDataSource.updateUser(updated, joinCode: joinCode);
   }
 
-  Future<void> leaveFamily() async {
+  /// An owner who leaves hands the family to [newOwnerId] (chosen in the
+  /// app); without a choice, the first other member takes over.
+  Future<void> leaveFamily({String? newOwnerId}) async {
     final uid = _authDataSource.currentUser?.uid;
     if (uid == null) throw Exception('No user logged in');
     final user = await _firestoreDataSource.getUser(uid);
@@ -145,10 +153,10 @@ class AuthRepository {
         final members = await _firestoreDataSource.getUsersByFamilyId(familyId);
         final others = members.where((m) => m.id != uid).toList();
         if (others.isNotEmpty) {
-          await _firestoreDataSource.transferFamilyOwnership(
-            familyId,
-            others.first.id,
-          );
+          final heir = others.any((m) => m.id == newOwnerId)
+              ? newOwnerId!
+              : others.first.id;
+          await _firestoreDataSource.transferFamilyOwnership(familyId, heir);
         }
       }
     }
@@ -168,19 +176,12 @@ class AuthRepository {
   Future<void> kickMember(String targetUid, {String? fromFamilyId}) async {
     final user = await _firestoreDataSource.getUser(targetUid);
     if (user == null) throw Exception('User not found');
-    if (fromFamilyId != null && user.familyId != fromFamilyId)
+    if (fromFamilyId != null && user.familyId != fromFamilyId) {
       throw Exception('User tidak dalam keluarga ini');
-    final updated = UserModel(
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      photoUrl: user.photoUrl,
-      familyId: null,
-      familyHistory: user.familyHistory,
-      role: 'member',
-      createdAt: user.createdAt,
-    );
-    await _firestoreDataSource.updateUser(updated);
+    }
+    final familyId = user.familyId;
+    if (familyId == null || familyId.isEmpty) return;
+    await _firestoreDataSource.removeFamilyMember(targetUid, familyId);
   }
 
   Future<void> signOut({bool keepGoogleSession = false}) =>

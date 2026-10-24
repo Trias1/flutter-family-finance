@@ -7,7 +7,11 @@ plugins {
 import java.util.Properties
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
-keystoreProperties.load(keystorePropertiesFile.inputStream())
+// key.properties is gitignored; without it, release builds fall back to debug signing.
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
 
 android {
     namespace = "com.familyfinance.family_finance_manager"
@@ -30,17 +34,19 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+                storePassword = keystoreProperties["storePassword"] as String
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKeystore) "release" else "debug")
             isMinifyEnabled = false
             isShrinkResources = false
         }

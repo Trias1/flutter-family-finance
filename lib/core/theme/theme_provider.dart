@@ -3,13 +3,16 @@ import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((
+  ref,
+) {
   return ThemeModeNotifier();
 });
 
-final themePresetProvider = StateNotifierProvider<ThemePresetNotifier, AppThemePreset>((ref) {
-  return ThemePresetNotifier();
-});
+final themePresetProvider =
+    StateNotifierProvider<ThemePresetNotifier, AppThemePreset>((ref) {
+      return ThemePresetNotifier();
+    });
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   ThemeModeNotifier() : super(ThemeMode.light) {

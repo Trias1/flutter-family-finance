@@ -13,13 +13,38 @@ class CurrencyModel {
 
   static const List<CurrencyModel> supported = [
     CurrencyModel(code: 'IDR', symbol: 'Rp', name: 'Indonesian Rupiah'),
-    CurrencyModel(code: 'USD', symbol: '\$', name: 'US Dollar', decimalDigits: 2),
+    CurrencyModel(
+      code: 'USD',
+      symbol: '\$',
+      name: 'US Dollar',
+      decimalDigits: 2,
+    ),
     CurrencyModel(code: 'EUR', symbol: '€', name: 'Euro', decimalDigits: 2),
-    CurrencyModel(code: 'GBP', symbol: '£', name: 'British Pound', decimalDigits: 2),
+    CurrencyModel(
+      code: 'GBP',
+      symbol: '£',
+      name: 'British Pound',
+      decimalDigits: 2,
+    ),
     CurrencyModel(code: 'JPY', symbol: '¥', name: 'Japanese Yen'),
-    CurrencyModel(code: 'SGD', symbol: 'S\$', name: 'Singapore Dollar', decimalDigits: 2),
-    CurrencyModel(code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit', decimalDigits: 2),
-    CurrencyModel(code: 'SAR', symbol: '﷼', name: 'Saudi Riyal', decimalDigits: 2),
+    CurrencyModel(
+      code: 'SGD',
+      symbol: 'S\$',
+      name: 'Singapore Dollar',
+      decimalDigits: 2,
+    ),
+    CurrencyModel(
+      code: 'MYR',
+      symbol: 'RM',
+      name: 'Malaysian Ringgit',
+      decimalDigits: 2,
+    ),
+    CurrencyModel(
+      code: 'SAR',
+      symbol: '﷼',
+      name: 'Saudi Riyal',
+      decimalDigits: 2,
+    ),
   ];
 
   static final _default = supported.first;

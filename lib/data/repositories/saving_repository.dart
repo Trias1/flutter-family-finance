@@ -6,7 +6,7 @@ class SavingRepository {
   final FirestoreDataSource _dataSource;
 
   SavingRepository({required FirestoreDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   Future<void> createSaving(SavingModel saving) {
     return _dataSource.createSaving(saving);

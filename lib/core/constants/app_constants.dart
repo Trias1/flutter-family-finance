@@ -8,6 +8,8 @@ class AppConstants {
     'Freelance',
     'Bisnis',
     'Investasi',
+    // A bank balance recorded when starting over from screenshots.
+    'Saldo awal',
     'Lainnya',
   ];
 

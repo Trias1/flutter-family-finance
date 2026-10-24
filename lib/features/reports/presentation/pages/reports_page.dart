@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:family_finance_manager/core/constants/app_constants.dart';
+import 'package:family_finance_manager/core/locale/app_strings.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/utils/currency_formatter.dart';
 import 'package:family_finance_manager/core/widgets/error_widget.dart';
@@ -29,6 +30,31 @@ class ReportsPage extends ConsumerStatefulWidget {
 class _ReportsPageState extends ConsumerState<ReportsPage> {
   String _selectedFilter = 'Bulanan';
   bool _isExporting = false;
+
+  bool get _isId => Localizations.localeOf(context).languageCode == 'id';
+  AppStrings get _s => AppStrings(Localizations.localeOf(context));
+
+  /// Display label for a filter key (keys stay Indonesian for logic).
+  String _filterLabel(String filter) {
+    final s = _s;
+    switch (filter) {
+      case 'Harian':
+        return s.daily;
+      case 'Mingguan':
+        return s.weekly;
+      case 'Tahunan':
+        return s.yearly;
+      case 'Bulanan':
+        return s.monthly;
+      default:
+        return filter;
+    }
+  }
+
+  String get _reportTitle => _isId ? 'Laporan Keuangan' : 'Financial Report';
+  String get _exportFailedMsg => _isId
+      ? 'Gagal export laporan. Coba lagi.'
+      : "Couldn't export the report. Try again.";
 
   List<IncomeModel> _filterIncomes(List<IncomeModel> incomes, String filter) {
     final now = DateTime.now();
@@ -90,7 +116,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
                   Text(
-                    'Menyiapkan CSV...',
+                    _isId ? 'Menyiapkan CSV...' : 'Preparing CSV...',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -103,30 +129,38 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       );
       dialogShowing = true;
     }
+    final isId = _isId;
+    final s = _s;
+    final reportTitle = _reportTitle;
+    final exportFailedMsg = _exportFailedMsg;
     try {
       final buffer = StringBuffer();
-      buffer.writeln('Tipe,Kategori,Catatan,Jumlah,Tanggal');
+      buffer.writeln(
+        isId
+            ? 'Tipe,Kategori,Catatan,Jumlah,Tanggal'
+            : 'Type,Category,Note,Amount,Date',
+      );
       for (final i in data.filteredIncomes) {
         buffer.writeln(
-          'Pemasukan,${i.category},${i.note ?? ''},${i.amount.toStringAsFixed(0)},${_formatDate(i.date)}',
+          '${s.income},${i.category},${i.note ?? ''},${i.amount.toStringAsFixed(0)},${_formatDate(i.date)}',
         );
       }
       for (final e in data.filteredExpenses) {
         buffer.writeln(
-          'Pengeluaran,${e.category},${e.note ?? ''},${e.amount.toStringAsFixed(0)},${_formatDate(e.date)}',
+          '${s.expense},${e.category},${e.note ?? ''},${e.amount.toStringAsFixed(0)},${_formatDate(e.date)}',
         );
       }
       final dir = await _getTemporaryDirectory();
       final file = File('${dir.path}/laporan_keuangan.csv');
       await file.writeAsString(buffer.toString());
-      await Share.shareXFiles([XFile(file.path)], text: 'Laporan Keuangan');
+      await Share.shareXFiles([XFile(file.path)], text: reportTitle);
     } catch (e) {
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Gagal export: $e'),
+                content: Text(exportFailedMsg),
                 backgroundColor: AppTheme.errorColor,
               ),
             );
@@ -162,7 +196,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
                   Text(
-                    'Menyiapkan PDF...',
+                    _isId ? 'Menyiapkan PDF...' : 'Preparing PDF...',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -175,6 +209,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       );
       dialogShowing = true;
     }
+    final isId = _isId;
+    final s = _s;
+    final reportTitle = _reportTitle;
+    final periodLabel = _filterLabel(_selectedFilter);
+    final exportFailedMsg = _exportFailedMsg;
     try {
       final pdf = pw.Document();
       pdf.addPage(
@@ -185,59 +224,69 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             return [
               pw.Header(
                 level: 0,
-                text: 'Laporan Keuangan',
+                text: reportTitle,
                 textStyle: pw.TextStyle(
                   fontSize: 24,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
               pw.Paragraph(
-                text: 'Periode: $_selectedFilter',
+                text: '${isId ? 'Periode' : 'Period'}: $periodLabel',
                 style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey),
               ),
               pw.SizedBox(height: 20),
-              pw.Header(level: 1, text: 'Ringkasan'),
+              pw.Header(level: 1, text: isId ? 'Ringkasan' : 'Summary'),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   _pdfStat(
-                    'Total Pemasukan',
+                    isId ? 'Total Pemasukan' : 'Total Income',
                     CurrencyFormatter.format(data.filteredTotalIncome),
                     PdfColors.green,
                   ),
                   _pdfStat(
-                    'Total Pengeluaran',
+                    isId ? 'Total Pengeluaran' : 'Total Expenses',
                     CurrencyFormatter.format(data.filteredTotalExpense),
                     PdfColors.red,
                   ),
                   _pdfStat(
-                    'Saldo',
+                    isId ? 'Saldo' : 'Balance',
                     CurrencyFormatter.format(data.filteredTotalBalance),
                     PdfColors.blue,
                   ),
                 ],
               ),
               pw.SizedBox(height: 20),
-              pw.Header(level: 1, text: 'Pemasukan per Kategori'),
+              pw.Header(
+                level: 1,
+                text: isId ? 'Pemasukan per Kategori' : 'Income by Category',
+              ),
               _pdfCategoryTable(
                 context,
                 data.filteredIncomes
                     .map((i) => _Cat(i.category, i.amount))
                     .toList(),
-                'Pemasukan',
+                s.income,
+                isId,
               ),
               pw.SizedBox(height: 20),
-              pw.Header(level: 1, text: 'Pengeluaran per Kategori'),
+              pw.Header(
+                level: 1,
+                text: isId
+                    ? 'Pengeluaran per Kategori'
+                    : 'Expenses by Category',
+              ),
               _pdfCategoryTable(
                 context,
                 data.filteredExpenses
                     .map((e) => _Cat(e.category, e.amount))
                     .toList(),
-                'Pengeluaran',
+                s.expense,
+                isId,
               ),
               pw.SizedBox(height: 20),
-              pw.Header(level: 1, text: 'Transaksi'),
-              _pdfTransactionTable(context, data),
+              pw.Header(level: 1, text: isId ? 'Transaksi' : 'Transactions'),
+              _pdfTransactionTable(context, data, s, isId),
             ];
           },
         ),
@@ -245,14 +294,14 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       final dir = await _getTemporaryDirectory();
       final file = File('${dir.path}/laporan_keuangan.pdf');
       await file.writeAsBytes(await pdf.save());
-      await Share.shareXFiles([XFile(file.path)], text: 'Laporan Keuangan');
+      await Share.shareXFiles([XFile(file.path)], text: reportTitle);
     } catch (e) {
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Gagal export PDF: $e'),
+                content: Text(exportFailedMsg),
                 backgroundColor: AppTheme.errorColor,
               ),
             );
@@ -268,6 +317,13 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   Future<void> _printPDF(ReportData data) async {
     if (_isExporting) return;
     setState(() => _isExporting = true);
+    final isId = _isId;
+    final s = _s;
+    final reportTitle = _reportTitle;
+    final periodLabel = _filterLabel(_selectedFilter);
+    final printFailedMsg = isId
+        ? 'Gagal print laporan. Coba lagi.'
+        : "Couldn't print the report. Try again.";
     try {
       final pdf = pw.Document();
       pdf.addPage(
@@ -278,51 +334,69 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             return [
               pw.Header(
                 level: 0,
-                text: 'Laporan Keuangan',
+                text: reportTitle,
                 textStyle: pw.TextStyle(
                   fontSize: 24,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
               pw.Paragraph(
-                text: 'Periode: $_selectedFilter',
+                text: '${isId ? 'Periode' : 'Period'}: $periodLabel',
                 style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey),
               ),
               pw.SizedBox(height: 20),
-              pw.Header(level: 1, text: 'Ringkasan'),
+              pw.Header(level: 1, text: isId ? 'Ringkasan' : 'Summary'),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   _pdfStat(
-                    'Total Pemasukan',
+                    isId ? 'Total Pemasukan' : 'Total Income',
                     CurrencyFormatter.format(data.filteredTotalIncome),
                     PdfColors.green,
                   ),
                   _pdfStat(
-                    'Total Pengeluaran',
+                    isId ? 'Total Pengeluaran' : 'Total Expenses',
                     CurrencyFormatter.format(data.filteredTotalExpense),
                     PdfColors.red,
                   ),
                   _pdfStat(
-                    'Saldo',
+                    isId ? 'Saldo' : 'Balance',
                     CurrencyFormatter.format(data.filteredTotalBalance),
                     PdfColors.blue,
                   ),
                 ],
               ),
               pw.SizedBox(height: 20),
-              pw.Header(level: 1, text: 'Pemasukan per Kategori'),
-              _pdfCategoryTable(context, data.filteredIncomes
-                  .map((i) => _Cat(i.category, i.amount))
-                  .toList(), 'Pemasukan'),
+              pw.Header(
+                level: 1,
+                text: isId ? 'Pemasukan per Kategori' : 'Income by Category',
+              ),
+              _pdfCategoryTable(
+                context,
+                data.filteredIncomes
+                    .map((i) => _Cat(i.category, i.amount))
+                    .toList(),
+                s.income,
+                isId,
+              ),
               pw.SizedBox(height: 20),
-              pw.Header(level: 1, text: 'Pengeluaran per Kategori'),
-              _pdfCategoryTable(context, data.filteredExpenses
-                  .map((e) => _Cat(e.category, e.amount))
-                  .toList(), 'Pengeluaran'),
+              pw.Header(
+                level: 1,
+                text: isId
+                    ? 'Pengeluaran per Kategori'
+                    : 'Expenses by Category',
+              ),
+              _pdfCategoryTable(
+                context,
+                data.filteredExpenses
+                    .map((e) => _Cat(e.category, e.amount))
+                    .toList(),
+                s.expense,
+                isId,
+              ),
               pw.SizedBox(height: 20),
-              pw.Header(level: 1, text: 'Transaksi'),
-              _pdfTransactionTable(context, data),
+              pw.Header(level: 1, text: isId ? 'Transaksi' : 'Transactions'),
+              _pdfTransactionTable(context, data, s, isId),
             ];
           },
         ),
@@ -330,13 +404,13 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       await Printing.layoutPdf(
         onLayout: (_) => pdf.save(),
         format: PdfPageFormat.a4,
-        name: 'Laporan Keuangan',
+        name: reportTitle,
       );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal print: $e'),
+            content: Text(printFailedMsg),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -366,7 +440,12 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     );
   }
 
-  pw.Table _pdfCategoryTable(pw.Context context, List<_Cat> cats, String type) {
+  pw.Table _pdfCategoryTable(
+    pw.Context context,
+    List<_Cat> cats,
+    String type,
+    bool isId,
+  ) {
     final totals = <String, double>{};
     for (final c in cats) {
       totals[c.name] = (totals[c.name] ?? 0) + c.amount;
@@ -380,11 +459,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           decoration: const pw.BoxDecoration(color: PdfColors.grey100),
           children: [
             pw.Text(
-              'Kategori',
+              isId ? 'Kategori' : 'Category',
               style: const pw.TextStyle(fontWeight: pw.FontWeight.bold),
             ),
             pw.Text(
-              'Jumlah',
+              isId ? 'Jumlah' : 'Amount',
               style: const pw.TextStyle(fontWeight: pw.FontWeight.bold),
             ),
             pw.Text(
@@ -408,11 +487,16 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     );
   }
 
-  pw.Table _pdfTransactionTable(pw.Context context, ReportData data) {
+  pw.Table _pdfTransactionTable(
+    pw.Context context,
+    ReportData data,
+    AppStrings s,
+    bool isId,
+  ) {
     final items = <_Trans>[
       ...data.filteredIncomes.map(
         (i) => _Trans(
-          'Pemasukan',
+          s.income,
           i.category,
           i.note ?? '',
           CurrencyFormatter.format(i.amount),
@@ -421,7 +505,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       ),
       ...data.filteredExpenses.map(
         (e) => _Trans(
-          'Pengeluaran',
+          s.expense,
           e.category,
           e.note ?? '',
           CurrencyFormatter.format(e.amount),
@@ -431,7 +515,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     ];
     items.sort((a, b) => b.date.compareTo(a.date));
     if (items.isEmpty) return pw.Table(children: []);
-    final header = ['Tipe', 'Kategori', 'Catatan', 'Jumlah', 'Tanggal'];
+    final header = isId
+        ? ['Tipe', 'Kategori', 'Catatan', 'Jumlah', 'Tanggal']
+        : ['Type', 'Category', 'Note', 'Amount', 'Date'];
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey300),
       children: [
@@ -481,11 +567,15 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   Widget build(BuildContext context) {
     final familyId = ref.watch(financeScopeIdProvider);
     final reportAsync = ref.watch(reportProvider(familyId));
+    final isId = _isId;
+    final s = _s;
 
     return reportAsync.when(
-      loading: () => const LoadingWidget(message: 'Memuat laporan...'),
+      loading: () => LoadingWidget(
+        message: isId ? 'Memuat laporan...' : 'Loading report...',
+      ),
       error: (e, _) => AppErrorWidget(
-        message: 'Gagal memuat laporan: $e',
+        message: s.loadFailed,
         onRetry: () => ref.invalidate(reportProvider(familyId)),
       ),
       data: (data) {
@@ -514,7 +604,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                         padding: const EdgeInsets.only(right: 8),
                         child: ChoiceChip(
                           label: Text(
-                            filter,
+                            _filterLabel(filter),
                             style: TextStyle(
                               fontSize: 12,
                               color: isSelected ? Colors.white : null,
@@ -546,7 +636,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   totalBalance: filteredTotalIncome - filteredTotalExpense,
                 ),
                 const SizedBox(height: 24),
-                _SectionTitle(title: 'Cashflow $_selectedFilter'),
+                _SectionTitle(
+                  title: isId
+                      ? 'Cashflow ${_filterLabel(_selectedFilter)}'
+                      : '${_filterLabel(_selectedFilter)} Cashflow',
+                ),
                 const SizedBox(height: 12),
                 _ChartCard(
                   child: SizedBox(
@@ -558,7 +652,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _SectionTitle(title: 'Pemasukan per Kategori'),
+                _SectionTitle(
+                  title: isId ? 'Pemasukan per Kategori' : 'Income by Category',
+                ),
                 const SizedBox(height: 12),
                 _ChartCard(
                   child: SizedBox(
@@ -567,7 +663,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _SectionTitle(title: 'Pengeluaran per Kategori'),
+                _SectionTitle(
+                  title: isId
+                      ? 'Pengeluaran per Kategori'
+                      : 'Expenses by Category',
+                ),
                 const SizedBox(height: 12),
                 _ChartCard(
                   child: SizedBox(
@@ -576,7 +676,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _SectionTitle(title: 'Progres Tabungan'),
+                _SectionTitle(title: isId ? 'Progres Goals' : 'Goals Progress'),
                 const SizedBox(height: 12),
                 _ChartCard(
                   child: SizedBox(
@@ -627,8 +727,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                       child: ElevatedButton.icon(
                         onPressed: () => _printPDF(data),
                         icon: const Icon(Icons.print, size: 18),
-                        label: const Text(
-                          'Print',
+                        label: Text(
+                          isId ? 'Cetak' : 'Print',
                           style: TextStyle(fontSize: 13),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -665,6 +765,9 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    final s = AppStrings(locale);
+    final isId = locale.languageCode == 'id';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -683,7 +786,7 @@ class _SummaryRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _Stat(
-            label: 'Pemasukan',
+            label: s.income,
             amount: totalIncome,
             color: AppTheme.incomeColor,
           ),
@@ -693,7 +796,7 @@ class _SummaryRow extends StatelessWidget {
             color: Theme.of(context).colorScheme.outlineVariant,
           ),
           _Stat(
-            label: 'Pengeluaran',
+            label: s.expense,
             amount: totalExpense,
             color: AppTheme.expenseColor,
           ),
@@ -703,7 +806,7 @@ class _SummaryRow extends StatelessWidget {
             color: Theme.of(context).colorScheme.outlineVariant,
           ),
           _Stat(
-            label: 'Saldo',
+            label: isId ? 'Saldo' : 'Balance',
             amount: totalBalance,
             color: AppTheme.savingsColor,
           ),
@@ -890,7 +993,12 @@ class _IncomePieChart extends StatelessWidget {
     for (final i in incomes) {
       totals[i.category] = (totals[i.category] ?? 0) + i.amount;
     }
-    if (totals.isEmpty) return const Center(child: Text('Belum ada pemasukan'));
+    final isId = Localizations.localeOf(context).languageCode == 'id';
+    if (totals.isEmpty) {
+      return Center(
+        child: Text(isId ? 'Belum ada pemasukan' : 'No income yet'),
+      );
+    }
     final colors = [
       AppTheme.incomeColor,
       Colors.green,
@@ -939,8 +1047,12 @@ class _ExpensePieChart extends StatelessWidget {
     for (final e in expenses) {
       totals[e.category] = (totals[e.category] ?? 0) + e.amount;
     }
-    if (totals.isEmpty)
-      return const Center(child: Text('Belum ada pengeluaran'));
+    final isId = Localizations.localeOf(context).languageCode == 'id';
+    if (totals.isEmpty) {
+      return Center(
+        child: Text(isId ? 'Belum ada pengeluaran' : 'No expenses yet'),
+      );
+    }
     final colors = [
       AppTheme.expenseColor,
       AppTheme.warningColor,
@@ -986,7 +1098,10 @@ class _SavingsChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (savings.isEmpty) return const Center(child: Text('Belum ada tabungan'));
+    final isId = Localizations.localeOf(context).languageCode == 'id';
+    if (savings.isEmpty) {
+      return Center(child: Text(isId ? 'Belum ada Goals' : 'No Goals yet'));
+    }
     return ListView.separated(
       itemCount: savings.length,
       separatorBuilder: (_, __) => const Divider(height: 16),

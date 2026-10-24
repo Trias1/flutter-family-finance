@@ -55,6 +55,7 @@ class FamilyNotifier extends StateNotifier<AsyncValue<FamilyModel?>> {
       final err = await _authNotifier.joinFamily(
         family.id,
         familyName: family.name,
+        joinCode: family.inviteCode,
       );
       if (err != null) throw Exception(err);
       state = AsyncValue.data(family);

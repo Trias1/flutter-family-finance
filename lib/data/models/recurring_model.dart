@@ -56,9 +56,13 @@ class RecurringModel {
       dayOfMonth: data['dayOfMonth'],
       dayOfWeek: data['dayOfWeek'],
       startDate: (data['startDate'] as Timestamp).toDate(),
-      endDate: data['endDate'] != null ? (data['endDate'] as Timestamp).toDate() : null,
+      endDate: data['endDate'] != null
+          ? (data['endDate'] as Timestamp).toDate()
+          : null,
       nextDate: (data['nextDate'] as Timestamp).toDate(),
-      lastGeneratedDate: data['lastGeneratedDate'] != null ? (data['lastGeneratedDate'] as Timestamp).toDate() : null,
+      lastGeneratedDate: data['lastGeneratedDate'] != null
+          ? (data['lastGeneratedDate'] as Timestamp).toDate()
+          : null,
       isActive: data['isActive'] ?? true,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
@@ -79,7 +83,9 @@ class RecurringModel {
       'startDate': Timestamp.fromDate(startDate),
       'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
       'nextDate': Timestamp.fromDate(nextDate),
-      'lastGeneratedDate': lastGeneratedDate != null ? Timestamp.fromDate(lastGeneratedDate!) : null,
+      'lastGeneratedDate': lastGeneratedDate != null
+          ? Timestamp.fromDate(lastGeneratedDate!)
+          : null,
       'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
     };
@@ -87,11 +93,16 @@ class RecurringModel {
 
   static RecurringFrequency _parseFrequency(String? s) {
     switch (s) {
-      case 'daily': return RecurringFrequency.daily;
-      case 'weekly': return RecurringFrequency.weekly;
-      case 'monthly': return RecurringFrequency.monthly;
-      case 'yearly': return RecurringFrequency.yearly;
-      default: return RecurringFrequency.monthly;
+      case 'daily':
+        return RecurringFrequency.daily;
+      case 'weekly':
+        return RecurringFrequency.weekly;
+      case 'monthly':
+        return RecurringFrequency.monthly;
+      case 'yearly':
+        return RecurringFrequency.yearly;
+      default:
+        return RecurringFrequency.monthly;
     }
   }
 
@@ -103,7 +114,11 @@ class RecurringModel {
       case RecurringFrequency.weekly:
         return current.add(Duration(days: 7 * interval));
       case RecurringFrequency.monthly:
-        var next = DateTime(current.year, current.month + interval, current.day);
+        var next = DateTime(
+          current.year,
+          current.month + interval,
+          current.day,
+        );
         if (dayOfMonth != null) {
           next = DateTime(current.year, current.month + interval, dayOfMonth!);
         }

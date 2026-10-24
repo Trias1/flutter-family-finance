@@ -5,6 +5,11 @@ import 'package:family_finance_manager/core/utils/validators.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 
+/// Picks the Indonesian or English text for the app's current language.
+String _tr(BuildContext context, String id, String en) =>
+    Localizations.localeOf(context).languageCode == 'id' ? id : en;
+
+
 class ForgotPasswordPage extends ConsumerStatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -86,11 +91,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
               width: double.infinity,
               height: 180,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                // Solid colour: gradients made the app look generic.
+                color: AppTheme.primaryColor,
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
@@ -129,8 +131,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                               ),
                             ),
                             const SizedBox(height: 10),
-                            const Text(
-                              'Lupa Password',
+                            Text(
+                              _tr(context, 'Lupa password', 'Forgot password'),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -168,13 +170,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+              border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+                        ),
             ),
             child: Form(
               key: _formKey,
@@ -182,14 +182,14 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Reset Password',
+                    _tr(context, 'Reset password', 'Reset password'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Masukkan email untuk menerima link reset',
+                    _tr(context, 'Masukkan email untuk menerima link reset', "Enter your email and we'll send a reset link"),
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                   ),
                   const SizedBox(height: 24),
@@ -198,7 +198,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
                       labelText: 'Email',
-                      hintText: 'Masukkan email',
+                      hintText: _tr(context, 'Masukkan email', 'Enter your email'),
                       prefixIcon: const Icon(Icons.email_outlined, size: 20),
                       filled: true,
                       fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -246,7 +246,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                               width: 22,
                               child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                             )
-                          : const Text('Kirim Email Reset', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                          : Text(_tr(context, 'Kirim link reset', 'Send reset link'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -270,13 +270,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+              border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+                        ),
             ),
             child: Column(
               children: [
@@ -292,7 +290,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Email Terkirim!',
+                  _tr(context, 'Email terkirim', 'Email sent'),
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -301,7 +299,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Cek email ${_emailController.text}\nuntuk instruksi reset password',
+                  _tr(context, 'Kalau ${_emailController.text} terdaftar, link reset sudah dikirim. Cek juga folder Spam.', 'If ${_emailController.text} has an account, a reset link is on its way. Check your Spam folder too.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14, height: 1.5),
                 ),
@@ -319,7 +317,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage>
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text('Kembali ke Login', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    child: Text(_tr(context, 'Kembali ke halaman masuk', 'Back to sign in'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                   ),
                 ),
                 const SizedBox(height: 8),

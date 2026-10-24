@@ -1,166 +1,160 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { collection, query, where, getDocs, getDoc, doc } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
-import { auth, db } from "@/lib/firebase"
-import { useTranslations } from "next-intl"
-import DashboardShell from "@/components/DashboardShell"
-import { SkeletonCard, SkeletonLine, SkeletonBar } from "@/components/Skeleton"
+import { useMemo, useState } from "react"
+import { useLocale, useTranslations } from "next-intl"
 
-function fmt(n: number) {
-  return "Rp" + Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-}
-
-const EXPENSE = "#EF5350"
-const GREEN = "#6B3F2A"
-const GREEN_LIGHT = "#D97706"
+import DataError, { useFailed } from "@/components/DataError"
+import { EmptyState, Money, PageHeader, Pill, ProgressBar, Section, Skeleton } from "@/components/ui"
+import { useFamilyData } from "@/lib/family-data"
+import { isSavingsTransfer, savingsPace } from "@/lib/finance"
+import { formatRupiah, monthKey } from "@/lib/money"
 
 export default function BudgetSavingsPage() {
-  const t = useTranslations()
-  const [budgets, setBudgets] = useState<any[]>([])
-  const [savings, setSavings] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const t = useTranslations("dash")
+  const locale = useLocale()
+  const data = useFamilyData()
+  const [month, setMonth] = useState(() => monthKey(new Date()))
+  const [now] = useState(() => new Date())
+  const budgetsFailed = useFailed("budgets")
+  const savingsFailed = useFailed("savings")
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      try {
-        if (!u) return
-        const snap = await getDoc(doc(db, "users", u.uid))
-        const fid = snap.data()?.familyId
-        if (!fid) return
-        const [budgetSnap, savingSnap] = await Promise.all([
-          getDocs(query(collection(db, "budgets"), where("familyId", "==", fid))),
-          getDocs(query(collection(db, "savings"), where("familyId", "==", fid))),
-        ])
-        setBudgets(budgetSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-        setSavings(savingSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      } finally {
-        setLoading(false)
-      }
-    })
-    return unsub
-  }, [])
+  const months = useMemo(() => {
+    const keys = new Set(data.budgets.map((b) => b.month).filter(Boolean))
+    keys.add(monthKey(new Date()))
+    return Array.from(keys).sort().reverse()
+  }, [data.budgets])
 
-  const totalBudget = budgets.reduce((s, b) => s + (b.amount || 0), 0)
-  const totalUsed = budgets.reduce((s, b) => s + (b.usedAmount || 0), 0)
-  const totalSavingTarget = savings.reduce((s, sv) => s + (sv.targetAmount || 0), 0)
-  const totalSavingCurrent = savings.reduce((s, sv) => s + (sv.currentAmount || 0), 0)
+  const budgets = useMemo(
+    () => data.budgets.filter((b) => b.month === month && b.budgetAmount > 0 && !isSavingsTransfer(b.category)).sort((a, b) => b.usedAmount / b.budgetAmount - a.usedAmount / a.budgetAmount),
+    [data.budgets, month],
+  )
+  const totals = budgets.reduce((acc, b) => ({ limit: acc.limit + b.budgetAmount, used: acc.used + b.usedAmount }), { limit: 0, used: 0 })
 
-  if (loading) {
+  const savings = useMemo(() => [...data.savings].sort((a, b) => b.currentAmount / (b.targetAmount || 1) - a.currentAmount / (a.targetAmount || 1)), [data.savings])
+  const saved = savings.reduce((s, x) => s + x.currentAmount, 0)
+  const target = savings.reduce((s, x) => s + x.targetAmount, 0)
+
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split("-").map(Number)
+    return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(y, m - 1, 1))
+  }
+  const dateFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" })
+
+  if (!data.ready) {
     return (
-      <DashboardShell>
-        <div className="max-w-3xl mx-auto space-y-6">
-          <SkeletonLine width="200px" height={28} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div className="rounded-2xl border p-6 animate-pulse" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <SkeletonLine width="120px" height={20} />
-            <div className="mt-4 space-y-5">
-              {[1,2,3].map((i) => <SkeletonBar key={i} pct={[40, 70, 30][i-1]} />)}
-            </div>
-          </div>
-          <div className="rounded-2xl border p-6 animate-pulse" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <SkeletonLine width="120px" height={20} />
-            <div className="mt-4 space-y-5">
-              {[1,2,3].map((i) => <SkeletonBar key={i} pct={[50, 80, 20][i-1]} />)}
-            </div>
-          </div>
-        </div>
-      </DashboardShell>
+      <div className="space-y-6">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-72 w-full" />
+        <Skeleton className="h-56 w-full" />
+      </div>
     )
   }
 
   return (
-    <DashboardShell>
-      <div className="max-w-3xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{t("nav.budgetSavings")}</h1>
+    <div className="space-y-6">
+      <PageHeader
+        title={t("budget.title")}
+        description={t("budget.desc")}
+        actions={
+          <select value={month} onChange={(e) => setMonth(e.target.value)} className="field" aria-label={t("transactions.month")}>
+            {months.map((key) => <option key={key} value={key}>{monthLabel(key)}</option>)}
+          </select>
+        }
+      />
 
-        {/* Info card */}
-        <div className="rounded-2xl border p-4 text-sm leading-relaxed" style={{ borderColor: "var(--border)", backgroundColor: "var(--primary-bg)", color: "var(--primary)" }}>
-          <p>{t("budgetSavings.desc")}</p>
-          <p className="mt-2 text-xs opacity-80">📱 {t("budgetSavings.note")}</p>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("dashboard.budget")}</p>
-            <p className="text-xl font-bold mt-1" style={{ color: "var(--text-primary)" }}>{fmt(totalUsed)} / {fmt(totalBudget)}</p>
-            <div className="mt-3 h-2.5 w-full rounded-full" style={{ backgroundColor: "var(--surface-soft)" }}>
-              <div className="h-full rounded-full transition-all duration-300" style={{ width: `${totalBudget > 0 ? Math.min((totalUsed / totalBudget) * 100, 100) : 0}%`, backgroundColor: totalBudget > 0 && totalUsed >= totalBudget ? EXPENSE : GREEN_LIGHT }} />
+      <Section
+        title={t("budget.budgets")}
+        aside={totals.limit > 0 ? <span><Money value={totals.used} /> / <Money value={totals.limit} /></span> : undefined}
+        flush
+      >
+        {budgetsFailed ? (
+          <DataError />
+        ) : budgets.length === 0 ? (
+          <EmptyState title={t("overview.noBudgetSet")} hint={t("overview.noBudgetHint")} />
+        ) : (
+          <>
+            <div className="hidden grid-cols-[1.4fr_1fr_1fr_1fr] gap-4 border-b px-5 py-2.5 text-xs uppercase tracking-[0.06em] md:grid" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+              <span>{t("transactions.category")}</span>
+              <span className="text-right">{t("budget.limit")}</span>
+              <span className="text-right">{t("budget.used")}</span>
+              <span className="text-right">{t("budget.left")}</span>
             </div>
-          </div>
-          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("dashboard.savings")}</p>
-            <p className="text-xl font-bold mt-1" style={{ color: "var(--text-primary)" }}>{fmt(totalSavingCurrent)} / {fmt(totalSavingTarget)}</p>
-            <div className="mt-3 h-2.5 w-full rounded-full" style={{ backgroundColor: "var(--surface-soft)" }}>
-              <div className="h-full rounded-full transition-all duration-300" style={{ width: `${totalSavingTarget > 0 ? Math.min((totalSavingCurrent / totalSavingTarget) * 100, 100) : 0}%`, backgroundColor: GREEN }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Budget List */}
-        <div className="rounded-2xl border p-6" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-          <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{t("dashboard.budget")}</h3>
-          {budgets.length === 0 ? (
-            <p className="mt-4 text-sm" style={{ color: "var(--text-muted)" }}>{t("dashboard.noBudget")}</p>
-          ) : (
-            <div className="mt-4 space-y-5">
-              {budgets.map((b: any) => {
-                const pct = b.amount > 0 ? Math.min((b.usedAmount / b.amount) * 100, 100) : 0
+            <ul>
+              {budgets.map((b) => {
+                const left = b.budgetAmount - b.usedAmount
+                const pct = Math.round((b.usedAmount / b.budgetAmount) * 100)
                 return (
-                  <div key={b.id}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="font-medium" style={{ color: "var(--text-primary)" }}>{b.category}</span>
-                      <span style={{ color: "var(--text-secondary)" }}>{fmt(b.usedAmount)} / {fmt(b.amount)}</span>
+                  <li key={b.id} className="border-b px-5 py-3.5 last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+                      <span className="flex items-baseline gap-2" style={{ color: "var(--text-primary)" }}>
+                        {b.category}
+                        <span className="text-xs tabular-nums" style={{ color: pct >= 100 ? "var(--expense)" : "var(--text-muted)" }}>{pct}%</span>
+                      </span>
+                      <span className="text-right md:block"><Money value={b.budgetAmount} /></span>
+                      <span className="hidden text-right md:block"><Money value={b.usedAmount} /></span>
+                      <span className="hidden text-right md:block"><Money value={left} tone="auto" /></span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2.5 rounded-full" style={{ backgroundColor: "var(--surface-soft)" }}>
-                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: pct >= 100 ? EXPENSE : GREEN_LIGHT }} />
-                      </div>
-                      <span className="text-xs font-medium w-10 text-right" style={{ color: pct >= 100 ? EXPENSE : "var(--text-secondary)" }}>{pct.toFixed(0)}%</span>
-                    </div>
-                  </div>
+                    <div className="mt-2"><ProgressBar value={b.usedAmount} max={b.budgetAmount} label={b.category} /></div>
+                    <p className="mt-1.5 text-xs md:hidden" style={{ color: "var(--text-muted)" }}>
+                      {left >= 0 ? t("budget.leftShort", { amount: formatRupiah(left) }) : t("overview.overBy", { amount: formatRupiah(-left) })}
+                    </p>
+                  </li>
                 )
               })}
-            </div>
-          )}
-        </div>
+            </ul>
+          </>
+        )}
+      </Section>
 
-        {/* Savings List */}
-        <div className="rounded-2xl border p-6" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-          <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{t("dashboard.savings")}</h3>
-          {savings.length === 0 ? (
-            <p className="mt-4 text-sm" style={{ color: "var(--text-muted)" }}>{t("dashboard.noSavings")}</p>
-          ) : (
-            <div className="mt-4 space-y-5">
-              {savings.map((s: any) => {
-                const pct = s.targetAmount > 0 ? Math.min((s.currentAmount / s.targetAmount) * 100, 100) : 0
-                return (
-                  <div key={s.id}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <div>
-                        <span className="font-medium" style={{ color: "var(--text-primary)" }}>{s.name}</span>
-                        {s.category && <span className="ml-2 text-xs" style={{ color: "var(--text-muted)" }}>({s.category})</span>}
-                      </div>
-                      <span style={{ color: "var(--text-secondary)" }}>{fmt(s.currentAmount)} / {fmt(s.targetAmount)}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2.5 rounded-full" style={{ backgroundColor: "var(--surface-soft)" }}>
-                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: GREEN }} />
-                      </div>
-                      <span className="text-xs font-medium w-10 text-right" style={{ color: "var(--text-secondary)" }}>{pct.toFixed(0)}%</span>
-                    </div>
+      <Section
+        title={t("budget.savings")}
+        aside={target > 0 ? <span><Money value={saved} /> / <Money value={target} /></span> : undefined}
+        flush
+      >
+        {savingsFailed ? (
+          <DataError />
+        ) : savings.length === 0 ? (
+          <EmptyState title={t("budget.noSavings")} hint={t("budget.noSavingsHint")} />
+        ) : (
+          <ul className="grid md:grid-cols-2">
+            {savings.map((s, i) => {
+              const pct = s.targetAmount > 0 ? Math.round((s.currentAmount / s.targetAmount) * 100) : 0
+              const pace = savingsPace(s, now)
+              return (
+                <li
+                  key={s.id}
+                  className={`border-b px-5 py-4 ${i % 2 === 0 ? "md:border-r" : ""}`}
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>{s.name}</p>
+                    <span className="flex shrink-0 items-baseline gap-2">
+                      {pace?.behind && <Pill tone="warning">{pace.overdue ? t("budget.pastTarget") : t("budget.behind")}</Pill>}
+                      <span className="text-xs tabular-nums" style={{ color: pct >= 100 ? "var(--income)" : "var(--text-muted)" }}>{pct}%</span>
+                    </span>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </DashboardShell>
+                  <p className="mt-1 text-sm"><Money value={s.currentAmount} /> <span style={{ color: "var(--text-muted)" }}>/ </span><Money value={s.targetAmount} className="opacity-70" /></p>
+                  <div className="mt-2.5"><ProgressBar value={s.currentAmount} max={s.targetAmount} kind="goal" label={s.name} /></div>
+                  <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                    {[
+                      s.goldGrams !== null ? t("budget.grams", { grams: s.goldGrams.toLocaleString(locale) }) : null,
+                      s.targetDate ? t("budget.target", { date: dateFmt.format(s.targetDate) }) : null,
+                    ].filter(Boolean).join(" · ")}
+                  </p>
+                  {pace && !pace.overdue && (
+                    <p className="mt-1 text-xs" style={{ color: pace.behind ? "var(--warning)" : "var(--text-secondary)" }}>
+                      {t("budget.perMonth", { amount: formatRupiah(pace.perMonth), months: pace.monthsLeft })}
+                    </p>
+                  )}
+                  {pace?.overdue && (
+                    <p className="mt-1 text-xs" style={{ color: "var(--warning)" }}>{t("budget.stillNeeded", { amount: formatRupiah(pace.perMonth) })}</p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </Section>
+    </div>
   )
 }

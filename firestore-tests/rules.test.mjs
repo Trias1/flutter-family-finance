@@ -1,0 +1,357 @@
+// Security rules tests. Run against the Firestore emulator:
+//   firebase emulators:exec --only firestore "npm --prefix firestore-tests test"
+
+import { readFileSync } from "node:fs"
+import { after, before, beforeEach, describe, test } from "node:test"
+
+import { assertFails, assertSucceeds, initializeTestEnvironment } from "@firebase/rules-unit-testing"
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  updateDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore"
+
+let env
+
+const now = Timestamp.now()
+
+before(async () => {
+  env = await initializeTestEnvironment({
+    projectId: "demo-family-finance",
+    firestore: { rules: readFileSync(new URL("../firestore.rules", import.meta.url), "utf8") },
+  })
+})
+
+after(async () => {
+  await env?.cleanup()
+})
+
+// Fixture: family F1 owned by alice with member bob; carol and dave have no family.
+beforeEach(async () => {
+  await env.clearFirestore()
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    const user = (id, extra = {}) => setDoc(doc(db, "users", id), { name: id, email: `${id}@x.test`, familyId: null, role: "member", createdAt: now, familyHistory: [], ...extra })
+    await user("alice", { familyId: "F1", role: "admin" })
+    await user("bob", { familyId: "F1" })
+    await user("carol")
+    await user("dave")
+    await setDoc(doc(db, "families", "F1"), { name: "Keluarga A", inviteCode: "ABCD2345", createdBy: "alice", createdAt: now })
+    await setDoc(doc(db, "family_invites", "ABCD2345"), { familyId: "F1", familyName: "Keluarga A", createdBy: "alice" })
+    await setDoc(doc(db, "families", "LEGACY"), { name: "Lama", inviteCode: "OLD123", createdBy: "carol", createdAt: now })
+    await setDoc(doc(db, "expenses", "e-bob"), { familyId: "F1", userId: "bob", amount: 1000, category: "Makan", date: now, createdAt: now })
+    await setDoc(doc(db, "expenses", "e-carol"), { familyId: "carol", userId: "carol", amount: 500, category: "Makan", date: now, createdAt: now })
+  })
+})
+
+// Signed-in users have a verified email unless a test says otherwise.
+const as = (uid) => env.authenticatedContext(uid, { email_verified: true }).firestore()
+const asUnverified = (uid) => env.authenticatedContext(uid, { email_verified: false }).firestore()
+
+describe("admin data is server-only", () => {
+  test("a superadmin browser cannot list users, devices or write app config", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, "users", "root"), { name: "root", email: "r@x.test", familyId: null, role: "member", systemRole: "superadmin", createdAt: now })
+      await setDoc(doc(db, "user_public", "bob"), { name: "bob", createdAt: now })
+      await setDoc(doc(db, "users", "bob", "devices", "d1"), { deviceId: "d1", platform: "android" })
+    })
+    const admin = as("root")
+    await assertFails(getDocs(collection(admin, "user_public")))
+    await assertFails(getDoc(doc(admin, "users", "bob", "devices", "d1")))
+    await assertFails(setDoc(doc(admin, "app_config", "android"), { latestVersionCode: 99 }))
+    await assertSucceeds(getDoc(doc(as("bob"), "users", "bob", "devices", "d1")))
+    await assertSucceeds(getDoc(doc(as("carol"), "app_config", "android")))
+  })
+})
+
+describe("unverified email accounts", () => {
+  test("can create and read their own profile", async () => {
+    const db = asUnverified("erin")
+    await assertSucceeds(setDoc(doc(db, "users", "erin"), { name: "erin", email: "erin@x.test", familyId: null, role: "member", createdAt: now }))
+    await assertSucceeds(getDoc(doc(db, "users", "erin")))
+  })
+
+  test("cannot read or write finance records, even their own", async () => {
+    const db = asUnverified("carol")
+    await assertFails(getDoc(doc(db, "expenses", "e-carol")))
+    await assertFails(getDocs(query(collection(db, "expenses"), where("familyId", "==", "carol"))))
+    await assertFails(setDoc(doc(db, "expenses", "new"), { familyId: "carol", userId: "carol", amount: 1, category: "Makan", date: now, createdAt: now }))
+  })
+
+  test("cannot join a family, read its members, or create one", async () => {
+    await assertFails(updateDoc(doc(asUnverified("carol"), "users", "carol"), { familyId: "F1", joinCode: "ABCD2345" }))
+    await assertFails(getDoc(doc(asUnverified("carol"), "family_invites", "ABCD2345")))
+    await assertFails(getDoc(doc(asUnverified("bob"), "users", "alice")))
+    await assertFails(getDoc(doc(asUnverified("bob"), "families", "F1")))
+    await assertFails(setDoc(doc(asUnverified("dave"), "families", "F9"), { name: "x", inviteCode: "XXXX2345", createdBy: "dave", createdAt: now }))
+  })
+
+  test("the same accounts work once verified", async () => {
+    await assertSucceeds(getDoc(doc(as("carol"), "expenses", "e-carol")))
+    await assertSucceeds(getDoc(doc(as("bob"), "families", "F1")))
+  })
+})
+
+describe("joining a family", () => {
+  test("cannot set familyId to another family without a code", async () => {
+    await assertFails(updateDoc(doc(as("carol"), "users", "carol"), { familyId: "F1" }))
+  })
+
+  test("cannot set familyId to another user's uid (personal scope)", async () => {
+    await assertFails(updateDoc(doc(as("dave"), "users", "dave"), { familyId: "carol" }))
+  })
+
+  test("can join with the right invite code", async () => {
+    await assertSucceeds(updateDoc(doc(as("carol"), "users", "carol"), { familyId: "F1", joinCode: "ABCD2345" }))
+  })
+
+  test("a code for another family does not work", async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "family_invites", "ZZZZ9999"), { familyId: "OTHER", familyName: "x", createdBy: "x" }))
+    await assertFails(updateDoc(doc(as("carol"), "users", "carol"), { familyId: "F1", joinCode: "ZZZZ9999" }))
+  })
+
+  test("cannot make yourself admin of someone else's family", async () => {
+    await assertFails(updateDoc(doc(as("carol"), "users", "carol"), { familyId: "F1", joinCode: "ABCD2345", role: "admin" }))
+  })
+
+  test("cannot grant yourself systemRole", async () => {
+    await assertFails(updateDoc(doc(as("carol"), "users", "carol"), { systemRole: "superadmin" }))
+  })
+
+  test("can leave a family", async () => {
+    await assertSucceeds(updateDoc(doc(as("bob"), "users", "bob"), { familyId: null, role: "member" }))
+  })
+
+  test("invite codes can be read one at a time but not listed", async () => {
+    await assertSucceeds(getDoc(doc(as("carol"), "family_invites", "ABCD2345")))
+    await assertFails(getDocs(collection(as("carol"), "family_invites")))
+  })
+
+  test("families cannot be listed, even with limit 1", async () => {
+    await assertFails(getDocs(query(collection(as("carol"), "families"), limit(1))))
+    await assertFails(getDocs(query(collection(as("carol"), "families"), where("inviteCode", "==", "ABCD2345"), limit(1))))
+  })
+})
+
+describe("creating a family", () => {
+  test("family + invite in one batch, then owner joins as admin", async () => {
+    const db = as("dave")
+    const batch = writeBatch(db)
+    batch.set(doc(db, "families", "F2"), { name: "Keluarga D", inviteCode: "DAVE2345", createdBy: "dave", createdAt: now, photoUrl: null })
+    batch.set(doc(db, "family_invites", "DAVE2345"), { familyId: "F2", familyName: "Keluarga D", createdBy: "dave" })
+    await assertSucceeds(batch.commit())
+    await assertSucceeds(updateDoc(doc(db, "users", "dave"), { familyId: "F2", role: "admin" }))
+  })
+
+  test("cannot create a family on behalf of someone else", async () => {
+    await assertFails(setDoc(doc(as("dave"), "families", "F3"), { name: "x", inviteCode: "XXXX2345", createdBy: "alice", createdAt: now }))
+  })
+
+  test("cannot create a family whose id is a user's uid", async () => {
+    await assertFails(setDoc(doc(as("dave"), "families", "carol"), { name: "x", inviteCode: "XXXX2345", createdBy: "dave", createdAt: now }))
+  })
+
+  test("cannot create an invite pointing at someone else's family", async () => {
+    await assertFails(setDoc(doc(as("dave"), "family_invites", "ABCD2345X"), { familyId: "F1", familyName: "x", createdBy: "dave" }))
+  })
+
+  test("owner of a legacy family can create its missing invite", async () => {
+    await assertSucceeds(setDoc(doc(as("carol"), "family_invites", "OLD123"), { familyId: "LEGACY", familyName: "Lama", createdBy: "carol" }))
+  })
+})
+
+describe("owner actions", () => {
+  test("owner can remove a member", async () => {
+    await assertSucceeds(updateDoc(doc(as("alice"), "users", "bob"), { familyId: null, role: "member" }))
+  })
+
+  test("owner cannot edit other fields on a member", async () => {
+    await assertFails(updateDoc(doc(as("alice"), "users", "bob"), { name: "renamed" }))
+  })
+
+  test("owner cannot move a member into another family", async () => {
+    await assertFails(updateDoc(doc(as("alice"), "users", "bob"), { familyId: "LEGACY" }))
+  })
+
+  test("a member cannot remove another member", async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), "users", "carol"), { familyId: "F1" }))
+    await assertFails(updateDoc(doc(as("bob"), "users", "carol"), { familyId: null }))
+  })
+
+  test("ownership transfer to a member", async () => {
+    const db = as("alice")
+    const batch = writeBatch(db)
+    batch.update(doc(db, "users", "alice"), { role: "member" })
+    batch.update(doc(db, "users", "bob"), { role: "admin" })
+    batch.update(doc(db, "families", "F1"), { createdBy: "bob" })
+    batch.set(doc(db, "family_invites", "ABCD2345"), { createdBy: "bob" }, { merge: true })
+    await assertSucceeds(batch.commit())
+  })
+
+  test("ownership cannot go to a non-member", async () => {
+    await assertFails(updateDoc(doc(as("alice"), "families", "F1"), { createdBy: "carol" }))
+  })
+})
+
+describe("profiles", () => {
+  test("family members can read each other", async () => {
+    await assertSucceeds(getDoc(doc(as("bob"), "users", "alice")))
+  })
+
+  test("users without a family cannot read each other", async () => {
+    await assertFails(getDoc(doc(as("dave"), "users", "carol")))
+  })
+
+  test("outsiders cannot read a family member's profile", async () => {
+    await assertFails(getDoc(doc(as("carol"), "users", "alice")))
+  })
+
+  test("new user doc cannot start inside a family or as admin", async () => {
+    const db = as("eve")
+    await assertFails(setDoc(doc(db, "users", "eve"), { name: "eve", email: "e@x.test", familyId: "F1", role: "member", createdAt: now }))
+    await assertFails(setDoc(doc(db, "users", "eve"), { name: "eve", email: "e@x.test", familyId: null, role: "admin", createdAt: now }))
+    await assertSucceeds(setDoc(doc(db, "users", "eve"), { name: "eve", email: "e@x.test", familyId: null, role: "member", createdAt: serverTimestamp() }))
+  })
+})
+
+describe("signing out another device", () => {
+  const mark = (db, uid, device) =>
+    setDoc(doc(db, "users", uid, "session_revocations", device), { requestedAt: serverTimestamp(), requestedBy: "phone-1" })
+
+  test("users can mark, read and clear their own devices", async () => {
+    const db = as("bob")
+    await assertSucceeds(mark(db, "bob", "web-1"))
+    await assertSucceeds(getDoc(doc(db, "users", "bob", "session_revocations", "web-1")))
+    await assertSucceeds(deleteDoc(doc(db, "users", "bob", "session_revocations", "web-1")))
+  })
+
+  test("nobody can mark or read someone else's devices, family included", async () => {
+    await assertFails(mark(as("alice"), "bob", "web-1"))
+    await env.withSecurityRulesDisabled((ctx) => mark(ctx.firestore(), "bob", "web-2"))
+    await assertFails(getDoc(doc(as("alice"), "users", "bob", "session_revocations", "web-2")))
+    await assertFails(deleteDoc(doc(as("alice"), "users", "bob", "session_revocations", "web-2")))
+  })
+
+  test("marks carry only the request time and the requesting device", async () => {
+    const db = as("bob")
+    await assertFails(setDoc(doc(db, "users", "bob", "session_revocations", "web-1"), { requestedAt: serverTimestamp(), requestedBy: "x", note: "hi" }))
+    await assertFails(setDoc(doc(db, "users", "bob", "session_revocations", "web-1"), { requestedAt: now, requestedBy: "x" }))
+  })
+})
+
+describe("finance data", () => {
+  test("members read their family's data; outsiders cannot", async () => {
+    await assertSucceeds(getDocs(query(collection(as("alice"), "expenses"), where("familyId", "==", "F1"))))
+    await assertFails(getDocs(query(collection(as("carol"), "expenses"), where("familyId", "==", "F1"))))
+  })
+
+  test("personal data is private to its owner", async () => {
+    await assertSucceeds(getDoc(doc(as("carol"), "expenses", "e-carol")))
+    await assertFails(getDoc(doc(as("dave"), "expenses", "e-carol")))
+  })
+
+  test("cannot write data into another family", async () => {
+    await assertFails(setDoc(doc(as("carol"), "expenses", "x"), { familyId: "F1", userId: "carol", amount: 1, date: now, createdAt: now }))
+  })
+
+  test("cannot record an expense as someone else", async () => {
+    await assertFails(setDoc(doc(as("bob"), "expenses", "x"), { familyId: "F1", userId: "alice", amount: 1, date: now, createdAt: now }))
+  })
+
+  test("amounts must be non-negative numbers", async () => {
+    await assertFails(setDoc(doc(as("bob"), "expenses", "x"), { familyId: "F1", userId: "bob", amount: -5, date: now, createdAt: now }))
+    await assertFails(setDoc(doc(as("bob"), "expenses", "y"), { familyId: "F1", userId: "bob", amount: "1000", date: now, createdAt: now }))
+    await assertSucceeds(setDoc(doc(as("bob"), "expenses", "z"), { familyId: "F1", userId: "bob", amount: 1000, date: now, createdAt: now }))
+  })
+
+  test("a member cannot delete another member's expense; the owner can", async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), "users", "carol"), { familyId: "F1" }))
+    await assertFails(deleteDoc(doc(as("carol"), "expenses", "e-bob")))
+    await assertSucceeds(deleteDoc(doc(as("alice"), "expenses", "e-bob")))
+  })
+
+  test("the author can delete their own expense", async () => {
+    await assertSucceeds(deleteDoc(doc(as("bob"), "expenses", "e-bob")))
+  })
+})
+
+describe("security review fixes", () => {
+  test("a removed member cannot rejoin with the old code", async () => {
+    const db = as("alice")
+    const batch = writeBatch(db)
+    batch.update(doc(db, "users", "bob"), { familyId: null, role: "member" })
+    batch.set(doc(db, "families", "F1", "banned", "bob"), { bannedAt: now })
+    await assertSucceeds(batch.commit())
+    await assertFails(updateDoc(doc(as("bob"), "users", "bob"), { familyId: "F1", joinCode: "ABCD2345" }))
+  })
+
+  test("a member cannot ban others or lift their own ban", async () => {
+    await assertFails(setDoc(doc(as("bob"), "families", "F1", "banned", "carol"), { bannedAt: now }))
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "families", "F1", "banned", "dave"), { bannedAt: now }))
+    await assertFails(deleteDoc(doc(as("dave"), "families", "F1", "banned", "dave")))
+  })
+
+  test("rotating the invite code revokes the old one", async () => {
+    const db = as("alice")
+    const batch = writeBatch(db)
+    batch.update(doc(db, "families", "F1"), { inviteCode: "NEWC2345" })
+    batch.set(doc(db, "family_invites", "NEWC2345"), { familyId: "F1", familyName: "Keluarga A", createdBy: "alice" })
+    batch.delete(doc(db, "family_invites", "ABCD2345"))
+    await assertSucceeds(batch.commit())
+    await assertFails(updateDoc(doc(as("carol"), "users", "carol"), { familyId: "F1", joinCode: "ABCD2345" }))
+    await assertSucceeds(updateDoc(doc(as("dave"), "users", "dave"), { familyId: "F1", joinCode: "NEWC2345" }))
+  })
+
+  test("only the author or the owner can edit an expense", async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), "users", "carol"), { familyId: "F1" }))
+    await assertFails(updateDoc(doc(as("carol"), "expenses", "e-bob"), { amount: 1 }))
+    await assertSucceeds(updateDoc(doc(as("bob"), "expenses", "e-bob"), { amount: 2000 }))
+    await assertSucceeds(updateDoc(doc(as("alice"), "expenses", "e-bob"), { amount: 3000 }))
+  })
+
+  test("the Android expense payload (null optional fields) is accepted", async () => {
+    const payload = { familyId: "F1", userId: "bob", amount: 25000.5, category: "Makanan", note: "Tes makan siang", attachment: null, recurringId: null, date: now, createdAt: now }
+    await assertSucceeds(setDoc(doc(as("bob"), "expenses", "android-1"), payload))
+    // An empty userId (the app's old fallback when the profile was still loading) is refused.
+    await assertFails(setDoc(doc(as("bob"), "expenses", "android-2"), { ...payload, userId: "" }))
+  })
+
+  test("oversized notes are rejected", async () => {
+    await assertFails(setDoc(doc(as("bob"), "expenses", "big"), { familyId: "F1", userId: "bob", amount: 1, note: "x".repeat(501), date: now, createdAt: now }))
+    await assertSucceeds(setDoc(doc(as("bob"), "expenses", "ok"), { familyId: "F1", userId: "bob", amount: 1, note: "x".repeat(200), date: now, createdAt: now }))
+  })
+
+  test("device docs accept known fields only (no email)", async () => {
+    const base = { deviceId: "web-1", platform: "web", brand: "Chrome", model: "Win32", androidVersion: "Web", appVersionName: "1.1.10", appVersionCode: 14, lastSeenAt: now }
+    await assertSucceeds(setDoc(doc(as("bob"), "users", "bob", "devices", "web-1"), base))
+    await assertFails(setDoc(doc(as("bob"), "users", "bob", "devices", "web-2"), { ...base, email: "bob@x.test" }))
+    await assertFails(setDoc(doc(as("bob"), "users", "bob", "devices", "web-3"), { ...base, brand: "x".repeat(500) }))
+  })
+
+  test("debt payments cannot be edited to a negative amount", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "debts", "d1"), { familyId: "F1", userId: "bob", amount: 1000, remainingAmount: 500, createdAt: now })
+      await setDoc(doc(ctx.firestore(), "debt_payments", "p1"), { debtId: "d1", amount: 500, date: now })
+    })
+    await assertFails(updateDoc(doc(as("bob"), "debt_payments", "p1"), { amount: -100 }))
+    await assertSucceeds(updateDoc(doc(as("bob"), "debt_payments", "p1"), { amount: 400 }))
+  })
+})
+
+describe("server-only collections", () => {
+  test("rate_limits and admin_audit are closed to clients", async () => {
+    await assertFails(getDoc(doc(as("alice"), "rate_limits", "x")))
+    await assertFails(setDoc(doc(as("alice"), "admin_audit", "x"), { a: 1 }))
+  })
+})

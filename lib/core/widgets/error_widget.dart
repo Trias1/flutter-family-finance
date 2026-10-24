@@ -14,15 +14,27 @@ class AppErrorWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Coba Lagi'),
+                label: Text(
+                  Localizations.localeOf(context).languageCode == 'id'
+                      ? 'Coba lagi'
+                      : 'Try again',
+                ),
               ),
             ],
           ],

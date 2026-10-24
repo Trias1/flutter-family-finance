@@ -1,9 +1,12 @@
-export default function BrandMark({ dark = false }: { dark?: boolean }) {
+// Ledger-style mark: two rows of a balance and a tick. Colors follow the
+// active preset so the logo matches the rest of the page.
+export default function BrandMark({ size = 22 }: { size?: number; dark?: boolean }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-      <path d="M3 11.5 10.8 3l2.8 3-7.8 8.5L3 11.5Z" fill={dark ? "#111111" : "#ffffff"} fillOpacity="0.96" />
-      <path d="M11.5 19 8 15.2l6.9-7.7 3.5 3.8L11.5 19Z" fill="#D97706" />
-      <path d="M13.4 6 16.2 3l2.8 3-2.8 3L13.4 6Z" fill="#F3E7D8" />
+    <svg width={size} height={size} viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      <rect x="1" y="1" width="20" height="20" rx="4" style={{ fill: "var(--primary)" }} />
+      <rect x="5" y="7" width="12" height="2" rx="1" fill="#fff" />
+      <rect x="5" y="13" width="7" height="2" rx="1" fill="#fff" fillOpacity="0.7" />
+      <rect x="14" y="12" width="3" height="4" rx="1" style={{ fill: "var(--accent)" }} />
     </svg>
   )
 }

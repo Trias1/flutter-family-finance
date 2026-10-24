@@ -6,7 +6,7 @@ class FamilyRepository {
   final FirestoreDataSource _dataSource;
 
   FamilyRepository({required FirestoreDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   Future<FamilyModel> createFamily(String name, String createdBy) {
     final code = _generateInviteCode();
@@ -27,6 +27,10 @@ class FamilyRepository {
     return _dataSource.getFamilyByInviteCode(code);
   }
 
+  Future<void> ensureFamilyInvite(FamilyModel family) {
+    return _dataSource.ensureFamilyInvite(family);
+  }
+
   Future<void> updateFamily(FamilyModel family) {
     return _dataSource.updateFamily(family);
   }
@@ -35,9 +39,11 @@ class FamilyRepository {
     return _dataSource.transferFamilyOwnership(familyId, newOwnerId);
   }
 
+  // 8 characters from 32 unambiguous symbols (no 0/O, 1/I): about 10^12
+  // combinations, drawn from a cryptographically secure source.
   String _generateInviteCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final random = Random();
-    return List.generate(6, (_) => chars[random.nextInt(chars.length)]).join();
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = Random.secure();
+    return List.generate(8, (_) => chars[random.nextInt(chars.length)]).join();
   }
 }

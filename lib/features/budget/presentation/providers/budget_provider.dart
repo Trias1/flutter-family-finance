@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:family_finance_manager/core/locale/locale_provider.dart';
 import 'package:family_finance_manager/core/services/budget_alert_service.dart';
 import 'package:family_finance_manager/data/models/budget_model.dart';
 import 'package:family_finance_manager/data/repositories/budget_repository.dart';
@@ -8,26 +9,44 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
   return BudgetRepository(dataSource: ref.watch(firestoreDataSourceProvider));
 });
 
-final budgetStreamProvider = StreamProvider.family<List<BudgetModel>, String>((ref, familyId) {
-  return ref.watch(budgetRepositoryProvider).streamBudgets(familyId).map(
-    (snapshot) => snapshot.docs.map((doc) => BudgetModel.fromFirestore(doc)).toList(),
-  );
+final budgetStreamProvider = StreamProvider.family<List<BudgetModel>, String>((
+  ref,
+  familyId,
+) {
+  // No scope yet (profile still loading): skip a query the rules would deny.
+  if (familyId.isEmpty) return Stream.value(const <BudgetModel>[]);
+  return ref
+      .watch(budgetRepositoryProvider)
+      .streamBudgets(familyId)
+      .map(
+        (snapshot) =>
+            snapshot.docs.map((doc) => BudgetModel.fromFirestore(doc)).toList(),
+      );
 });
 
-final budgetsByMonthProvider = FutureProvider.family<List<BudgetModel>, String>((ref, familyId) async {
-  final month = '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
+final budgetsByMonthProvider = FutureProvider.family<List<BudgetModel>, String>((
+  ref,
+  familyId,
+) async {
+  final month =
+      '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}';
   return ref.watch(budgetRepositoryProvider).getBudgetsByMonth(familyId, month);
 });
 
-final budgetHistoryProvider = FutureProvider.family<List<BudgetModel>, String>((ref, familyId) {
+final budgetHistoryProvider = FutureProvider.family<List<BudgetModel>, String>((
+  ref,
+  familyId,
+) {
   return ref.watch(budgetRepositoryProvider).getAllBudgets(familyId);
 });
 
 final budgetAlertWatcherProvider = Provider<void>((ref) {
   final familyId = ref.watch(financeScopeIdProvider);
   final budgetsAsync = ref.watch(budgetStreamProvider(familyId));
+  final locale = ref.watch(localeProvider);
+  final isId = locale.languageCode == 'id';
   budgetsAsync.whenData((budgets) {
-    BudgetAlertService().checkBudgets(budgets);
+    BudgetAlertService().checkBudgets(budgets, isIndonesian: isId);
   });
 });
 
@@ -52,6 +71,7 @@ class BudgetNotifier extends StateNotifier<AsyncValue<void>> {
   }
 }
 
-final budgetNotifierProvider = StateNotifierProvider<BudgetNotifier, AsyncValue<void>>((ref) {
-  return BudgetNotifier(ref.watch(budgetRepositoryProvider));
-});
+final budgetNotifierProvider =
+    StateNotifierProvider<BudgetNotifier, AsyncValue<void>>((ref) {
+      return BudgetNotifier(ref.watch(budgetRepositoryProvider));
+    });

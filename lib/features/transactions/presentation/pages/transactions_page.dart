@@ -8,7 +8,12 @@ import 'package:family_finance_manager/core/widgets/error_widget.dart';
 import 'package:family_finance_manager/core/widgets/loading_widget.dart';
 import 'package:family_finance_manager/features/auth/presentation/providers/auth_provider.dart';
 import 'package:family_finance_manager/features/categories/presentation/providers/category_provider.dart';
+import 'package:family_finance_manager/features/expense/presentation/pages/expense_page.dart';
+import 'package:family_finance_manager/features/income/presentation/pages/income_page.dart';
 import 'package:family_finance_manager/features/transactions/presentation/providers/transaction_history_provider.dart';
+import 'package:family_finance_manager/core/services/expense_effects.dart';
+import 'package:family_finance_manager/data/models/saving_model.dart';
+import 'package:family_finance_manager/features/savings/presentation/providers/saving_provider.dart';
 
 enum _SortOrder { newest, oldest, highestAmount, lowestAmount }
 
@@ -92,6 +97,47 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return sorted;
   }
 
+  /// Same type, category and amount saved within 3 hours of each other by
+  /// different people (or twice by one): likely the same purchase entered
+  /// twice. Only flagged; the user decides what to delete.
+  Set<String> _possibleDuplicates(List<TransactionItem> items) {
+    final flagged = <String>{};
+    final groups = <String, List<TransactionItem>>{};
+    for (final item in items) {
+      final key = '${item.type.name}|${item.category}|${item.amount}';
+      groups.putIfAbsent(key, () => []).add(item);
+    }
+    for (final group in groups.values) {
+      if (group.length < 2) continue;
+      group.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      for (var i = 1; i < group.length; i++) {
+        final gap = group[i].createdAt.difference(group[i - 1].createdAt);
+        if (gap <= const Duration(hours: 3)) {
+          flagged
+            ..add(group[i].id)
+            ..add(group[i - 1].id);
+        }
+      }
+    }
+    return flagged;
+  }
+
+  Future<void> _openItem(TransactionItem item) async {
+    final ds = ref.read(firestoreDataSourceProvider);
+    if (item.type == TransactionType.income) {
+      final income = await ds.getIncome(item.id);
+      if (income != null && mounted) {
+        await IncomePage.openEditor(context, ref, income);
+      }
+    } else {
+      final expense = await ds.getExpense(item.id);
+      if (expense != null && mounted) {
+        await ExpensePage.openEditor(context, ref, expense);
+      }
+    }
+    if (mounted) await _load();
+  }
+
   Future<void> _load() {
     final familyId = ref.read(financeScopeIdProvider);
     return ref.read(transactionHistoryProvider.notifier).load(familyId);
@@ -100,6 +146,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   @override
   Widget build(BuildContext context) {
     final familyId = ref.watch(financeScopeIdProvider);
+    // Goal names for the "Tabungan · <goal>" source label.
+    final goalNames = {
+      for (final g
+          in ref.watch(savingStreamProvider(familyId)).valueOrNull ??
+              const <SavingModel>[])
+        g.id: g.name,
+    };
     final itemsAsync = ref.watch(transactionHistoryProvider);
     final incomeCategories = ref.watch(
       effectiveIncomeCategoriesProvider(familyId),
@@ -111,6 +164,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ..sort();
 
     if (familyId.isEmpty) return const SizedBox();
+    final isId = Localizations.localeOf(context).languageCode == 'id';
 
     return Column(
       children: [
@@ -145,16 +199,23 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ),
         Expanded(
           child: itemsAsync.when(
-            loading: () => const LoadingWidget(message: 'Memuat riwayat...'),
+            loading: () => LoadingWidget(
+              message: isId ? 'Memuat riwayat...' : 'Loading history...',
+            ),
             error: (e, _) => AppErrorWidget(
-              message: 'Gagal memuat riwayat: $e',
+              message: isId
+                  ? 'Riwayat belum bisa dimuat. Coba lagi.'
+                  : "Couldn't load your history. Try again.",
               onRetry: _load,
             ),
             data: (items) {
               final filtered = _applyFilters(items);
+              final maybeDuplicate = _possibleDuplicates(items);
 
               if (filtered.isEmpty) {
-                return const EmptyWidget(message: 'Belum ada transaksi');
+                return EmptyWidget(
+                  message: isId ? 'Belum ada transaksi' : 'No transactions yet',
+                );
               }
 
               return RefreshIndicator(
@@ -169,110 +230,160 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         ? AppTheme.incomeColor
                         : AppTheme.expenseColor;
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
+                    // Tap to edit or delete (the form has a delete button).
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _openItem(item),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
-                            child: Icon(
-                              isIncome
-                                  ? Icons.trending_up
-                                  : Icons.trending_down,
-                              color: color,
-                              size: 20,
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                isIncome
+                                    ? Icons.trending_up
+                                    : Icons.trending_down,
+                                color: color,
+                                size: 20,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      item.category,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 1,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: color.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        isIncome ? 'Pemasukan' : 'Pengeluaran',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: color,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          item.category,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
                                         ),
+                                      ),
+                                      if (maybeDuplicate.contains(item.id)) ...[
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          isId
+                                              ? 'Mungkin dobel'
+                                              : 'Possible double',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.warningColor,
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: color.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          isIncome
+                                              ? (isId ? 'Pemasukan' : 'Income')
+                                              : (isId
+                                                    ? 'Pengeluaran'
+                                                    : 'Expense'),
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: color,
+                                          ),
+                                        ),
+                                      ),
+                                      if (!isIncome &&
+                                          !isSavingsDeposit(item.category)) ...[
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            item.savingId == null
+                                                ? 'Budget'
+                                                : '${isId ? 'Tabungan' : 'Savings'} · ${goalNames[item.savingId] ?? ''}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w600,
+                                              color: item.savingId == null
+                                                  ? Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant
+                                                  : AppTheme.savingsColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  if (item.note != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      item.note!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                   ],
-                                ),
-                                if (item.note != null) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    item.note!,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
                                 ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  CurrencyFormatter.format(item.amount),
+                                  style: TextStyle(
+                                    color: color,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  DateFormatter.format(item.date),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
                               ],
                             ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                CurrencyFormatter.format(item.amount),
-                                style: TextStyle(
-                                  color: color,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                DateFormatter.format(item.date),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -302,7 +413,9 @@ class _SearchBar extends StatelessWidget {
         ),
         onChanged: onChanged,
         decoration: InputDecoration(
-          hintText: 'Cari kategori atau catatan...',
+          hintText: Localizations.localeOf(context).languageCode == 'id'
+              ? 'Cari kategori atau catatan...'
+              : 'Search category or note...',
           prefixIcon: const Icon(Icons.search, size: 20),
           suffixIcon: query.isNotEmpty
               ? IconButton(
@@ -334,11 +447,16 @@ class _TypeFilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     final chips = <_FilterChipData>[
-      _FilterChipData('Semua', null, Icons.all_inclusive),
-      _FilterChipData('Pemasukan', TransactionType.income, Icons.trending_up),
+      _FilterChipData(isId ? 'Semua' : 'All', null, Icons.all_inclusive),
       _FilterChipData(
-        'Pengeluaran',
+        isId ? 'Pemasukan' : 'Income',
+        TransactionType.income,
+        Icons.trending_up,
+      ),
+      _FilterChipData(
+        isId ? 'Pengeluaran' : 'Expense',
         TransactionType.expense,
         Icons.trending_down,
       ),
@@ -457,6 +575,7 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(
@@ -464,7 +583,7 @@ class _FilterBar extends StatelessWidget {
           Expanded(
             child: _DateChip(
               label: startDate == null
-                  ? 'Dari'
+                  ? (isId ? 'Dari' : 'From')
                   : DateFormatter.format(startDate!),
               onTap: () async {
                 final d = await showDatePicker(
@@ -486,7 +605,9 @@ class _FilterBar extends StatelessWidget {
           ),
           Expanded(
             child: _DateChip(
-              label: endDate == null ? 'Ke' : DateFormatter.format(endDate!),
+              label: endDate == null
+                  ? (isId ? 'Sampai' : 'To')
+                  : DateFormatter.format(endDate!),
               onTap: () async {
                 final d = await showDatePicker(
                   context: context,
@@ -504,7 +625,7 @@ class _FilterBar extends StatelessWidget {
           IconButton(
             onPressed: onRefresh,
             icon: const Icon(Icons.refresh_rounded, size: 20),
-            tooltip: 'Refresh',
+            tooltip: isId ? 'Muat ulang' : 'Refresh',
             visualDensity: VisualDensity.compact,
           ),
         ],
@@ -521,6 +642,7 @@ class _SortDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isId = Localizations.localeOf(context).languageCode == 'id';
     return PopupMenuButton<_SortOrder>(
       onSelected: onChanged,
       icon: Icon(
@@ -531,12 +653,12 @@ class _SortDropdown extends StatelessWidget {
             : Icons.sort_by_alpha_rounded,
         size: 20,
       ),
-      tooltip: 'Urutkan',
+      tooltip: isId ? 'Urutkan' : 'Sort',
       itemBuilder: (_) => [
         PopupMenuItem(
           value: _SortOrder.newest,
           child: _SortItem(
-            label: 'Terbaru',
+            label: isId ? 'Terbaru' : 'Newest',
             icon: Icons.arrow_downward,
             active: sortOrder == _SortOrder.newest,
           ),
@@ -544,7 +666,7 @@ class _SortDropdown extends StatelessWidget {
         PopupMenuItem(
           value: _SortOrder.oldest,
           child: _SortItem(
-            label: 'Tertua',
+            label: isId ? 'Terlama' : 'Oldest',
             icon: Icons.arrow_upward,
             active: sortOrder == _SortOrder.oldest,
           ),
@@ -553,7 +675,7 @@ class _SortDropdown extends StatelessWidget {
         PopupMenuItem(
           value: _SortOrder.highestAmount,
           child: _SortItem(
-            label: 'Termahal',
+            label: isId ? 'Termahal' : 'Highest amount',
             icon: Icons.arrow_upward,
             active: sortOrder == _SortOrder.highestAmount,
           ),
@@ -561,7 +683,7 @@ class _SortDropdown extends StatelessWidget {
         PopupMenuItem(
           value: _SortOrder.lowestAmount,
           child: _SortItem(
-            label: 'Termurah',
+            label: isId ? 'Termurah' : 'Lowest amount',
             icon: Icons.arrow_downward,
             active: sortOrder == _SortOrder.lowestAmount,
           ),

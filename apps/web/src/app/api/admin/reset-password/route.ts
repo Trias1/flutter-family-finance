@@ -1,35 +1,41 @@
+import { FieldValue } from "firebase-admin/firestore"
 import { NextRequest, NextResponse } from "next/server"
 
-import { adminAuth, adminDb } from "@/lib/firebase-admin"
+import { auth, db, errorResponse, HttpError, rateLimit, readJson, requireSuperadmin } from "@/lib/api-auth"
 
 export const runtime = "nodejs"
 
+function isStrongPassword(value: string) {
+  return value.length >= 8 && value.length <= 128 && /[A-Za-z]/.test(value) && /\d/.test(value)
+}
+
 export async function POST(req: NextRequest) {
   try {
-    if (!adminAuth || !adminDb) {
-      return NextResponse.json({ error: "Server not configured" }, { status: 500 })
-    }
+    const caller = await requireSuperadmin(req)
+    await rateLimit(`admin_reset_${caller.uid}`, 10, 3_600_000)
 
-    const token = req.headers.get("authorization")?.replace("Bearer ", "")
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const body = await readJson(req, 4 * 1024)
+    const uid = typeof body.uid === "string" ? body.uid.trim() : ""
+    const newPassword = typeof body.newPassword === "string" ? body.newPassword : ""
+    if (!uid || uid.length > 128) throw new HttpError(400, "invalidUser")
+    if (!isStrongPassword(newPassword)) throw new HttpError(400, "weakPassword")
+    if (uid === caller.uid) throw new HttpError(400, "cannotResetSelf")
 
-    const decoded = await adminAuth.verifyIdToken(token)
-    const callerSnap = await adminDb.collection("users").doc(decoded.uid).get()
-    if (!callerSnap.exists || callerSnap.data()?.systemRole !== "superadmin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const target = await db().collection("users").doc(uid).get()
+    if (target.data()?.systemRole === "superadmin") throw new HttpError(403, "cannotResetSuperadmin")
 
-    const body = await req.json()
-    const uid = String(body.uid ?? "")
-    const newPassword = String(body.newPassword ?? "")
+    await auth().updateUser(uid, { password: newPassword })
+    // Sign the user out everywhere so the old password's sessions stop working.
+    await auth().revokeRefreshTokens(uid)
+    await db().collection("admin_audit").add({
+      action: "reset_password",
+      actorUid: caller.uid,
+      targetUid: uid,
+      at: FieldValue.serverTimestamp(),
+    })
 
-    if (!uid || newPassword.length < 6) {
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
-    }
-
-    await adminAuth.updateUser(uid, { password: newPassword })
     return NextResponse.json({ success: true })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch (error) {
+    return errorResponse(error, "admin/reset-password")
   }
 }

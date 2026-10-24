@@ -6,7 +6,7 @@ class BillRepository {
   final FirestoreDataSource _dataSource;
 
   BillRepository({required FirestoreDataSource dataSource})
-      : _dataSource = dataSource;
+    : _dataSource = dataSource;
 
   Future<void> createBill(BillModel bill) {
     return _dataSource.createBill(bill);

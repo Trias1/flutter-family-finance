@@ -26,6 +26,23 @@
 - [x] Remove Unused Features - Wallet, QR Scanner, Wishlist dihapus (overlap & tidak terpakai)
 - [x] Gold Investment in Goals - Tambah kategori "Investasi Emas" di Goals dengan tracking gram, harga beli/sekarang, profit/loss
 - [x] Navbar 4 Tabs with Profile - Dashboard, Transactions, Budget, Profile (hapus dropdown profile dari AppBar)
+- [x] Scan Struk & Bukti Transfer - OCR di HP (ML Kit), QRIS/struk -> pengeluaran, transfer masuk/gaji -> pemasukan
+- [x] Impor Mutasi - screenshot mutasi -> hanya pemasukan dicentang; refund & pindah antar rekening sendiri diabaikan
+- [x] Rekap Google Sheets - spreadsheet di Drive milik user sendiri (drive.file), tab per bulan + Ringkasan + grafik
+- [x] Bagikan -> Family Finance - share gambar dari galeri/app bank langsung dibaca seperti scan
+- [x] Back Android 14+ - sub-halaman (Tagihan/Utang/Tabungan) kembali ke Dashboard, tidak menutup app
+- [x] Recurring anti-dobel - lewati periode yang sudah dicatat manual (kategori + nominal sama)
+- [x] Tes struk belanja asli (kertas) & karcis parkir di HP user - aman
+- [x] Goals berjangka (kontrakan/haji) - durasi, nabung per bulan, on track, ulang tiap tahun
+- [ ] Saldo goal dari screenshot bank - per kantong (Neo: Tabungan Neo / Neo NOW), cocok ke goal di bank yang sama. Kode + unit test beres (1.1.16); belum dites end-to-end (goal dummy + screenshot) di HP user
+- [x] Saldo screenshot -> Budget/Tabungan (+ Saldo awal opsional), tidak pernah pengeluaran
+- [x] Sumber uang pengeluaran Budget/Tabungan (savingId), riwayat per goal & per budget, label sumber di History
+- [ ] Tagihan bisa di-scan (Bagian 4) & Utang dari scan (Bagian 5) - spec docs/superpowers/specs/2026-10-12-budget-savings-bills-design.md
+- [x] Sembunyikan nominal (ikon mata) di Home & Goals
+- [x] Ingat saya di login - email disimpan app, password ke password manager HP
+- [x] Profil gaya Telegram + sesi aktif (keluarkan perangkat lain) + ganti email
+- [ ] Baca notifikasi bank - DITUNDA. Hanya di build debug: Play Protect (Indonesia) memblokir APK sideload yang bisa minta akses notifikasi (1.1.16 diblokir, 1.1.17 tanpa listener). User tidak mau Play Store. Parser sudah dites dengan contoh asli myBCA & OCBC
+- [ ] OTP login (ditunda: berbayar) dan App Check
 
 ## Key Decisions
 - Swipe uses local PageController state, no GoRouter involvement
@@ -39,4 +56,7 @@
 - Income/Expense tidak lagi track walletId (simplified tracking)
 - **Gold Investment** - extend Goals dengan kategori baru, track gram/harga/profit tanpa API (manual update)
 - **Navbar 4 tabs** - Profile dipindah ke navbar tab keempat, dropdown menu dihapus dari AppBar
-- **Goals Summary** - transaction history show all Tabungan/Savings expense (tidak filter by saving name)
+- **Goals Summary** - riwayat per goal (savingId; data lama cocok nama goal di catatan)
+- **Pengeluaran -> budget/goal** satu aturan di `lib/core/services/expense_effects.dart` (`effectsOf`): tanpa savingId memotong budget kategori; kategori Tabungan + savingId = setor (goal +); kategori lain + savingId = dibayar dari tabungan (goal -, budget tidak terpotong). Edit = balik efek lama lalu terapkan yang baru; perubahan yang membuat goal minus ditolak
+- **Saldo keseluruhan** = pemasukan - uang yang keluar dari dompet (setoran ikut, pengeluaran dari tabungan tidak)
+- **Saldo dari screenshot tidak pernah jadi pengeluaran**: ke Budget (ganti/update nominal) atau Tabungan, opsional + pemasukan "Saldo awal"

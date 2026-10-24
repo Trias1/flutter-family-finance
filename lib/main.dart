@@ -3,13 +3,15 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:family_finance_manager/core/biometric/app_lock.dart';
 import 'package:family_finance_manager/core/locale/locale_provider.dart';
+import 'package:family_finance_manager/core/utils/date_formatter.dart';
 import 'package:family_finance_manager/core/services/firebase_service.dart';
 import 'package:family_finance_manager/core/services/currency_provider.dart';
 import 'package:family_finance_manager/core/services/fcm_service.dart';
 import 'package:family_finance_manager/core/services/notification_service.dart';
-import 'package:family_finance_manager/core/services/recurring_service.dart';
 import 'package:family_finance_manager/core/services/widget_service.dart';
 import 'package:family_finance_manager/core/theme/app_theme.dart';
 import 'package:family_finance_manager/core/theme/theme_provider.dart';
@@ -27,6 +29,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadInitialLocale();
+  // Month/day names for the calendar and other intl formatting.
+  await initializeDateFormatting();
   await FirebaseService.initialize();
 
   await NotificationService().init();
@@ -34,17 +38,21 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await FcmService().init();
 
-  await RecurringService().checkAndGenerate();
-  Timer.periodic(const Duration(hours: 1), (_) => RecurringService().checkAndGenerate());
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
+  // Decided before the first frame so finance data never shows behind the lock.
+  final startLocked = await fingerprintLockEnabled();
+
   runApp(
-    const ProviderScope(
-      child: FamilyFinanceApp(),
+    ProviderScope(
+      overrides: [
+        appLockProvider.overrideWith((ref) => AppLockNotifier(startLocked)),
+      ],
+      child: const FamilyFinanceApp(),
     ),
   );
 }
@@ -59,6 +67,7 @@ class FamilyFinanceApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final themePreset = ref.watch(themePresetProvider);
     final locale = ref.watch(localeProvider);
+    DateFormatter.languageCode = locale.languageCode;
 
     return MaterialApp.router(
       title: 'Family Finance',
@@ -74,6 +83,7 @@ class FamilyFinanceApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme(themePreset),
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) => AppLockGate(child: child!),
     );
   }
 }

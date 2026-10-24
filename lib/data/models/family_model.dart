@@ -30,7 +30,14 @@ class FamilyModel {
     );
   }
 
-  FamilyModel copyWith({String? id, String? name, String? photoUrl, String? inviteCode, String? createdBy, DateTime? createdAt}) {
+  FamilyModel copyWith({
+    String? id,
+    String? name,
+    String? photoUrl,
+    String? inviteCode,
+    String? createdBy,
+    DateTime? createdAt,
+  }) {
     return FamilyModel(
       id: id ?? this.id,
       name: name ?? this.name,

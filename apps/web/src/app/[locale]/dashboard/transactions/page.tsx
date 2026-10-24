@@ -1,117 +1,191 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { collection, query, where, getDocs, getDoc, doc, Timestamp } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
-import { auth, db } from "@/lib/firebase"
-import { useTranslations } from "next-intl"
-import DashboardShell from "@/components/DashboardShell"
-import { SkeletonLine } from "@/components/Skeleton"
+import { useMemo, useState } from "react"
+import { Search } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
 
-interface Tx { id: string; amount: number; category: string; date: Date; note: string; type: "income" | "expense" }
+import DataError, { useFailed } from "@/components/DataError"
+import { MONTHS_BACK } from "@/components/MonthSelect"
+import { EmptyState, Money, PageHeader, Section, Skeleton } from "@/components/ui"
+import { useFamilyData, type Tx } from "@/lib/family-data"
+import { isSavingsTransfer, monthsBetween } from "@/lib/finance"
+import { monthKey, startOfMonth } from "@/lib/money"
+
+type Kind = "all" | "income" | "expense"
+const pageSize = 50
 
 export default function TransactionsPage() {
-  const t = useTranslations()
-  const [txs, setTxs] = useState<Tx[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all")
+  const t = useTranslations("dash")
+  const locale = useLocale()
+  const data = useFamilyData()
+  const [month, setMonth] = useState(() => monthKey(new Date()))
+  const [kind, setKind] = useState<Kind>("all")
+  const [category, setCategory] = useState("")
   const [search, setSearch] = useState("")
+  const [limit, setLimit] = useState(pageSize)
+  const [now] = useState(() => new Date())
+  const failed = useFailed("incomes", "expenses")
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      try {
-        if (!u) return
-        const snap = await getDoc(doc(db, "users", u.uid))
-        const fid = snap.data()?.familyId
-        if (!fid) return
-        const [incSnap, expSnap] = await Promise.all([
-          getDocs(query(collection(db, "incomes"), where("familyId", "==", fid))),
-          getDocs(query(collection(db, "expenses"), where("familyId", "==", fid))),
-        ])
-        const parseDoc = (d: any, type: "income" | "expense"): Tx => ({ id: d.id, amount: (d.data().amount as number) || 0, category: d.data().category || "", date: ((d.data().date as Timestamp)?.toDate()) || new Date(), note: d.data().note || "", type })
-        const all: Tx[] = [...incSnap.docs.map((d) => parseDoc(d, "income")), ...expSnap.docs.map((d) => parseDoc(d, "expense"))]
-        all.sort((a, b) => b.date.getTime() - a.date.getTime())
-        setTxs(all)
-      } finally {
-        setLoading(false)
-      }
-    })
-    return unsub
-  }, [])
+  const all = useMemo(
+    () => [...data.incomes, ...data.expenses].sort((a, b) => b.date.getTime() - a.date.getTime()),
+    [data.incomes, data.expenses],
+  )
 
-  const fmt = (n: number) => "Rp" + Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+  // A fixed list of recent months (older ones load when picked), plus any
+  // month that has records, e.g. something dated in the future.
+  const months = useMemo(() => {
+    const keys = new Set(all.map((tx) => monthKey(tx.date)))
+    for (let i = 0; i < MONTHS_BACK; i++) keys.add(monthKey(startOfMonth(now, -i)))
+    return Array.from(keys).sort().reverse()
+  }, [all, now])
 
-  if (loading) {
-    return (
-      <DashboardShell>
-        <div className="max-w-3xl mx-auto space-y-4 animate-pulse">
-          <div className="h-7 w-40 rounded bg-skeleton" />
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 h-11 rounded-xl bg-skeleton-soft" />
-            <div className="flex gap-2">
-              {[...Array(3)].map((_, i) => <div key={i} className="h-11 w-20 rounded-xl bg-skeleton-soft" />)}
-            </div>
-          </div>
-          <div className="space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="rounded-xl border px-5 py-3.5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-skeleton-soft" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3.5 w-28 rounded bg-skeleton" />
-                    <div className="h-3 w-20 rounded bg-skeleton-soft" />
-                  </div>
-                  <div className="h-4 w-24 rounded bg-skeleton" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </DashboardShell>
-    )
+  const keyToDate = (key: string) => {
+    const [y, m] = key.split("-").map(Number)
+    return new Date(y, m - 1, 1)
   }
+  const pickMonth = (key: string) => {
+    setMonth(key)
+    setCategory("")
+    resetPaging()
+    if (key !== "all") data.loadOlder(monthsBetween(keyToDate(key), now))
+  }
+  const covered = month === "all" || (data.loadedFrom <= keyToDate(month) && !data.loadingOlder)
+  const busy = !data.ready || !covered
 
-  const filtered = txs.filter((tx) => {
-    if (filterType !== "all" && tx.type !== filterType) return false
-    if (search && !tx.category.toLowerCase().includes(search.toLowerCase()) && !tx.note.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  })
+  const inMonth = useMemo(() => (month === "all" ? all : all.filter((tx) => monthKey(tx.date) === month)), [all, month])
+  const categories = useMemo(() => Array.from(new Set(inMonth.map((tx) => tx.category))).sort(), [inMonth])
+
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return inMonth.filter((tx) => {
+      if (kind !== "all" && tx.kind !== kind) return false
+      if (category && tx.category !== category) return false
+      if (!q) return true
+      return [tx.category, tx.note, data.memberName(tx.userId)].some((v) => v.toLowerCase().includes(q))
+    })
+  }, [inMonth, kind, category, search, data])
+
+  const totals = useMemo(() => {
+    let income = 0
+    let expense = 0
+    for (const tx of rows) {
+      if (tx.kind === "income") income += tx.amount
+      // Savings transfers stay in the list but are not counted as spending.
+      else if (!isSavingsTransfer(tx.category)) expense += tx.amount
+    }
+    return { income, expense }
+  }, [rows])
+
+  const monthLabel = (key: string) => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(keyToDate(key))
+  const dateFmt = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" })
+  const visible = rows.slice(0, limit)
+  const resetPaging = () => setLimit(pageSize)
+  const signed = (tx: Tx) => (tx.kind === "income" ? tx.amount : -tx.amount)
 
   return (
-    <DashboardShell>
-      <div className="max-w-3xl mx-auto space-y-4">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{t("nav.transactions")}</h1>
+    <div className="space-y-5">
+      <PageHeader title={t("transactions.title")} description={t("transactions.desc")} />
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input type="text" placeholder="Cari kategori atau catatan..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 rounded-xl border px-4 py-2.5 text-sm outline-none" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)", color: "var(--text-primary)" }} />
-          <div className="flex gap-2">
-            {(["all", "income", "expense"] as const).map((f) => (
-              <button key={f} onClick={() => setFilterType(f)}
-                className="rounded-xl px-4 py-2.5 text-sm font-medium transition-all"
-                style={{ backgroundColor: filterType === f ? "var(--primary)" : "var(--bg-card)", color: filterType === f ? "#FFFFFF" : "var(--text-secondary)", border: filterType === f ? "none" : "1px solid var(--border)" }}
-              >{f === "all" ? "Semua" : f === "income" ? "Pemasukan" : "Pengeluaran"}</button>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); resetPaging() }}
+            placeholder={t("transactions.search")}
+            aria-label={t("transactions.search")}
+            className="field w-full pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={month} onChange={(e) => pickMonth(e.target.value)} className="field" aria-label={t("transactions.month")}>
+            <option value="all">{t("transactions.allMonths")}</option>
+            {months.map((key) => <option key={key} value={key}>{monthLabel(key)}</option>)}
+          </select>
+          <select value={category} onChange={(e) => { setCategory(e.target.value); resetPaging() }} className="field max-w-[180px]" aria-label={t("transactions.category")}>
+            <option value="">{t("transactions.allCategories")}</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <div className="seg" role="group" aria-label={t("transactions.type")}>
+            {(["all", "income", "expense"] as Kind[]).map((k) => (
+              <button key={k} type="button" aria-pressed={kind === k} onClick={() => { setKind(k); resetPaging() }}>
+                {k === "all" ? t("common.all") : k === "income" ? t("common.income") : t("common.expense")}
+              </button>
             ))}
           </div>
         </div>
-
-        <div className="space-y-2">
-          {filtered.length === 0 ? (
-            <p className="text-center text-sm py-12" style={{ color: "var(--text-muted)" }}>Tidak ada transaksi</p>
-          ) : filtered.map((tx) => (
-            <div key={tx.id} className="rounded-xl border px-5 py-3.5" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl text-sm" style={{ backgroundColor: tx.type === "income" ? "var(--primary-bg)" : "var(--expense-bg)" }}>{tx.type === "income" ? "📥" : "📤"}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{tx.category}</p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tx.note || tx.date.toLocaleDateString("id-ID")}</p>
-                </div>
-                <span className={`text-sm font-semibold ${tx.type === "income" ? "text-income" : "text-expense"}`}>{tx.type === "income" ? "+" : "-"}{fmt(tx.amount)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
-    </DashboardShell>
+
+      {/* Totals wait for the data, so they never flash zero. */}
+      {busy || failed ? (
+        busy && !failed ? <Skeleton className="h-5 w-full max-w-md" /> : null
+      ) : (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <span>{t("transactions.count", { count: rows.length })}</span>
+          <span>{t("common.income")} <Money value={totals.income} tone="income" /></span>
+          <span>{t("common.expense")} <Money value={totals.expense} tone="expense" /></span>
+          <span>{t("common.net")} <Money value={totals.income - totals.expense} tone="auto" /></span>
+          {month === "all" && data.loadedFrom.getTime() > 0 && <span style={{ color: "var(--text-muted)" }}>{t("transactions.since", { month: monthLabel(monthKey(data.loadedFrom)) })}</span>}
+        </div>
+      )}
+
+      <Section flush>
+        {failed ? (
+          <DataError />
+        ) : busy ? (
+          <div className="space-y-3 p-5">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
+        ) : rows.length === 0 ? (
+          <EmptyState title={all.length === 0 ? t("transactions.empty") : t("transactions.noMatch")} hint={all.length === 0 ? t("transactions.emptyHint") : undefined} />
+        ) : (
+          <>
+            <table className="hidden w-full text-sm md:table">
+              <thead>
+                <tr className="border-b text-left text-xs uppercase tracking-[0.06em]" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+                  <th className="px-5 py-2.5 font-medium">{t("transactions.date")}</th>
+                  <th className="px-3 py-2.5 font-medium">{t("transactions.category")}</th>
+                  <th className="px-3 py-2.5 font-medium">{t("transactions.note")}</th>
+                  {data.scope === "family" && <th className="px-3 py-2.5 font-medium">{t("transactions.by")}</th>}
+                  <th className="px-5 py-2.5 text-right font-medium">{t("transactions.amount")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((tx) => (
+                  <tr key={`${tx.kind}-${tx.id}`} className="data-row border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                    <td className="whitespace-nowrap px-5 py-2.5 text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>{dateFmt.format(tx.date)}</td>
+                    <td className="px-3 py-2.5" style={{ color: "var(--text-primary)" }}>{tx.category}</td>
+                    <td className="max-w-[320px] truncate px-3 py-2.5" style={{ color: "var(--text-secondary)" }}>{tx.note || "—"}</td>
+                    {data.scope === "family" && <td className="px-3 py-2.5" style={{ color: "var(--text-secondary)" }}>{data.memberName(tx.userId) || "—"}</td>}
+                    <td className="whitespace-nowrap px-5 py-2.5 text-right"><Money value={signed(tx)} tone={tx.kind === "income" ? "income" : "neutral"} signed /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <ul className="md:hidden">
+              {visible.map((tx) => (
+                <li key={`${tx.kind}-${tx.id}`} className="flex items-center justify-between gap-3 border-b px-4 py-3 last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm" style={{ color: "var(--text-primary)" }}>{tx.category}</p>
+                    <p className="truncate text-xs" style={{ color: "var(--text-muted)" }}>
+                      {[dateFmt.format(tx.date), tx.note, data.memberName(tx.userId)].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <Money value={signed(tx)} tone={tx.kind === "income" ? "income" : "neutral"} signed className="shrink-0 text-sm" />
+                </li>
+              ))}
+            </ul>
+
+            {rows.length > limit && (
+              <div className="border-t p-3 text-center" style={{ borderColor: "var(--border)" }}>
+                <button type="button" onClick={() => setLimit((l) => l + pageSize)} className="text-sm font-medium" style={{ color: "var(--primary)" }}>
+                  {t("transactions.showMore", { count: Math.min(pageSize, rows.length - limit) })}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </Section>
+    </div>
   )
 }
